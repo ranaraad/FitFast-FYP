@@ -1,0 +1,87 @@
+/* Override Sidebar Background */
+.navbar-nav.bg-gradient-primary.sidebar {
+    background-color: #641B2E !important;
+    background-image: linear-gradient(180deg, #641B2E 10%, #4A1423 100%) !important;
+}
+
+/* Override Sidebar Text Colors */
+.sidebar-dark .nav-item .nav-link {
+    color: rgba(255, 255, 255, 0.9) !important;
+}
+
+.sidebar-dark .nav-item .nav-link:hover {
+    color: #fff !important;
+    background-color: rgba(255, 255, 255, 0.15) !important;
+}
+
+/* Override Sidebar Brand */
+.sidebar-dark .sidebar-brand {
+    color: #fff !important;
+}
+
+.sidebar-dark .sidebar-brand-icon {
+    color: #fff !important;
+}
+
+/* Override Active State */
+.sidebar-dark .nav-item .nav-link.active {
+    color: #fff !important;
+    background-color: rgba(255, 255, 255, 0.25) !important;
+}
+
+/* Override Collapse Menu Background */
+.sidebar-dark .collapse-inner {
+    background-color: #4A1423 !important;
+}
+
+.sidebar-dark .collapse-item {
+    color: rgba(255, 255, 255, 0.85) !important;
+}
+
+.sidebar-dark .collapse-item:hover {
+    background-color: #7A2239 !important;
+    color: #fff !important;
+}
+
+/* Override Divider */
+.sidebar-divider {
+    border-color: rgba(255, 255, 255, 0.25) !important;
+}
+
+/* Override Heading */
+.sidebar-heading {
+    color: rgba(255, 255, 255, 0.7) !important;
+}
+
+/* Additional color variations for other elements */
+:root {
+    --primary: #641B2E;
+    --primary-dark: #4A1423;
+    --primary-light: #7A2239;
+    --primary-lighter: #8F2945;
+}
+
+/* Optional: Override button colors to match */
+.btn-primary {
+    background-color: #641B2E !important;
+    border-color: #641B2E !important;
+}
+
+.btn-primary:hover {
+    background-color: #4A1423 !important;
+    border-color: #4A1423 !important;
+}
+
+/* Override card headers and other primary elements */
+.card-header {
+    background-color: #641B2E !important;
+    color: white !important;
+}
+
+.bg-primary {
+    background-color: #641B2E !important;
+}
+
+.text-primary {
+    color: #641B2E !important;
+}

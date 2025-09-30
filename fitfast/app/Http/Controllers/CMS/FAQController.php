@@ -1,0 +1,65 @@
+<?php
+
+namespace App\Http\Controllers\CMS;
+
+use App\Http\Controllers\Controller;
+use App\Models\FAQ;
+use Illuminate\Http\Request;
+
+class FAQController extends Controller
+{
+    public function index()
+    {
+        $faqs = FAQ::orderBy('created_at', 'desc')->paginate(20);
+        return view('cms.faqs.index', compact('faqs'));
+    }
+
+    public function create()
+    {
+        return view('cms.faqs.create');
+    }
+
+    public function store(Request $request)
+    {
+        $validated = $request->validate([
+            'question' => 'required|string|max:500',
+            'answer' => 'required|string',
+        ]);
+
+        FAQ::create($validated);
+
+        return redirect()->route('admin.faqs.index')
+            ->with('success', 'FAQ created successfully.');
+    }
+
+    public function show(FAQ $faq)
+    {
+        return view('cms.faqs.show', compact('faq'));
+    }
+
+    public function edit(FAQ $faq)
+    {
+        return view('cms.faqs.edit', compact('faq'));
+    }
+
+    public function update(Request $request, FAQ $faq)
+    {
+        $validated = $request->validate([
+            'question' => 'required|string|max:500',
+            'answer' => 'required|string',
+        ]);
+
+        $faq->update($validated);
+
+        return redirect()->route('admin.faqs.index')
+            ->with('success', 'FAQ updated successfully.');
+    }
+
+    public function destroy(FAQ $faq)
+    {
+        $faq->delete();
+
+        return redirect()->route('admin.faqs.index')
+            ->with('success', 'FAQ deleted successfully.');
+    }
+}

@@ -6,6 +6,8 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class User extends Authenticatable
 {
@@ -21,6 +23,8 @@ class User extends Authenticatable
         'name',
         'email',
         'password',
+        'role_id',
+        'measurements'
     ];
 
     /**
@@ -38,11 +42,28 @@ class User extends Authenticatable
      *
      * @return array<string, string>
      */
-    protected function casts(): array
+    protected $casts = [
+        'email_verified_at' => 'datetime',
+        'password' => 'hashed',
+        'measurements' => 'array',
+    ];
+
+    /**
+     * Get the role that owns the user.
+     */
+    public function role(): BelongsTo
     {
-        return [
-            'email_verified_at' => 'datetime',
-            'password' => 'hashed',
-        ];
+        return $this->belongsTo(Role::class);
+    }
+
+    // Add these methods to the User model
+    public function chatSupportTickets(): HasMany
+    {
+        return $this->hasMany(ChatSupport::class, 'user_id');
+    }
+
+    public function assignedChats(): HasMany
+    {
+        return $this->hasMany(ChatSupport::class, 'admin_id');
     }
 }

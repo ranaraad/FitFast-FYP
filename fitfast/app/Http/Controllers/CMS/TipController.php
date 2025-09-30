@@ -10,13 +10,13 @@ class TipController extends Controller
 {
     public function index()
     {
-        $tips = Tip::orderBy('created_at', 'desc')->paginate(20);
-        return view('cms.tips.index', compact('tips'));
+        $tips = Tip::orderBy('created_at', 'desc')->paginate(10);
+        return view('cms.pages.tips.index', compact('tips'));
     }
 
     public function create()
     {
-        return view('cms.tips.create');
+        return view('cms.pages.tips.create');
     }
 
     public function store(Request $request)
@@ -28,18 +28,18 @@ class TipController extends Controller
 
         Tip::create($validated);
 
-        return redirect()->route('admin.tips.index')
+        return redirect()->route('cms.tips.index')
             ->with('success', 'Tip created successfully.');
     }
 
     public function show(Tip $tip)
     {
-        return view('cms.tips.show', compact('tip'));
+        return view('cms.pages.tips.show', compact('tip'));
     }
 
     public function edit(Tip $tip)
     {
-        return view('cms.tips.edit', compact('tip'));
+        return view('cms.pages.tips.edit', compact('tip'));
     }
 
     public function update(Request $request, Tip $tip)
@@ -51,7 +51,7 @@ class TipController extends Controller
 
         $tip->update($validated);
 
-        return redirect()->route('admin.tips.index')
+        return redirect()->route('cms.tips.index')
             ->with('success', 'Tip updated successfully.');
     }
 
@@ -59,7 +59,7 @@ class TipController extends Controller
     {
         $tip->delete();
 
-        return redirect()->route('admin.tips.index')
+        return redirect()->route('cms.tips.index')
             ->with('success', 'Tip deleted successfully.');
     }
 }

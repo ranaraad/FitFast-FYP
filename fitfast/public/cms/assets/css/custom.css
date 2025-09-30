@@ -1,7 +1,7 @@
 /* Override Sidebar Background */
 .navbar-nav.bg-gradient-primary.sidebar {
-    background-color: #641B2E !important;
-    background-image: linear-gradient(180deg, #641B2E 10%, #4A1423 100%) !important;
+    background-color: #800020 !important;
+    background-image: linear-gradient(180deg, #800020 10%, #4A1423 100%) !important;
 }
 
 /* Override Sidebar Text Colors */
@@ -55,7 +55,7 @@
 
 /* Additional color variations for other elements */
 :root {
-    --primary: #641B2E;
+    --primary: #800020;
     --primary-dark: #4A1423;
     --primary-light: #7A2239;
     --primary-lighter: #8F2945;
@@ -63,8 +63,8 @@
 
 /* Optional: Override button colors to match */
 .btn-primary {
-    background-color: #641B2E !important;
-    border-color: #641B2E !important;
+    background-color: #800020 !important;
+    border-color: #800020 !important;
 }
 
 .btn-primary:hover {
@@ -74,14 +74,15 @@
 
 /* Override card headers and other primary elements */
 .card-header {
-    background-color: #641B2E !important;
+    background-color: #800020 !important;
     color: white !important;
 }
 
 .bg-primary {
-    background-color: #641B2E !important;
+    background-color: #800020 !important;
 }
 
 .text-primary {
-    color: #641B2E !important;
+    color: #800020 !important;
 }
+

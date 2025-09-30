@@ -92,6 +92,6 @@
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
     <script src="https://unpkg.com/leaflet@1.7.1/dist/leaflet.js"></script>
 
-    @stack('scripts') <!-- Optional: for page-specific scripts -->
+    @stack('scripts') 
 </body>
 </html>

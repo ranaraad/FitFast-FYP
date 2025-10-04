@@ -32,8 +32,41 @@
         <div id="collapseManagement" class="collapse" aria-labelledby="headingManagement" data-parent="#accordionSidebar">
             <div class="bg-white py-2 collapse-inner rounded">
                 <h6 class="collapse-header">User Management:</h6>
+                <a class="collapse-item" href="{{ route('cms.roles.index') }}">
+                    <i class="fas fa-user-tag fa-sm mr-2"></i>Roles
+                </a>
                 <a class="collapse-item" href="{{ route('cms.users.index') }}">
                     <i class="fas fa-users fa-sm mr-2"></i>Users
+                </a>
+
+                <h6 class="collapse-header mt-3">Store Operations:</h6>
+                <a class="collapse-item" href="{{ route('cms.stores.index') }}">
+                    <i class="fas fa-store fa-sm mr-2"></i>Stores
+                </a>
+                <a class="collapse-item" href="{{ route('cms.items.index') }}">
+                    <i class="fas fa-box fa-sm mr-2"></i>Items
+                </a>
+                <a class="collapse-item" href="{{ route('cms.orders.index') }}">
+                    <i class="fas fa-shopping-cart fa-sm mr-2"></i>Orders
+                </a>
+                <a class="collapse-item" href="{{ route('cms.deliveries.index') }}">
+                    <i class="fas fa-shipping-fast fa-sm mr-2"></i>Deliveries
+                </a>
+
+                <h6 class="collapse-header mt-3">Financial:</h6>
+                <a class="collapse-item" href="{{ route('cms.payments.index') }}">
+                    <i class="fas fa-credit-card fa-sm mr-2"></i>Payments
+                </a>
+                <a class="collapse-item" href="{{ route('cms.payment-methods.index') }}">
+                    <i class="fas fa-wallet fa-sm mr-2"></i>Payment Methods
+                </a>
+
+                <h6 class="collapse-header mt-3">Customer Experience:</h6>
+                <a class="collapse-item" href="{{ route('cms.carts.index') }}">
+                    <i class="fas fa-shopping-basket fa-sm mr-2"></i>Carts
+                </a>
+                <a class="collapse-item" href="{{ route('cms.reviews.index') }}">
+                    <i class="fas fa-star fa-sm mr-2"></i>Reviews
                 </a>
 
                 <h6 class="collapse-header mt-3">Support & Content:</h6>
@@ -46,21 +79,45 @@
                 <a class="collapse-item" href="{{ route('cms.tips.index') }}">
                     <i class="fas fa-lightbulb fa-sm mr-2"></i>Tips
                 </a>
-
-                <h6 class="collapse-header mt-3">Store Operations:</h6>
-                <a class="collapse-item" href="#">
-                    <i class="fas fa-store fa-sm mr-2"></i>Stores
-                </a>
-                <a class="collapse-item" href="#">
-                    <i class="fas fa-box fa-sm mr-2"></i>Items
-                </a>
-                <a class="collapse-item" href="#">
-                    <i class="fas fa-shopping-cart fa-sm mr-2"></i>Orders
-                </a>
             </div>
         </div>
     </li>
 
+    <!-- Quick Access Section -->
+    <hr class="sidebar-divider">
+
+    <div class="sidebar-heading">
+        Quick Access
+    </div>
+
+    <!-- Quick Stats -->
+    <li class="nav-item">
+        <a class="nav-link" href="{{ route('cms.orders.index') }}">
+            <i class="fas fa-fw fa-chart-line"></i>
+            <span>Order Analytics</span>
+        </a>
+    </li>
+
+    <li class="nav-item">
+        <a class="nav-link" href="{{ route('cms.chat-support.index') }}">
+            <i class="fas fa-fw fa-headset"></i>
+            <span>Support Tickets</span>
+        </a>
+    </li>
+
+    <li class="nav-item">
+        <a class="nav-link" href="{{ route('cms.payments.index', ['status' => 'pending']) }}">
+            <i class="fas fa-fw fa-clock"></i>
+            <span>Pending Payments</span>
+        </a>
+    </li>
+
+    <li class="nav-item">
+        <a class="nav-link" href="{{ route('cms.deliveries.index', ['status' => 'pending']) }}">
+            <i class="fas fa-fw fa-truck"></i>
+            <span>Pending Deliveries</span>
+        </a>
+    </li>
 
     <!-- Divider -->
     <hr class="sidebar-divider d-none d-md-block">

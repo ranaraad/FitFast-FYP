@@ -10,13 +10,13 @@ class FAQController extends Controller
 {
     public function index()
     {
-        $faqs = FAQ::orderBy('created_at', 'desc')->paginate(20);
-        return view('cms.faqs.index', compact('faqs'));
+        $faqs = FAQ::orderBy('created_at', 'desc')->paginate(10);
+        return view('cms.pages.faqs.index', compact('faqs'));
     }
 
     public function create()
     {
-        return view('cms.faqs.create');
+        return view('cms.pages.faqs.create');
     }
 
     public function store(Request $request)
@@ -28,18 +28,18 @@ class FAQController extends Controller
 
         FAQ::create($validated);
 
-        return redirect()->route('admin.faqs.index')
+        return redirect()->route('cms.faqs.index') // Fixed route name
             ->with('success', 'FAQ created successfully.');
     }
 
     public function show(FAQ $faq)
     {
-        return view('cms.faqs.show', compact('faq'));
+        return view('cms.pages.faqs.show', compact('faq'));
     }
 
     public function edit(FAQ $faq)
     {
-        return view('cms.faqs.edit', compact('faq'));
+        return view('cms.pages.faqs.edit', compact('faq'));
     }
 
     public function update(Request $request, FAQ $faq)
@@ -51,7 +51,7 @@ class FAQController extends Controller
 
         $faq->update($validated);
 
-        return redirect()->route('admin.faqs.index')
+        return redirect()->route('cms.faqs.index') // Fixed route name
             ->with('success', 'FAQ updated successfully.');
     }
 
@@ -59,7 +59,7 @@ class FAQController extends Controller
     {
         $faq->delete();
 
-        return redirect()->route('admin.faqs.index')
+        return redirect()->route('cms.faqs.index') // Fixed route name
             ->with('success', 'FAQ deleted successfully.');
     }
 }

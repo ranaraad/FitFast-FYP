@@ -20,8 +20,8 @@ return new class extends Migration
 
         // Insert default roles
         DB::table('roles')->insert([
-            ['name' => 'admin'],
-            ['name' => 'customer'],
+            ['name' => 'Admin'],
+            ['name' => 'Customer'],
         ]);
     }
 

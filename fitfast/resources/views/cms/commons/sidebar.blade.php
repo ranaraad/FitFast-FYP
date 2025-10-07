@@ -32,9 +32,6 @@
         <div id="collapseManagement" class="collapse" aria-labelledby="headingManagement" data-parent="#accordionSidebar">
             <div class="bg-white py-2 collapse-inner rounded">
                 <h6 class="collapse-header">User Management:</h6>
-                <a class="collapse-item" href="{{ route('cms.roles.index') }}">
-                    <i class="fas fa-user-tag fa-sm mr-2"></i>Roles
-                </a>
                 <a class="collapse-item" href="{{ route('cms.users.index') }}">
                     <i class="fas fa-users fa-sm mr-2"></i>Users
                 </a>

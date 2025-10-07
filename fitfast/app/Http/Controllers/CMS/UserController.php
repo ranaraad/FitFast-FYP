@@ -16,7 +16,7 @@ class UserController extends Controller
     public function index()
     {
         $users = User::with('role')->paginate(10);
-        return view('users.index', compact('users'));
+        return view('cms.pages.users.index', compact('users'));
     }
 
     /**
@@ -25,7 +25,7 @@ class UserController extends Controller
     public function create()
     {
         $roles = Role::all();
-        return view('users.create', compact('roles'));
+        return view('cms.pages.users.create', compact('roles'));
     }
 
     /**
@@ -45,7 +45,7 @@ class UserController extends Controller
 
         User::create($validated);
 
-        return redirect()->route('users.index')
+        return redirect()->route('cms.users.index')
             ->with('success', 'User created successfully.');
     }
 
@@ -55,7 +55,7 @@ class UserController extends Controller
     public function show(User $user)
     {
         $user->load('role');
-        return view('users.show', compact('user'));
+        return view('cms.pages.users.show', compact('user'));
     }
 
     /**
@@ -64,7 +64,7 @@ class UserController extends Controller
     public function edit(User $user)
     {
         $roles = Role::all();
-        return view('users.edit', compact('user', 'roles'));
+        return view('cms.pages.users.edit', compact('user', 'roles'));
     }
 
     /**
@@ -88,7 +88,7 @@ class UserController extends Controller
 
         $user->update($validated);
 
-        return redirect()->route('users.index')
+        return redirect()->route('cms.users.index')
             ->with('success', 'User updated successfully.');
     }
 
@@ -99,7 +99,7 @@ class UserController extends Controller
     {
         $user->delete();
 
-        return redirect()->route('users.index')
+        return redirect()->route('cms.users.index')
             ->with('success', 'User deleted successfully.');
     }
 }

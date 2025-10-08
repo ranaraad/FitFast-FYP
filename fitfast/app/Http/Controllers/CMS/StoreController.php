@@ -11,12 +11,12 @@ class StoreController extends Controller
     public function index()
     {
         $stores = Store::withCount('items')->paginate(10);
-        return view('cms.stores.index', compact('stores'));
+        return view('cms.pages.stores.index', compact('stores'));
     }
 
     public function create()
     {
-        return view('cms.stores.create');
+        return view('cms.pages.stores.create');
     }
 
     public function store(Request $request)
@@ -38,12 +38,12 @@ class StoreController extends Controller
     public function show(Store $store)
     {
         $store->load('items');
-        return view('cms.stores.show', compact('store'));
+        return view('cms.pages.stores.show', compact('store'));
     }
 
     public function edit(Store $store)
     {
-        return view('cms.stores.edit', compact('store'));
+        return view('cms.pages.stores.edit', compact('store'));
     }
 
     public function update(Request $request, Store $store)

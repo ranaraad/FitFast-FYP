@@ -32,7 +32,7 @@ class Role extends Model
      */
     public function isAdmin(): bool
     {
-        return $this->name === 'admin';
+        return strtolower($this->name) === 'admin';
     }
 
     /**
@@ -40,7 +40,7 @@ class Role extends Model
      */
     public function isUser(): bool
     {
-        return $this->name === 'user';
+        return strtolower($this->name) === 'user';
     }
 
     /**

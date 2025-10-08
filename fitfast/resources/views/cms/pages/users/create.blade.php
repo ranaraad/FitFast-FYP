@@ -68,11 +68,12 @@
                             <div class="form-group">
                                 <label for="role_id">Role *</label>
                                 <select class="form-control @error('role_id') is-invalid @enderror"
-                                        id="role_id" name="role_id" required>
+                                    id="role_id" name="role_id" required onchange="toggleMeasurements()">
                                     <option value="">Select Role</option>
                                     @foreach($roles as $role)
-                                        <option value="{{ $role->id }}" {{ old('role_id') == $role->id ? 'selected' : '' }}>
-                                            {{ $role->name }}
+                                        <option value="{{ $role->id }}"
+                                                {{ old('role_id', $user->role_id ?? '') == $role->id ? 'selected' : '' }}>
+                                            {{ $role->getDisplayNameAttribute() }}
                                         </option>
                                     @endforeach
                                 </select>
@@ -83,31 +84,51 @@
                         </div>
                     </div>
 
-                    <!-- Measurements Section -->
-                    <div class="row">
-                        <div class="col-12">
-                            <div class="form-group">
-                                <label>Measurements (Optional)</label>
-                                <div id="measurements-container">
-                                    <div class="measurement-row row mb-2">
-                                        <div class="col-md-5">
-                                            <input type="text" class="form-control" name="measurements[key][]"
-                                                   placeholder="Measurement key (e.g., height)">
-                                        </div>
-                                        <div class="col-md-5">
-                                            <input type="text" class="form-control" name="measurements[value][]"
-                                                   placeholder="Measurement value">
-                                        </div>
-                                        <div class="col-md-2">
-                                            <button type="button" class="btn btn-danger btn-sm remove-measurement">
-                                                <i class="fas fa-times"></i>
-                                            </button>
-                                        </div>
-                                    </div>
+                    <!-- Measurements Section - Initially hidden -->
+                    <div id="measurements-section" style="display: none;">
+                        <div class="row mt-4">
+                            <div class="col-12">
+                                <h5 class="text-primary">Body Measurements (Required for Users)</h5>
+                                <p class="text-muted">These measurements are required for clothing recommendations.</p>
+                            </div>
+                        </div>
+
+                        <div class="row">
+                            <div class="col-md-4">
+                                <div class="form-group">
+                                    <label for="height_cm">Height (cm) *</label>
+                                    <input type="number" step="0.1" class="form-control @error('height_cm') is-invalid @enderror"
+                                           id="height_cm" name="height_cm" value="{{ old('height_cm') }}"
+                                           placeholder="e.g., 175.5" min="100" max="250">
+                                    @error('height_cm')
+                                        <div class="invalid-feedback">{{ $message }}</div>
+                                    @enderror
+                                    <small class="form-text text-muted">Overall body height in centimeters</small>
                                 </div>
-                                <button type="button" class="btn btn-sm btn-secondary mt-2" id="add-measurement">
-                                    <i class="fas fa-plus"></i> Add Measurement
-                                </button>
+                            </div>
+                            <div class="col-md-4">
+                                <div class="form-group">
+                                    <label for="weight_kg">Weight (kg) *</label>
+                                    <input type="number" step="0.1" class="form-control @error('weight_kg') is-invalid @enderror"
+                                           id="weight_kg" name="weight_kg" value="{{ old('weight_kg') }}"
+                                           placeholder="e.g., 70.5" min="30" max="200">
+                                    @error('weight_kg')
+                                        <div class="invalid-feedback">{{ $message }}</div>
+                                    @enderror
+                                    <small class="form-text text-muted">Body weight in kilograms</small>
+                                </div>
+                            </div>
+                            <div class="col-md-4">
+                                <div class="form-group">
+                                    <label for="shoe_size">Shoe Size *</label>
+                                    <input type="number" step="0.5" class="form-control @error('shoe_size') is-invalid @enderror"
+                                           id="shoe_size" name="shoe_size" value="{{ old('shoe_size') }}"
+                                           placeholder="e.g., 40.5" min="30" max="50">
+                                    @error('shoe_size')
+                                        <div class="invalid-feedback">{{ $message }}</div>
+                                    @enderror
+                                    <small class="form-text text-muted">Standard shoe size</small>
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -131,50 +152,54 @@
 
 @push('scripts')
 <script>
-    $(document).ready(function() {
-        // Add measurement field
-        $('#add-measurement').click(function() {
-            const newRow = `
-                <div class="measurement-row row mb-2">
-                    <div class="col-md-5">
-                        <input type="text" class="form-control" name="measurements[key][]"
-                               placeholder="Measurement key (e.g., height)">
-                    </div>
-                    <div class="col-md-5">
-                        <input type="text" class="form-control" name="measurements[value][]"
-                               placeholder="Measurement value">
-                    </div>
-                    <div class="col-md-2">
-                        <button type="button" class="btn btn-danger btn-sm remove-measurement">
-                            <i class="fas fa-times"></i>
-                        </button>
-                    </div>
-                </div>
-            `;
-            $('#measurements-container').append(newRow);
-        });
+    function toggleMeasurements() {
+        const roleSelect = document.getElementById('role_id');
+        const measurementsSection = document.getElementById('measurements-section');
+        const selectedOption = roleSelect.options[roleSelect.selectedIndex];
+        const selectedRoleText = selectedOption.text.toLowerCase().trim();
 
-        // Remove measurement field
-        $(document).on('click', '.remove-measurement', function() {
-            $(this).closest('.measurement-row').remove();
-        });
+        console.log('Selected role text:', selectedRoleText); // Debug line
 
-        // Form validation
-        $('#userForm').on('submit', function() {
-            const password = $('#password').val();
-            const confirmPassword = $('#password_confirmation').val();
+        // Show measurements for 'user' role (case insensitive check)
+        const isUserRole = selectedRoleText === 'user';
 
-            if (password !== confirmPassword) {
-                Swal.fire({
-                    icon: 'error',
-                    title: 'Password Mismatch',
-                    text: 'Password and confirmation password do not match.'
-                });
-                return false;
-            }
+        if (isUserRole) {
+            console.log('Showing measurements section'); // Debug line
+            measurementsSection.style.display = 'block';
+            // Make measurement fields required
+            document.getElementById('height_cm').required = true;
+            document.getElementById('weight_kg').required = true;
+            document.getElementById('shoe_size').required = true;
+        } else {
+            console.log('Hiding measurements section'); // Debug line
+            measurementsSection.style.display = 'none';
+            // Remove required attribute for non-user roles
+            document.getElementById('height_cm').required = false;
+            document.getElementById('weight_kg').required = false;
+            document.getElementById('shoe_size').required = false;
+        }
+    }
 
-            return true;
-        });
+    // Initialize on page load
+    document.addEventListener('DOMContentLoaded', function() {
+        toggleMeasurements();
+    });
+
+    // Form validation
+    $('#userForm').on('submit', function() {
+        const password = $('#password').val();
+        const confirmPassword = $('#password_confirmation').val();
+
+        if (password !== confirmPassword) {
+            Swal.fire({
+                icon: 'error',
+                title: 'Password Mismatch',
+                text: 'Password and confirmation password do not match.'
+            });
+            return false;
+        }
+
+        return true;
     });
 </script>
 @endpush

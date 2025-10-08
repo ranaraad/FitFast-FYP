@@ -38,8 +38,22 @@ class UserController extends Controller
             'email' => 'required|email|unique:users,email',
             'password' => 'required|string|min:8|confirmed',
             'role_id' => 'required|exists:roles,id',
-            'measurements' => 'nullable|array'
+            'height_cm' => $this->getMeasurementValidation($request->role_id, 'height_cm'),
+            'weight_kg' => $this->getMeasurementValidation($request->role_id, 'weight_kg'),
+            'shoe_size' => $this->getMeasurementValidation($request->role_id, 'shoe_size'),
         ]);
+
+        // Build measurements array if user role
+        if ($this->isUserRole($request->role_id)) {
+            $validated['measurements'] = [
+                'height_cm' => $validated['height_cm'],
+                'weight_kg' => $validated['weight_kg'],
+                'shoe_size' => $validated['shoe_size'],
+            ];
+        }
+
+        // Remove individual measurement fields
+        unset($validated['height_cm'], $validated['weight_kg'], $validated['shoe_size']);
 
         $validated['password'] = Hash::make($validated['password']);
 
@@ -77,8 +91,25 @@ class UserController extends Controller
             'email' => 'required|email|unique:users,email,' . $user->id,
             'password' => 'nullable|string|min:8|confirmed',
             'role_id' => 'required|exists:roles,id',
-            'measurements' => 'nullable|array'
+            'height_cm' => $this->getMeasurementValidation($request->role_id, 'height_cm'),
+            'weight_kg' => $this->getMeasurementValidation($request->role_id, 'weight_kg'),
+            'shoe_size' => $this->getMeasurementValidation($request->role_id, 'shoe_size'),
         ]);
+
+        // Build measurements array if user role
+        if ($this->isUserRole($request->role_id)) {
+            $validated['measurements'] = [
+                'height_cm' => $validated['height_cm'],
+                'weight_kg' => $validated['weight_kg'],
+                'shoe_size' => $validated['shoe_size'],
+            ];
+        } else {
+            // Clear measurements for non-user roles
+            $validated['measurements'] = null;
+        }
+
+        // Remove individual measurement fields
+        unset($validated['height_cm'], $validated['weight_kg'], $validated['shoe_size']);
 
         if ($request->filled('password')) {
             $validated['password'] = Hash::make($validated['password']);
@@ -101,5 +132,32 @@ class UserController extends Controller
 
         return redirect()->route('cms.users.index')
             ->with('success', 'User deleted successfully.');
+    }
+
+    /**
+     * Get measurement validation rules based on role
+     */
+    private function getMeasurementValidation($roleId, $field)
+    {
+        if (!$this->isUserRole($roleId)) {
+            return 'nullable|numeric';
+        }
+
+        $rules = [
+            'height_cm' => 'required|numeric|min:100|max:250',
+            'weight_kg' => 'required|numeric|min:30|max:200',
+            'shoe_size' => 'required|numeric|min:30|max:50',
+        ];
+
+        return $rules[$field] ?? 'nullable|numeric';
+    }
+
+    /**
+     * Check if role is a regular user (not admin)
+     */
+    private function isUserRole($roleId)
+    {
+        $role = Role::find($roleId);
+        return $role && strtolower($role->name) === 'user';
     }
 }

@@ -11,13 +11,15 @@ return new class extends Migration
         Schema::create('items', function (Blueprint $table) {
             $table->id();
             $table->foreignId('store_id')->constrained()->onDelete('cascade');
+            $table->foreignId('category_id')->constrained()->onDelete('cascade');
             $table->string('name');
             $table->text('description')->nullable();
             $table->decimal('price', 10, 2);
             $table->json('sizing_data')->nullable(); // Clothing measurements
-            $table->string('category');
             $table->string('color');
             $table->integer('stock_quantity')->default(0);
+            $table->json('size_stock')->nullable();
+            $table->string('garment_type')->nullable();
             $table->timestamps();
         });
     }

@@ -16,80 +16,13 @@ class ReviewController extends Controller
             ->latest()
             ->paginate(10);
 
-        return view('cms.reviews.index', compact('reviews'));
-    }
-
-    public function create()
-    {
-        $users = User::all();
-        $items = Item::all();
-        return view('cms.reviews.create', compact('users', 'items'));
-    }
-
-    public function store(Request $request)
-    {
-        $validated = $request->validate([
-            'user_id' => 'required|exists:users,id',
-            'item_id' => 'required|exists:items,id',
-            'rating' => 'required|integer|min:1|max:5',
-            'comment' => 'nullable|string|max:1000',
-        ]);
-
-        // Check if user already reviewed this item
-        $existingReview = Review::where('user_id', $validated['user_id'])
-            ->where('item_id', $validated['item_id'])
-            ->first();
-
-        if ($existingReview) {
-            return redirect()->back()
-                ->with('error', 'This user has already reviewed this item.')
-                ->withInput();
-        }
-
-        Review::create($validated);
-
-        return redirect()->route('cms.reviews.index')
-            ->with('success', 'Review created successfully.');
+        return view('cms.pages.reviews.index', compact('reviews'));
     }
 
     public function show(Review $review)
     {
         $review->load(['user', 'item']);
-        return view('cms.reviews.show', compact('review'));
-    }
-
-    public function edit(Review $review)
-    {
-        $users = User::all();
-        $items = Item::all();
-        return view('cms.reviews.edit', compact('review', 'users', 'items'));
-    }
-
-    public function update(Request $request, Review $review)
-    {
-        $validated = $request->validate([
-            'user_id' => 'required|exists:users,id',
-            'item_id' => 'required|exists:items,id',
-            'rating' => 'required|integer|min:1|max:5',
-            'comment' => 'nullable|string|max:1000',
-        ]);
-
-        // Check if another review exists with same user and item (excluding current review)
-        $existingReview = Review::where('user_id', $validated['user_id'])
-            ->where('item_id', $validated['item_id'])
-            ->where('id', '!=', $review->id)
-            ->first();
-
-        if ($existingReview) {
-            return redirect()->back()
-                ->with('error', 'This user has already reviewed this item.')
-                ->withInput();
-        }
-
-        $review->update($validated);
-
-        return redirect()->route('cms.reviews.index')
-            ->with('success', 'Review updated successfully.');
+        return view('cms.pages.reviews.show', compact('review'));
     }
 
     public function destroy(Review $review)
@@ -110,7 +43,7 @@ class ReviewController extends Controller
             ->latest()
             ->paginate(10);
 
-        return view('cms.reviews.item-reviews', compact('item', 'reviews'));
+        return view('cms.pages.reviews.item-reviews', compact('item', 'reviews'));
     }
 
     /**
@@ -123,6 +56,6 @@ class ReviewController extends Controller
             ->latest()
             ->paginate(10);
 
-        return view('cms.reviews.user-reviews', compact('user', 'reviews'));
+        return view('cms.pages.reviews.user-reviews', compact('user', 'reviews'));
     }
 }

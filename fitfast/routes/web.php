@@ -51,7 +51,9 @@ Route::prefix('cms')->name('cms.')->group(function () {
     Route::post('orders/{order}/status', [OrderController::class, 'updateStatus'])->name('orders.update-status');
 
     // Reviews
-    Route::resource('reviews', ReviewController::class);
+    Route::resource('reviews', ReviewController::class)->only([
+        'index', 'show', 'destroy'
+    ]);
     Route::get('reviews/item/{item}', [ReviewController::class, 'itemReviews'])->name('reviews.item');
     Route::get('reviews/user/{user}', [ReviewController::class, 'userReviews'])->name('reviews.user');
 

@@ -80,4 +80,14 @@ class CartItem extends Model
         }
         return $query;
     }
+
+    public function getFormattedPriceAttribute()
+    {
+        return '$' . number_format($this->item_price, 2);
+    }
+
+    public function getFormattedTotalAttribute()
+    {
+        return '$' . number_format($this->total_price, 2);
+    }
 }

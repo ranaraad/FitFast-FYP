@@ -41,35 +41,62 @@ class ItemController extends Controller
     }
 
     public function store(Request $request)
-        {
-            $validated = $request->validate([
-                'store_id' => 'required|exists:stores,id',
-                'category_id' => 'required|exists:categories,id',
-                'garment_type' => 'required|string|in:' . implode(',', array_keys(Item::GARMENT_TYPES)),
-                'name' => 'required|string|max:255',
-                'description' => 'nullable|string',
-                'price' => 'required|numeric|min:0',
-                'color' => 'required|string|max:255',
-                'size_stock' => 'required|array',
-                'size_stock.*' => 'required|integer|min:0',
-                'sizes' => 'nullable|array',
-                'sizes.*' => 'nullable|array',
-            ]);
+    {
+        $validated = $request->validate([
+            'store_id' => 'required|exists:stores,id',
+            'category_id' => 'required|exists:categories,id',
+            'garment_type' => 'required|string|in:' . implode(',', array_keys(Item::GARMENT_TYPES)),
+            'name' => 'required|string|max:255',
+            'description' => 'nullable|string',
+            'price' => 'required|numeric|min:0',
+            'color_variants' => 'required|array',
+            'color_variants.*.name' => 'required|string|max:255',
+            'color_variants.*.stock' => 'required|integer|min:0',
+            'size_stock' => 'required|array',
+            'size_stock.*' => 'required|integer|min:0',
+            'sizes' => 'nullable|array',
+            'sizes.*' => 'nullable|array',
+        ]);
 
-            // Build the proper sizing_data structure (optional now)
-            $validated['sizing_data'] = $this->buildSizingData($request);
-
-            // Build size_stock data
-            $validated['size_stock'] = $request->size_stock;
-
-            // Calculate total stock from size_stock (auto-calculated)
-            $validated['stock_quantity'] = array_sum($request->size_stock);
-
-            Item::create($validated);
-
-            return redirect()->route('cms.items.index')
-                ->with('success', 'Item created successfully.');
+        // Validate stock consistency
+        $totalColorStock = 0;
+        foreach ($request->color_variants as $colorData) {
+            $totalColorStock += $colorData['stock'];
         }
+
+        $totalSizeStock = array_sum($request->size_stock);
+
+        if ($totalColorStock !== $totalSizeStock) {
+            return redirect()->back()
+                ->with('error', "Total color stock ($totalColorStock) must match total size stock ($totalSizeStock). Please adjust your stock levels.")
+                ->withInput();
+        }
+
+        // Build color variants structure
+        $colorVariants = [];
+        foreach ($request->color_variants as $colorData) {
+            $colorName = $colorData['name'];
+            $colorVariants[$colorName] = [
+                'name' => $colorName,
+                'stock' => $colorData['stock']
+            ];
+        }
+        $validated['color_variants'] = $colorVariants;
+
+        // Build the proper sizing_data structure
+        $validated['sizing_data'] = $this->buildSizingData($request);
+
+        // Build size_stock data
+        $validated['size_stock'] = $request->size_stock;
+
+        // Calculate total stock (should be the same from both sources)
+        $validated['stock_quantity'] = $totalColorStock; // or $totalSizeStock, they should be equal
+
+        Item::create($validated);
+
+        return redirect()->route('cms.items.index')
+            ->with('success', 'Item created successfully.');
+    }
 
     public function show(Item $item)
     {
@@ -110,12 +137,25 @@ class ItemController extends Controller
             'name' => 'required|string|max:255',
             'description' => 'nullable|string',
             'price' => 'required|numeric|min:0',
-            'color' => 'required|string|max:255',
+            'color_variants' => 'required|array',
+            'color_variants.*.name' => 'required|string|max:255',
+            'color_variants.*.stock' => 'required|integer|min:0',
             'size_stock' => 'required|array',
             'size_stock.*' => 'required|integer|min:0',
             'sizes' => 'nullable|array',
             'sizes.*' => 'nullable|array',
         ]);
+
+        // Build color variants structure
+        $colorVariants = [];
+        foreach ($request->color_variants as $colorData) {
+            $colorName = $colorData['name'];
+            $colorVariants[$colorName] = [
+                'name' => $colorName,
+                'stock' => $colorData['stock']
+            ];
+        }
+        $validated['color_variants'] = $colorVariants;
 
         // Build the proper sizing_data structure (optional now)
         $validated['sizing_data'] = $this->buildSizingData($request);
@@ -123,8 +163,12 @@ class ItemController extends Controller
         // Build size_stock data
         $validated['size_stock'] = $request->size_stock;
 
-        // Calculate total stock from size_stock (auto-calculated)
-        $validated['stock_quantity'] = array_sum($request->size_stock);
+        // Calculate total stock from color variants
+        $totalStock = 0;
+        foreach ($colorVariants as $colorData) {
+            $totalStock += $colorData['stock'];
+        }
+        $validated['stock_quantity'] = $totalStock;
 
         $item->update($validated);
 
@@ -162,15 +206,33 @@ class ItemController extends Controller
     private function buildSizingData(Request $request)
     {
         $garmentType = $request->garment_type;
-        $requiredMeasurements = Item::getRequiredMeasurements($garmentType);
 
+        // If no sizes provided, return empty structure
+        if (empty($request->sizes)) {
+            return [
+                'garment_type' => $garmentType,
+                'measurements_cm' => [],
+                'fit_characteristics' => [
+                    'fit_type' => $request->fit_type ?? 'regular',
+                    'ease' => $request->ease ?? 'standard',
+                    'stretch' => $request->stretch ?? 'none',
+                ],
+                'size_system' => $request->size_system ?? 'US',
+                'last_updated' => now()->toISOString()
+            ];
+        }
+
+        $requiredMeasurements = Item::getRequiredMeasurements($garmentType);
         $measurements_cm = [];
 
         foreach ($request->sizes as $size => $sizeData) {
             $measurements_cm[$size] = [];
 
             foreach ($requiredMeasurements as $measurement) {
-                $measurements_cm[$size][$measurement] = $sizeData[$measurement] ?? null;
+                // Only add measurement if provided
+                if (isset($sizeData[$measurement]) && $sizeData[$measurement] !== '') {
+                    $measurements_cm[$size][$measurement] = $sizeData[$measurement];
+                }
             }
         }
 

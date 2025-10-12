@@ -16,8 +16,8 @@ return new class extends Migration
             $table->text('description')->nullable();
             $table->decimal('price', 10, 2);
             $table->json('sizing_data')->nullable(); // Clothing measurements
-            $table->string('color');
             $table->integer('stock_quantity')->default(0);
+            $table->json('color_variants')->nullable();
             $table->json('size_stock')->nullable();
             $table->string('garment_type')->nullable();
             $table->timestamps();

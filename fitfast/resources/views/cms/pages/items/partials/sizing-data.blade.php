@@ -1,11 +1,60 @@
 <div class="sizing-data-section card mb-4">
     <div class="card-header">
         <h5 class="mb-0">Inventory & Sizing Data</h5>
-        <small class="text-muted">Stock by size is required. Measurements are optional for AI recommendations.</small>
+        <small class="text-muted">Stock management for sizes and colors. Measurements are optional for AI recommendations.</small>
     </div>
     <div class="card-body">
-        <!-- Stock by Size Section (REQUIRED) -->
+        <!-- Stock Information Display -->
         <div class="row mb-4">
+            <div class="col-12">
+                <div class="alert alert-info">
+                    <h6><i class="fas fa-info-circle"></i> Stock Management</h6>
+                    <p class="mb-0">
+                        <strong>Total Color Stock:</strong> <span id="total-color-stock">0</span> units (from color variants)<br>
+                        <strong>Total Size Stock:</strong> <span id="total-size-stock-display">0</span> units (across all sizes)<br>
+                        <small class="text-muted" id="stock-validation-message">The total size stock should match the total color stock.</small>
+                    </p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Garment Type Selection -->
+        <div class="row mb-4">
+            <div class="col-md-6">
+                <div class="form-group">
+                    <label for="garment_type">Garment Type *</label>
+                    <select class="form-control @error('garment_type') is-invalid @enderror"
+                            id="garment_type" name="garment_type" required
+                            onchange="updateSizingSection()">
+                        <option value="">Select Garment Type</option>
+                        @if(isset($item) && $item->category)
+                            @php
+                                $categoryGarmentTypes = \App\Models\Item::getGarmentTypesForCategory(strtolower($item->category->name));
+                            @endphp
+                            @foreach($categoryGarmentTypes as $key => $name)
+                                <option value="{{ $key }}" {{ old('garment_type', $item->garment_type ?? '') == $key ? 'selected' : '' }}>
+                                    {{ $name }}
+                                </option>
+                            @endforeach
+                        @elseif(old('category_id'))
+                            @foreach($categoryToGarmentTypes[old('category_id')] ?? [] as $key => $name)
+                                <option value="{{ $key }}" {{ old('garment_type') == $key ? 'selected' : '' }}>
+                                    {{ $name }}
+                                </option>
+                            @endforeach
+                        @else
+                            <option value="" disabled>Select a category first</option>
+                        @endif
+                    </select>
+                    @error('garment_type')
+                        <div class="invalid-feedback">{{ $message }}</div>
+                    @enderror
+                </div>
+            </div>
+        </div>
+
+        <!-- Standard Sizes Section - Always shows all standard sizes -->
+        <div class="row mb-4" id="standard-sizes-section">
             <div class="col-12">
                 <h6>Stock by Size *</h6>
                 <div class="table-responsive">
@@ -18,7 +67,7 @@
                             </tr>
                         </thead>
                         <tbody>
-                            @foreach(\App\Models\Item::STANDARD_SIZES as $size)
+                            @foreach($standardSizes as $size)
                             <tr>
                                 <td><strong>{{ $size }}</strong></td>
                                 <td>
@@ -28,7 +77,7 @@
                                            value="{{ old("size_stock.$size", isset($item) ? $item->getSizeStock($size) : 0) }}"
                                            min="0"
                                            required
-                                           onchange="updateTotalStock()">
+                                           onchange="updateStockCalculations()">
                                 </td>
                                 <td>
                                     <span class="stock-status" id="status-{{ $size }}">
@@ -49,43 +98,13 @@
                         </tbody>
                         <tfoot>
                             <tr class="table-info">
-                                <td><strong>Total Stock</strong></td>
+                                <td><strong>Total Size Stock</strong></td>
                                 <td colspan="2">
-                                    <strong id="total-stock">0</strong> units
+                                    <strong id="total-size-stock">0</strong> units
                                 </td>
                             </tr>
                         </tfoot>
                     </table>
-                </div>
-            </div>
-        </div>
-
-        <!-- Garment Type Selection -->
-        <div class="row mb-4">
-            <div class="col-md-6">
-                <div class="form-group">
-                    <label for="garment_type">Garment Type *</label>
-                    <select class="form-control @error('garment_type') is-invalid @enderror"
-                            id="garment_type" name="garment_type" required
-                            onchange="updateMeasurementGrid()">
-                        <option value="">Select Garment Type</option>
-                        @if(isset($item) && $item->category)
-                            @php
-                                $categoryGarmentTypes = \App\Models\Item::getGarmentTypesForCategory($item->category->slug);
-                            @endphp
-                            @foreach($categoryGarmentTypes as $key => $name)
-                                <option value="{{ $key }}"
-                                    {{ old('garment_type', $item->garment_type ?? '') == $key ? 'selected' : '' }}>
-                                    {{ $name }}
-                                </option>
-                            @endforeach
-                        @else
-                            <option value="" disabled>Select a category first</option>
-                        @endif
-                    </select>
-                    @error('garment_type')
-                        <div class="invalid-feedback">{{ $message }}</div>
-                    @enderror
                 </div>
             </div>
         </div>
@@ -117,10 +136,10 @@
                 <div class="form-group">
                     <label for="fit_type">Fit Type</label>
                     <select class="form-control" id="fit_type" name="fit_type">
-                        <option value="slim">Slim</option>
-                        <option value="regular" selected>Regular</option>
-                        <option value="loose">Loose</option>
-                        <option value="oversized">Oversized</option>
+                        <option value="slim" {{ (old('fit_type', $item->sizing_data['fit_characteristics']['fit_type'] ?? '') == 'slim') ? 'selected' : '' }}>Slim</option>
+                        <option value="regular" {{ (old('fit_type', $item->sizing_data['fit_characteristics']['fit_type'] ?? 'regular') == 'regular') ? 'selected' : '' }}>Regular</option>
+                        <option value="loose" {{ (old('fit_type', $item->sizing_data['fit_characteristics']['fit_type'] ?? '') == 'loose') ? 'selected' : '' }}>Loose</option>
+                        <option value="oversized" {{ (old('fit_type', $item->sizing_data['fit_characteristics']['fit_type'] ?? '') == 'oversized') ? 'selected' : '' }}>Oversized</option>
                     </select>
                 </div>
             </div>
@@ -128,10 +147,10 @@
                 <div class="form-group">
                     <label for="ease">Ease Level</label>
                     <select class="form-control" id="ease" name="ease">
-                        <option value="tight">Tight Fit</option>
-                        <option value="fitted">Fitted</option>
-                        <option value="standard" selected>Standard</option>
-                        <option value="relaxed">Relaxed</option>
+                        <option value="tight" {{ (old('ease', $item->sizing_data['fit_characteristics']['ease'] ?? '') == 'tight') ? 'selected' : '' }}>Tight Fit</option>
+                        <option value="fitted" {{ (old('ease', $item->sizing_data['fit_characteristics']['ease'] ?? '') == 'fitted') ? 'selected' : '' }}>Fitted</option>
+                        <option value="standard" {{ (old('ease', $item->sizing_data['fit_characteristics']['ease'] ?? 'standard') == 'standard') ? 'selected' : '' }}>Standard</option>
+                        <option value="relaxed" {{ (old('ease', $item->sizing_data['fit_characteristics']['ease'] ?? '') == 'relaxed') ? 'selected' : '' }}>Relaxed</option>
                     </select>
                 </div>
             </div>
@@ -139,10 +158,10 @@
                 <div class="form-group">
                     <label for="stretch">Stretch Level</label>
                     <select class="form-control" id="stretch" name="stretch">
-                        <option value="none">No Stretch</option>
-                        <option value="low">Low Stretch</option>
-                        <option value="medium" selected>Medium Stretch</option>
-                        <option value="high">High Stretch</option>
+                        <option value="none" {{ (old('stretch', $item->sizing_data['fit_characteristics']['stretch'] ?? '') == 'none') ? 'selected' : '' }}>No Stretch</option>
+                        <option value="low" {{ (old('stretch', $item->sizing_data['fit_characteristics']['stretch'] ?? '') == 'low') ? 'selected' : '' }}>Low Stretch</option>
+                        <option value="medium" {{ (old('stretch', $item->sizing_data['fit_characteristics']['stretch'] ?? 'medium') == 'medium') ? 'selected' : '' }}>Medium Stretch</option>
+                        <option value="high" {{ (old('stretch', $item->sizing_data['fit_characteristics']['stretch'] ?? '') == 'high') ? 'selected' : '' }}>High Stretch</option>
                     </select>
                 </div>
             </div>
@@ -157,34 +176,71 @@ const garmentTypes = @json($garmentTypes);
 const standardSizes = @json($standardSizes);
 const categoryToGarmentTypes = @json($categoryToGarmentTypes);
 
-// Function to update total stock calculation
-function updateTotalStock() {
+// Store existing measurements data for editing
+const existingMeasurements = @json(isset($item) && $item->sizing_data ? $item->garment_measurements : []);
+
+// Function to calculate total color stock from color variants
+function calculateTotalColorStock() {
+    let total = 0;
+    document.querySelectorAll('.color-stock').forEach(input => {
+        total += parseInt(input.value) || 0;
+    });
+    return total;
+}
+
+// Function to calculate total size stock from standard sizes
+function calculateTotalSizeStock() {
     let total = 0;
     document.querySelectorAll('.stock-quantity').forEach(input => {
         total += parseInt(input.value) || 0;
     });
-    document.getElementById('total-stock').textContent = total;
+    return total;
+}
 
-    // Update individual stock statuses
+// Function to update all stock calculations and validations
+function updateStockCalculations() {
+    const totalColorStock = calculateTotalColorStock();
+    const totalSizeStock = calculateTotalSizeStock();
+
+    // Update displays
+    document.getElementById('total-color-stock').textContent = totalColorStock;
+    document.getElementById('total-size-stock').textContent = totalSizeStock;
+    document.getElementById('total-size-stock-display').textContent = totalSizeStock;
+
+    // Update individual size statuses
     document.querySelectorAll('.stock-quantity').forEach(input => {
         const stock = parseInt(input.value) || 0;
-        const statusElement = document.getElementById('status-' + input.name.match(/\[(.*?)\]/)[1]);
+        const size = input.name.match(/\[(.*?)\]/)[1];
+        const statusElement = document.getElementById(`status-${size}`);
 
-        if (stock > 10) {
-            statusElement.innerHTML = '<span class="badge badge-success">In Stock</span>';
-        } else if (stock > 0) {
-            statusElement.innerHTML = '<span class="badge badge-warning">Low Stock</span>';
-        } else {
-            statusElement.innerHTML = '<span class="badge badge-secondary">Out of Stock</span>';
+        if (statusElement) {
+            if (stock > 10) {
+                statusElement.innerHTML = '<span class="badge badge-success">In Stock</span>';
+            } else if (stock > 0) {
+                statusElement.innerHTML = '<span class="badge badge-warning">Low Stock</span>';
+            } else {
+                statusElement.innerHTML = '<span class="badge badge-secondary">Out of Stock</span>';
+            }
         }
     });
+
+    // Validate stock consistency
+    const validationMessage = document.getElementById('stock-validation-message');
+    if (totalColorStock === totalSizeStock) {
+        validationMessage.innerHTML = '<span class="text-success"><i class="fas fa-check-circle"></i> Stock levels match</span>';
+    } else if (totalColorStock > totalSizeStock) {
+        validationMessage.innerHTML = `<span class="text-warning"><i class="fas fa-exclamation-triangle"></i> Color stock (${totalColorStock}) exceeds size distribution (${totalSizeStock})</span>`;
+    } else {
+        validationMessage.innerHTML = `<span class="text-danger"><i class="fas fa-exclamation-circle"></i> Size distribution (${totalSizeStock}) exceeds total color stock (${totalColorStock})</span>`;
+    }
 }
 
 // Function to update garment type options based on selected category
-function updateGarmentTypeOptions(categoryId) {
+function updateGarmentTypeOptions() {
+    const categorySelect = document.getElementById('category_id');
     const garmentTypeSelect = document.getElementById('garment_type');
+    const categoryId = categorySelect.value;
 
-    // Clear existing options
     garmentTypeSelect.innerHTML = '<option value="">Select Garment Type</option>';
 
     if (!categoryId) {
@@ -206,27 +262,22 @@ function updateGarmentTypeOptions(categoryId) {
         option.value = key;
         option.textContent = name;
 
-        // Preselect if editing and matches
-        @if(isset($item) && $item->garment_type)
-            if (key === '{{ $item->garment_type }}') {
-                option.selected = true;
-            }
-        @endif
+        // Preselect if previously selected
+        const currentGarmentType = '{{ old('garment_type', $item->garment_type ?? '') }}';
+        if (key === currentGarmentType) {
+            option.selected = true;
+        }
 
         garmentTypeSelect.appendChild(option);
     }
 
-    // Trigger measurement grid update if a garment type is selected
+    // Trigger sizing section update if a garment type is selected
     if (garmentTypeSelect.value) {
-        updateMeasurementGrid();
-    } else {
-        // Hide measurement grid if no garment type selected
-        document.getElementById('measurement-grid').style.display = 'none';
-        document.getElementById('fit-characteristics').style.display = 'none';
+        updateSizingSection();
     }
 }
 
-function updateMeasurementGrid() {
+function updateSizingSection() {
     const garmentTypeSelect = document.getElementById('garment_type');
     const garmentType = garmentTypeSelect.value;
     const measurementGrid = document.getElementById('measurement-grid');
@@ -238,62 +289,88 @@ function updateMeasurementGrid() {
         return;
     }
 
-    // Show sections
-    measurementGrid.style.display = 'block';
-    fitCharacteristics.style.display = 'block';
-
     const garmentData = garmentTypes[garmentType];
     if (!garmentData) return;
 
-    // Update table header with measurement columns
-    const tableHead = document.querySelector('#measurement-grid thead tr');
-    tableHead.innerHTML = '<th>Size</th>';
+    // Show measurement sections if garment type has measurements
+    if (garmentData.measurements && garmentData.measurements.length > 0) {
+        measurementGrid.style.display = 'block';
+        fitCharacteristics.style.display = 'block';
 
-    garmentData.measurements.forEach(measurement => {
-        const th = document.createElement('th');
-        th.textContent = formatMeasurementName(measurement);
-        th.title = getMeasurementDescription(measurement);
-        tableHead.appendChild(th);
-    });
+        // Update measurement table header
+        const tableHead = document.querySelector('#measurement-grid thead tr');
+        tableHead.innerHTML = '<th>Size</th>';
 
-    // Update table rows
-    const tableBody = document.getElementById('measurement-rows');
-    tableBody.innerHTML = '';
-
-    standardSizes.forEach(size => {
-        const row = document.createElement('tr');
-
-        // Size column
-        const sizeCell = document.createElement('td');
-        sizeCell.innerHTML = `<strong>${size}</strong>`;
-        row.appendChild(sizeCell);
-
-        // Measurement columns
         garmentData.measurements.forEach(measurement => {
-            const cell = document.createElement('td');
-            const input = document.createElement('input');
-            input.type = 'number';
-            input.step = '0.1';
-            input.min = '0';
-            input.className = 'form-control form-control-sm';
-            input.name = `sizes[${size}][${measurement}]`;
-            input.placeholder = 'cm';
-            // CHANGED: Remove required attribute to make optional
-
-            // Set existing value if editing
-            @if(isset($item) && $item->sizing_data)
-                const existingMeasurements = @json($item->garment_measurements ?? []);
-                if (existingMeasurements[size] && existingMeasurements[size][measurement]) {
-                    input.value = existingMeasurements[size][measurement];
-                }
-            @endif
-
-            cell.appendChild(input);
-            row.appendChild(cell);
+            const th = document.createElement('th');
+            th.textContent = formatMeasurementName(measurement);
+            th.title = getMeasurementDescription(measurement);
+            tableHead.appendChild(th);
         });
 
-        tableBody.appendChild(row);
-    });
+        // Update measurement table rows
+        const tableBody = document.getElementById('measurement-rows');
+        tableBody.innerHTML = '';
+
+        standardSizes.forEach(size => {
+            const row = document.createElement('tr');
+
+            // Size column
+            const sizeCell = document.createElement('td');
+            sizeCell.innerHTML = `<strong>${size}</strong>`;
+            row.appendChild(sizeCell);
+
+            // Measurement columns
+            garmentData.measurements.forEach(measurement => {
+                const cell = document.createElement('td');
+                const input = document.createElement('input');
+                input.type = 'number';
+                input.step = '0.1';
+                input.min = '0';
+                input.className = 'form-control form-control-sm';
+                input.name = `sizes[${size}][${measurement}]`;
+                input.placeholder = 'cm';
+
+                // Set existing value if editing - check both old form data and existing item data
+                const oldValue = getOldMeasurementValue(size, measurement);
+                if (oldValue !== null && oldValue !== '') {
+                    input.value = oldValue;
+                }
+
+                cell.appendChild(input);
+                row.appendChild(cell);
+            });
+
+            tableBody.appendChild(row);
+        });
+    } else {
+        measurementGrid.style.display = 'none';
+        fitCharacteristics.style.display = 'none';
+    }
+}
+
+// Helper function to get measurement value from old form data or existing item data
+function getOldMeasurementValue(size, measurement) {
+    // First check for old form data (in case of validation errors)
+    const oldDataKey = `sizes.${size}.${measurement}`;
+    const oldFormValue = getNestedValue(@json(old()), oldDataKey);
+    if (oldFormValue !== null && oldFormValue !== '') {
+        return oldFormValue;
+    }
+
+    // Then check existing item measurements
+    if (existingMeasurements && existingMeasurements[size] && existingMeasurements[size][measurement]) {
+        return existingMeasurements[size][measurement];
+    }
+
+    return null;
+}
+
+// Helper function to get nested values from object using dot notation
+function getNestedValue(obj, path) {
+    return path.split('.').reduce((current, key) => {
+        return current && current[key] !== undefined ? current[key] : null;
+    }, obj);
 }
 
 function formatMeasurementName(measurement) {
@@ -314,6 +391,29 @@ function getMeasurementDescription(measurement) {
         'thigh_circumference': 'Measure around fullest part of thigh',
         'leg_opening': 'Measure circumference of leg opening',
         'rise': 'Measure from crotch to top of waistband',
+        'collar_size': 'Measure around neck where collar sits',
+        'short_length': 'Measure from waist to bottom of shorts',
+        'dress_length': 'Measure from shoulder to bottom hem of dress',
+        'shoulder_to_hem': 'Measure from shoulder to hem of dress',
+        'skirt_length': 'Measure from waist to bottom hem of skirt',
+        'bicep_circumference': 'Measure around fullest part of bicep',
+        'hood_height': 'Measure from neckline to top of hood',
+        'underbust_circumference': 'Measure around chest under bust',
+        'cup_size': 'Bra cup size (A, B, C, etc.)',
+        'foot_length': 'Measure length of foot',
+        'foot_width': 'Measure width of foot',
+        'calf_circumference': 'Measure around fullest part of calf',
+        'sock_height': 'Measure height of sock from ankle',
+        'bag_width': 'Measure width of bag',
+        'bag_height': 'Measure height of bag',
+        'bag_depth': 'Measure depth of bag',
+        'strap_length': 'Measure length of strap',
+        'handle_length': 'Measure length of handle',
+        'chain_length': 'Measure length of chain',
+        'bracelet_circumference': 'Measure around wrist for bracelet',
+        'head_circumference': 'Measure around head',
+        'brim_width': 'Measure width of hat brim',
+        'hat_height': 'Measure height of hat'
     };
 
     return descriptions[measurement] || 'Garment measurement';
@@ -321,28 +421,25 @@ function getMeasurementDescription(measurement) {
 
 // Initialize on page load
 document.addEventListener('DOMContentLoaded', function() {
-    // Initialize total stock calculation
-    updateTotalStock();
-
     // Set up category change listener
     const categorySelect = document.getElementById('category_id');
     if (categorySelect) {
-        categorySelect.addEventListener('change', function() {
-            const categoryId = this.value;
-            updateGarmentTypeOptions(categoryId);
-        });
+        categorySelect.addEventListener('change', updateGarmentTypeOptions);
 
         // Initialize garment types based on current category selection
         if (categorySelect.value) {
-            updateGarmentTypeOptions(categorySelect.value);
+            updateGarmentTypeOptions();
         }
     }
 
-    // Initialize measurement grid if garment type is already selected
+    // Initialize if garment type is already selected
     const garmentTypeSelect = document.getElementById('garment_type');
     if (garmentTypeSelect && garmentTypeSelect.value) {
-        updateMeasurementGrid();
+        updateSizingSection();
     }
+
+    // Initial stock calculation
+    updateStockCalculations();
 });
 </script>
 @endpush

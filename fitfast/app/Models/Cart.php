@@ -82,4 +82,20 @@ class Cart extends Model
         $this->cartItems()->delete();
         $this->update(['cart_total' => 0]);
     }
+
+    public function scopeWithItems($query)
+    {
+        return $query->whereHas('cartItems');
+    }
+
+    public function getFormattedTotalAttribute()
+    {
+        return '$' . number_format($this->cart_total, 2);
+    }
+
+    public function getLastActivityAttribute()
+    {
+        return $this->updated_at->diffForHumans();
+    }
+
 }

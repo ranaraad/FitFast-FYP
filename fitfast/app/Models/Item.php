@@ -24,22 +24,18 @@ class Item extends Model
         'description',
         'price',
         'sizing_data',
-        'color',
+        'color_variants',
         'stock_quantity',
         'garment_type',
-        'size_stock'
+        'size_stock',
     ];
 
-    /**
-     * The attributes that should be cast.
-     *
-     * @return array<string, string>
-     */
     protected $casts = [
         'price' => 'decimal:2',
         'sizing_data' => 'array',
         'stock_quantity' => 'integer',
         'size_stock' => 'array',
+        'color_variants' => 'array',
     ];
 
     /**
@@ -314,16 +310,6 @@ class Item extends Model
     }
 
     /**
-     * Get total stock from all sizes
-     */
-    public function calculateTotalStock()
-    {
-        $sizeStock = $this->size_stock ?? [];
-        return array_sum($sizeStock);
-    }
-
-
-    /**
      * Get available garment types for a specific category slug
      */
     public static function getGarmentTypesForCategory($categorySlug)
@@ -577,5 +563,173 @@ class Item extends Model
         return $query->whereHas('category', function ($q) use ($type) {
             $q->where('type', $type);
         });
+    }
+
+    /**
+     * Get stock status for a size
+     */
+    public function getSizeStockStatus($size): string
+    {
+        $stock = $this->getSizeStock($size);
+
+        if ($stock > 10) {
+            return 'in_stock';
+        } elseif ($stock > 0) {
+            return 'low_stock';
+        } else {
+            return 'out_of_stock';
+        }
+    }
+
+    /**
+     * Get available colors with stock information
+     */
+    public function getAvailableColorsAttribute()
+    {
+        $colors = $this->color_variants ?? [];
+        $availableColors = [];
+
+        foreach ($colors as $color => $colorData) {
+            if ($this->getColorStock($color) > 0) {
+                $availableColors[$color] = $colorData['name'] ?? $color;
+            }
+        }
+
+        return $availableColors;
+    }
+
+    /**
+     * Get stock for a specific color
+     */
+    public function getColorStock($color)
+    {
+        $colorVariants = $this->color_variants ?? [];
+        return $colorVariants[$color]['stock'] ?? 0;
+    }
+
+    /**
+     * Set stock for a specific color
+     */
+    public function setColorStock($color, $quantity)
+    {
+        $colorVariants = $this->color_variants ?? [];
+
+        if (!isset($colorVariants[$color])) {
+            $colorVariants[$color] = ['name' => $color, 'stock' => 0];
+        }
+
+        $colorVariants[$color]['stock'] = max(0, $quantity);
+        $this->color_variants = $colorVariants;
+
+        // Update total stock quantity
+        $this->stock_quantity = $this->calculateTotalStock();
+    }
+
+    /**
+     * Get stock for a specific color and size combination
+     */
+    public function getVariantStock($color, $size = null)
+    {
+        // For now, we'll use color stock. In a real system, you might want
+        // to track stock per color-size combination
+        return $this->getColorStock($color);
+    }
+
+    /**
+     * Check if a color is available
+     */
+    public function isColorInStock($color, $quantity = 1)
+    {
+        return $this->getColorStock($color) >= $quantity;
+    }
+
+    /**
+     * Get default color (first available color)
+     */
+    public function getDefaultColorAttribute()
+    {
+        $availableColors = $this->available_colors;
+        return !empty($availableColors) ? array_key_first($availableColors) : null;
+    }
+
+    /**
+     * Calculate total stock from all color variants
+     */
+    public function calculateTotalStock()
+    {
+        $colorVariants = $this->color_variants ?? [];
+        $total = 0;
+
+        foreach ($colorVariants as $colorData) {
+            $total += $colorData['stock'] ?? 0;
+        }
+
+        return $total;
+    }
+
+    /**
+     * Decrease stock for a specific color
+     */
+    public function decreaseColorStock($color, $quantity = 1)
+    {
+        $currentStock = $this->getColorStock($color);
+        if ($currentStock >= $quantity) {
+            $this->setColorStock($color, $currentStock - $quantity);
+            return true;
+        }
+        return false;
+    }
+
+    /**
+     * Increase stock for a specific color
+     */
+    public function increaseColorStock($color, $quantity = 1)
+    {
+        $currentStock = $this->getColorStock($color);
+        $this->setColorStock($color, $currentStock + $quantity);
+    }
+
+    /**
+     * Get measurement description for display
+     */
+    public function getMeasurementDescription($measurement)
+    {
+        $descriptions = [
+            'chest_circumference' => 'Around fullest part of chest',
+            'waist_circumference' => 'Around natural waistline',
+            'hips_circumference' => 'Around fullest part of hips',
+            'garment_length' => 'From shoulder to bottom hem',
+            'sleeve_length' => 'From shoulder seam to cuff',
+            'shoulder_width' => 'Shoulder seam to shoulder seam',
+            'inseam_length' => 'From crotch to bottom of leg',
+            'thigh_circumference' => 'Around fullest part of thigh',
+            'leg_opening' => 'Circumference of leg opening',
+            'rise' => 'From crotch to top of waistband',
+            'collar_size' => 'Around neck where collar sits',
+            'short_length' => 'From waist to bottom of shorts',
+            'dress_length' => 'From shoulder to bottom hem',
+            'shoulder_to_hem' => 'From shoulder to hem of dress',
+            'skirt_length' => 'From waist to bottom hem',
+            'bicep_circumference' => 'Around fullest part of bicep',
+            'hood_height' => 'From neckline to top of hood',
+            'underbust_circumference' => 'Around chest under bust',
+            'cup_size' => 'Bra cup size',
+            'foot_length' => 'Length of foot',
+            'foot_width' => 'Width of foot',
+            'calf_circumference' => 'Around fullest part of calf',
+            'sock_height' => 'Height from ankle',
+            'bag_width' => 'Width of bag',
+            'bag_height' => 'Height of bag',
+            'bag_depth' => 'Depth of bag',
+            'strap_length' => 'Length of strap',
+            'handle_length' => 'Length of handle',
+            'chain_length' => 'Length of chain',
+            'bracelet_circumference' => 'Around wrist',
+            'head_circumference' => 'Around head',
+            'brim_width' => 'Width of hat brim',
+            'hat_height' => 'Height of hat'
+        ];
+
+        return $descriptions[$measurement] ?? 'Garment measurement';
     }
 }

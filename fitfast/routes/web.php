@@ -57,12 +57,9 @@ Route::prefix('cms')->name('cms.')->group(function () {
     Route::get('reviews/item/{item}', [ReviewController::class, 'itemReviews'])->name('reviews.item');
     Route::get('reviews/user/{user}', [ReviewController::class, 'userReviews'])->name('reviews.user');
 
-    // Carts
-    Route::resource('carts', CartController::class)->except(['create', 'store']);
+    // Carts 
+    Route::resource('carts', CartController::class); // Now includes all methods
     Route::post('carts/{cart}/clear', [CartController::class, 'clearCart'])->name('carts.clear');
-    Route::post('carts/{cart}/add-item', [CartController::class, 'addItem'])->name('carts.add-item');
-    Route::delete('carts/{cart}/items/{cartItem}', [CartController::class, 'removeItem'])->name('carts.remove-item');
-    Route::put('carts/{cart}/items/{cartItem}/quantity', [CartController::class, 'updateItemQuantity'])->name('carts.update-quantity');
 
     // Deliveries
     Route::resource('deliveries', DeliveryController::class);

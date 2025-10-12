@@ -81,18 +81,24 @@
                 <hr>
                 <div class="row">
                     <div class="col-sm-3">
-                        <p class="mb-0 font-weight-bold">Color</p>
+                        <p class="mb-0 font-weight-bold">Color Variants</p>
                     </div>
                     <div class="col-sm-9">
-                        <span class="badge" style="background-color: {{ $item->color }}; color: white; padding: 5px 10px;">
-                            {{ $item->color }}
-                        </span>
+                        @if(!empty($item->color_variants))
+                            @foreach($item->color_variants as $colorKey => $colorData)
+                                <span class="badge badge-light border mr-2 mb-2 p-2">
+                                    {{ $colorData['name'] ?? $colorKey }}: {{ $colorData['stock'] ?? 0 }} units
+                                </span>
+                            @endforeach
+                        @else
+                            <span class="text-muted">No color variants</span>
+                        @endif
                     </div>
                 </div>
                 <hr>
                 <div class="row">
                     <div class="col-sm-3">
-                        <p class="mb-0 font-weight-bold">Stock Quantity</p>
+                        <p class="mb-0 font-weight-bold">Total Stock</p>
                     </div>
                     <div class="col-sm-9">
                         @if($item->stock_quantity > 10)
@@ -153,18 +159,23 @@
                             @foreach(\App\Models\Item::STANDARD_SIZES as $size)
                                 @php
                                     $sizeStock = $item->getSizeStock($size);
+                                    $sizeStatus = $item->getSizeStockStatus($size);
+                                    $statusClass = [
+                                        'in_stock' => 'badge-success',
+                                        'low_stock' => 'badge-warning',
+                                        'out_of_stock' => 'badge-secondary'
+                                    ][$sizeStatus];
+                                    $statusText = [
+                                        'in_stock' => 'In Stock',
+                                        'low_stock' => 'Low Stock',
+                                        'out_of_stock' => 'Out of Stock'
+                                    ][$sizeStatus];
                                 @endphp
                                 <tr>
                                     <td><strong>{{ $size }}</strong></td>
                                     <td>{{ $sizeStock }}</td>
                                     <td>
-                                        @if($sizeStock > 10)
-                                            <span class="badge badge-success">In Stock</span>
-                                        @elseif($sizeStock > 0)
-                                            <span class="badge badge-warning">Low Stock</span>
-                                        @else
-                                            <span class="badge badge-secondary">Out of Stock</span>
-                                        @endif
+                                        <span class="badge {{ $statusClass }}">{{ $statusText }}</span>
                                     </td>
                                 </tr>
                             @endforeach
@@ -182,50 +193,193 @@
             </div>
         </div>
 
-        <!-- Sizing Data Card -->
-        @if($item->hasAISizingData())
+        <!-- Size Measurements Card -->
+        @if(!empty($item->sizing_data) && isset($item->sizing_data['measurements_cm']) && !empty($item->sizing_data['measurements_cm']))
         <div class="card shadow mb-4">
             <div class="card-header py-3">
-                <h6 class="m-0 font-weight-bold text-primary">AI Sizing Data</h6>
+                <h6 class="m-0 font-weight-bold text-primary">Size Measurements</h6>
+                <small class="text-muted">Detailed measurements for each size (in centimeters)</small>
             </div>
             <div class="card-body">
-                @if(!empty($item->sizing_data['measurements_cm']))
-                    <h6>Garment Measurements (cm)</h6>
-                    <div class="table-responsive">
-                        <table class="table table-bordered table-sm">
-                            <thead class="thead-light">
-                                <tr>
-                                    <th>Size</th>
-                                    @if(!empty($item->sizing_data['measurements_cm']))
-                                        @foreach(array_keys($item->sizing_data['measurements_cm'][array_key_first($item->sizing_data['measurements_cm'])]) as $measurement)
-                                            <th>{{ \Illuminate\Support\Str::title(str_replace('_', ' ', $measurement)) }}</th>
-                                        @endforeach
-                                    @endif
-                                </tr>
-                            </thead>
-                            <tbody>
-                                @foreach($item->sizing_data['measurements_cm'] as $size => $measurements)
-                                    <tr>
-                                        <td><strong>{{ $size }}</strong></td>
-                                        @foreach($measurements as $measurementValue)
-                                            <td>{{ $measurementValue ?? 'N/A' }} cm</td>
-                                        @endforeach
-                                    </tr>
+                @php
+                    $measurementsData = $item->sizing_data['measurements_cm'];
+
+                    // Get all possible measurements from all sizes (not just first one)
+                    $allMeasurements = [];
+                    foreach ($measurementsData as $size => $sizeMeasurements) {
+                        if (is_array($sizeMeasurements) && !empty($sizeMeasurements)) {
+                            $allMeasurements = array_merge($allMeasurements, array_keys($sizeMeasurements));
+                        }
+                    }
+                    $measurements = array_unique($allMeasurements);
+
+                    // Get sizes that actually have measurements
+                    $sizesWithMeasurements = [];
+                    foreach ($measurementsData as $size => $sizeMeasurements) {
+                        if (is_array($sizeMeasurements) && !empty(array_filter($sizeMeasurements))) {
+                            $sizesWithMeasurements[] = $size;
+                        }
+                    }
+                @endphp
+
+                @if(!empty($measurements) && !empty($sizesWithMeasurements))
+                <div class="table-responsive">
+                    <table class="table table-bordered table-sm">
+                        <thead class="thead-light">
+                            <tr>
+                                <th>Size</th>
+                                @foreach($measurements as $measurement)
+                                    <th>
+                                        {{ \Illuminate\Support\Str::title(str_replace('_', ' ', $measurement)) }}
+                                        <small class="d-block text-muted">{{ $item->getMeasurementDescription($measurement) }}</small>
+                                    </th>
                                 @endforeach
-                            </tbody>
-                        </table>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach($sizesWithMeasurements as $size)
+                                @php
+                                    $sizeMeasurements = $measurementsData[$size] ?? [];
+                                @endphp
+                                <tr>
+                                    <td><strong>{{ $size }}</strong></td>
+                                    @foreach($measurements as $measurement)
+                                        <td>
+                                            @if(isset($sizeMeasurements[$measurement]) && $sizeMeasurements[$measurement] !== '')
+                                                <span class="font-weight-bold">{{ $sizeMeasurements[$measurement] }}</span> cm
+                                            @else
+                                                <span class="text-muted">N/A</span>
+                                            @endif
+                                        </td>
+                                    @endforeach
+                                </tr>
+                            @endforeach
+                        </tbody>
+                    </table>
+                </div>
+
+                <!-- Measurement Summary -->
+                <div class="row mt-4">
+                    <div class="col-md-6">
+                        <h6>Measurement Range</h6>
+                        <div class="list-group list-group-flush">
+                            @foreach($measurements as $measurement)
+                                @php
+                                    $values = [];
+                                    foreach ($measurementsData as $sizeMeasurements) {
+                                        if (isset($sizeMeasurements[$measurement]) && $sizeMeasurements[$measurement] !== '') {
+                                            $values[] = $sizeMeasurements[$measurement];
+                                        }
+                                    }
+                                    $min = !empty($values) ? min($values) : null;
+                                    $max = !empty($values) ? max($values) : null;
+                                @endphp
+                                @if($min && $max)
+                                    <div class="list-group-item d-flex justify-content-between align-items-center px-0">
+                                        <span>{{ \Illuminate\Support\Str::title(str_replace('_', ' ', $measurement)) }}</span>
+                                        <span class="badge badge-info badge-pill">{{ $min }} - {{ $max }} cm</span>
+                                    </div>
+                                @endif
+                            @endforeach
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <h6>Sizes with Measurements</h6>
+                        <div class="d-flex flex-wrap gap-2">
+                            @foreach($sizesWithMeasurements as $size)
+                                <span class="badge badge-success">{{ $size }}</span>
+                            @endforeach
+                        </div>
+                        @if(count($sizesWithMeasurements) < count($measurementsData))
+                            <div class="mt-2">
+                                <small class="text-muted">
+                                    {{ count($measurementsData) - count($sizesWithMeasurements) }} sizes without measurements
+                                </small>
+                            </div>
+                        @endif
+                    </div>
+                </div>
+                @else
+                <div class="alert alert-info">
+                    <i class="fas fa-info-circle"></i>
+                    Measurement data structure exists, but no sizes have measurement values entered.
+                    @if($item->garment_type)
+                        @php
+                            $requiredMeasurements = \App\Models\Item::getRequiredMeasurements($item->garment_type);
+                        @endphp
+                        @if(!empty($requiredMeasurements))
+                            <div class="mt-2">
+                                <strong>Expected measurements for {{ $item->garment_type_display_name }}:</strong>
+                                <div class="d-flex flex-wrap gap-1 mt-1">
+                                    @foreach($requiredMeasurements as $measurement)
+                                        <span class="badge badge-light">{{ \Illuminate\Support\Str::title(str_replace('_', ' ', $measurement)) }}</span>
+                                    @endforeach
+                                </div>
+                            </div>
+                        @endif
+                    @endif
+                </div>
+                @endif
+            </div>
+        </div>
+        @else
+        <div class="card shadow mb-4">
+            <div class="card-header py-3">
+                <h6 class="m-0 font-weight-bold text-warning">Size Measurements</h6>
+            </div>
+            <div class="card-body">
+                <div class="alert alert-warning">
+                    <h6><i class="fas fa-exclamation-triangle"></i> No Measurement Data</h6>
+                    <p class="mb-0">
+                        No size measurement data has been entered for this item.
+                        @if($item->garment_type)
+                            <a href="{{ route('cms.items.edit', $item) }}" class="alert-link">Add measurements</a>
+                            to enable better size recommendations.
+                        @endif
+                    </p>
+                </div>
+            </div>
+        </div>
+        @endif
+
+        <!-- Fit Characteristics Card -->
+        @if(!empty($item->sizing_data) && !empty($item->sizing_data['fit_characteristics']))
+        <div class="card shadow mb-4">
+            <div class="card-header py-3">
+                <h6 class="m-0 font-weight-bold text-primary">Fit Characteristics</h6>
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    @foreach($item->sizing_data['fit_characteristics'] as $key => $value)
+                        @if(!empty($value))
+                            <div class="col-md-4 mb-3">
+                                <div class="card bg-light">
+                                    <div class="card-body text-center py-3">
+                                        <h6 class="card-title text-capitalize text-muted mb-1">
+                                            {{ str_replace('_', ' ', $key) }}
+                                        </h6>
+                                        <p class="card-text font-weight-bold text-primary mb-0">
+                                            {{ ucfirst($value) }}
+                                        </p>
+                                    </div>
+                                </div>
+                            </div>
+                        @endif
+                    @endforeach
+                </div>
+
+                @if(!empty($item->sizing_data['size_system']))
+                    <div class="mt-3 p-3 bg-light rounded">
+                        <strong>Size System:</strong>
+                        <span class="badge badge-info">{{ $item->sizing_data['size_system'] }}</span>
                     </div>
                 @endif
 
-                @if(!empty($item->sizing_data['fit_characteristics']))
-                    <h6 class="mt-4">Fit Characteristics</h6>
-                    <div class="row">
-                        @foreach($item->sizing_data['fit_characteristics'] as $key => $value)
-                            <div class="col-md-4 mb-2">
-                                <strong class="text-capitalize">{{ str_replace('_', ' ', $key) }}:</strong>
-                                <span class="text-muted">{{ $value }}</span>
-                            </div>
-                        @endforeach
+                @if(!empty($item->sizing_data['last_updated']))
+                    <div class="mt-2 text-right">
+                        <small class="text-muted">
+                            Last updated: {{ \Carbon\Carbon::parse($item->sizing_data['last_updated'])->format('M d, Y H:i') }}
+                        </small>
                     </div>
                 @endif
             </div>
@@ -258,6 +412,25 @@
                         <h4>{{ $item->reviewCount() }}</h4>
                         <p class="text-muted">Total Reviews</p>
                     </div>
+                    <hr>
+                    <div class="mb-4">
+                        @php
+                            $hasMeasurements = !empty($item->sizing_data) &&
+                                            isset($item->sizing_data['measurements_cm']) &&
+                                            !empty($item->sizing_data['measurements_cm']);
+                            $measurementCount = 0;
+                            if ($hasMeasurements) {
+                                foreach ($item->sizing_data['measurements_cm'] as $sizeMeasurements) {
+                                    if (is_array($sizeMeasurements) && !empty(array_filter($sizeMeasurements))) {
+                                        $measurementCount++;
+                                    }
+                                }
+                            }
+                        @endphp
+                        <i class="fas fa-ruler-combined fa-2x text-success mb-2"></i>
+                        <h4>{{ $measurementCount }}</h4>
+                        <p class="text-muted">Sizes with Measurements</p>
+                    </div>
                 </div>
             </div>
         </div>
@@ -283,6 +456,64 @@
             </div>
         </div>
 
+        <!-- Garment Information Card -->
+        <div class="card shadow mb-4">
+            <div class="card-header py-3">
+                <h6 class="m-0 font-weight-bold text-primary">Garment Information</h6>
+            </div>
+            <div class="card-body">
+                @if($item->garment_type)
+                    <div class="mb-3">
+                        <strong>Type:</strong>
+                        <span class="float-right">{{ $item->garment_type_display_name }}</span>
+                    </div>
+
+                    @php
+                        $hasMeasurements = !empty($item->sizing_data) &&
+                                        isset($item->sizing_data['measurements_cm']) &&
+                                        !empty($item->sizing_data['measurements_cm']);
+                        $sizesWithData = 0;
+                        if ($hasMeasurements) {
+                            foreach ($item->sizing_data['measurements_cm'] as $sizeMeasurements) {
+                                if (is_array($sizeMeasurements) && !empty(array_filter($sizeMeasurements))) {
+                                    $sizesWithData++;
+                                }
+                            }
+                        }
+                    @endphp
+
+                    <div class="mb-3">
+                        <strong>Measurements:</strong>
+                        <span class="float-right badge {{ $sizesWithData > 0 ? 'badge-success' : 'badge-warning' }}">
+                            {{ $sizesWithData > 0 ? $sizesWithData . ' sizes' : 'Not Available' }}
+                        </span>
+                    </div>
+
+                    @php
+                        $requiredMeasurements = \App\Models\Item::getRequiredMeasurements($item->garment_type);
+                    @endphp
+                    @if(!empty($requiredMeasurements))
+                        <div class="mt-3">
+                            <strong>Required Measurements:</strong>
+                            <ul class="list-unstyled mt-2">
+                                @foreach($requiredMeasurements as $measurement)
+                                    <li class="mb-1">
+                                        <i class="fas fa-ruler-vertical text-muted mr-2"></i>
+                                        <small class="text-capitalize">{{ str_replace('_', ' ', $measurement) }}</small>
+                                    </li>
+                                @endforeach
+                            </ul>
+                        </div>
+                    @endif
+                @else
+                    <div class="text-center text-muted">
+                        <i class="fas fa-tshirt fa-2x mb-2"></i>
+                        <p>No garment type specified</p>
+                    </div>
+                @endif
+            </div>
+        </div>
+
         <!-- Associated Users Card -->
         @if($item->users->count() > 0)
         <div class="card shadow mb-4">
@@ -293,7 +524,7 @@
                 @foreach($item->users->take(5) as $user)
                     <div class="d-flex align-items-center mb-3">
                         <div class="flex-shrink-0">
-                            <i class="fas fa-user-circle text-primary"></i>
+                            <i class="fas fa-user-circle fa-2x text-primary"></i>
                         </div>
                         <div class="flex-grow-1 ms-3">
                             <h6 class="mb-0">{{ $user->name }}</h6>

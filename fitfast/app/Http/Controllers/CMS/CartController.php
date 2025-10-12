@@ -3,8 +3,9 @@
 namespace App\Http\Controllers\CMS;
 
 use App\Models\Cart;
-use App\Models\CartItem;
+use App\Models\User;
 use App\Models\Item;
+use App\Models\CartItem;
 use Illuminate\Http\Request;
 use App\Http\Controllers\Controller;
 
@@ -16,133 +17,212 @@ class CartController extends Controller
             ->latest()
             ->paginate(10);
 
-        return view('cms.carts.index', compact('carts'));
+        return view('cms.pages.carts.index', compact('carts'));
+    }
+
+    public function create()
+    {
+        $users = User::all();
+        $items = Item::with('store')->get();
+        return view('cms.pages.carts.create', compact('users', 'items'));
     }
 
     public function show(Cart $cart)
     {
-        $cart->load(['user', 'cartItems.item']);
-        return view('cms.carts.show', compact('cart'));
+        $cart->load(['user', 'cartItems.item.store']);
+        return view('cms.pages.carts.show', compact('cart'));
     }
 
     public function edit(Cart $cart)
     {
         $cart->load(['user', 'cartItems.item']);
-        return view('cms.carts.edit', compact('cart'));
+        $users = User::all();
+        $items = Item::with('store')->get();
+
+        return view('cms.pages.carts.edit', compact('cart', 'users', 'items'));
+    }
+
+    public function store(Request $request)
+    {
+        $validated = $request->validate([
+            'user_id' => 'required|exists:users,id',
+            'items' => 'required|array',
+            'items.*.item_id' => 'required|exists:items,id',
+            'items.*.quantity' => 'required|integer|min:1',
+            'items.*.selected_size' => 'nullable|string|max:50',
+            'items.*.selected_color' => 'required|string|max:50', // Now required
+        ]);
+
+        // Check if user already has a cart
+        $cart = Cart::where('user_id', $validated['user_id'])->first();
+
+        if (!$cart) {
+            $cart = Cart::create(['user_id' => $validated['user_id']]);
+        }
+
+        $errors = [];
+
+        // Add items to cart with stock validation
+        foreach ($validated['items'] as $index => $itemData) {
+            $item = Item::find($itemData['item_id']);
+
+            // Check color stock availability
+            if (!$this->checkColorStockAvailability($item, $itemData['selected_color'], $itemData['quantity'])) {
+                $errors[] = "Item '{$item->name}' color '{$itemData['selected_color']}' is out of stock or insufficient quantity.";
+                continue;
+            }
+
+            CartItem::create([
+                'cart_id' => $cart->id,
+                'item_id' => $itemData['item_id'],
+                'quantity' => $itemData['quantity'],
+                'selected_size' => $itemData['selected_size'] ?? null,
+                'selected_color' => $itemData['selected_color'],
+                'item_price' => $item->price,
+            ]);
+
+            // Decrease color stock
+            $this->decreaseColorStock($item, $itemData['selected_color'], $itemData['quantity']);
+        }
+
+        $cart->updateTotal();
+
+        if (!empty($errors)) {
+            return redirect()->back()
+                ->with('warning', 'Cart created with some items unavailable: ' . implode(' ', $errors))
+                ->withInput();
+        }
+
+        return redirect()->route('cms.carts.index')
+            ->with('success', 'Cart created successfully.');
     }
 
     public function update(Request $request, Cart $cart)
     {
         $validated = $request->validate([
-            'cart_total' => 'required|numeric|min:0',
+            'user_id' => 'required|exists:users,id',
+            'items' => 'required|array',
+            'items.*.id' => 'nullable|exists:cart_items,id',
+            'items.*.item_id' => 'required|exists:items,id',
+            'items.*.quantity' => 'required|integer|min:1',
+            'items.*.selected_size' => 'nullable|string|max:50',
+            'items.*.selected_color' => 'required|string|max:50', // Now required
+            'items_to_remove' => 'nullable|array',
         ]);
 
-        $cart->update($validated);
+        // Update user if changed
+        if ($cart->user_id != $validated['user_id']) {
+            $cart->update(['user_id' => $validated['user_id']]);
+        }
 
-        return redirect()->route('cms.carts.index')
+        $errors = [];
+
+        // First, restore stock for items being removed
+        if (!empty($validated['items_to_remove'])) {
+            $removedItems = CartItem::whereIn('id', $validated['items_to_remove'])->get();
+            foreach ($removedItems as $removedItem) {
+                $this->increaseColorStock($removedItem->item, $removedItem->selected_color, $removedItem->quantity);
+            }
+            CartItem::whereIn('id', $validated['items_to_remove'])->delete();
+        }
+
+        // Update or create items
+        foreach ($validated['items'] as $itemData) {
+            $item = Item::find($itemData['item_id']);
+
+            if (isset($itemData['id'])) {
+                // Update existing item
+                $cartItem = CartItem::find($itemData['id']);
+                if ($cartItem) {
+                    // Restore old stock first
+                    $this->increaseColorStock($cartItem->item, $cartItem->selected_color, $cartItem->quantity);
+
+                    // Check new color stock availability
+                    if (!$this->checkColorStockAvailability($item, $itemData['selected_color'], $itemData['quantity'])) {
+                        $errors[] = "Item '{$item->name}' color '{$itemData['selected_color']}' is out of stock or insufficient quantity.";
+                        continue;
+                    }
+
+                    $cartItem->update([
+                        'quantity' => $itemData['quantity'],
+                        'selected_size' => $itemData['selected_size'] ?? null,
+                        'selected_color' => $itemData['selected_color'],
+                        'item_price' => $item->price,
+                    ]);
+
+                    // Decrease new color stock
+                    $this->decreaseColorStock($item, $itemData['selected_color'], $itemData['quantity']);
+                }
+            } else {
+                // Create new item
+                if (!$this->checkColorStockAvailability($item, $itemData['selected_color'], $itemData['quantity'])) {
+                    $errors[] = "Item '{$item->name}' color '{$itemData['selected_color']}' is out of stock or insufficient quantity.";
+                    continue;
+                }
+
+                CartItem::create([
+                    'cart_id' => $cart->id,
+                    'item_id' => $itemData['item_id'],
+                    'quantity' => $itemData['quantity'],
+                    'selected_size' => $itemData['selected_size'] ?? null,
+                    'selected_color' => $itemData['selected_color'],
+                    'item_price' => $item->price,
+                ]);
+
+                $this->decreaseColorStock($item, $itemData['selected_color'], $itemData['quantity']);
+            }
+        }
+
+        $cart->updateTotal();
+
+        if (!empty($errors)) {
+            return redirect()->back()
+                ->with('warning', 'Cart updated with some items unavailable: ' . implode(' ', $errors))
+                ->withInput();
+        }
+
+        return redirect()->route('cms.carts.show', $cart)
             ->with('success', 'Cart updated successfully.');
     }
 
-    public function destroy(Cart $cart)
+        public function destroy(Cart $cart)
     {
+        $cart->cartItems()->delete();
         $cart->delete();
 
         return redirect()->route('cms.carts.index')
-            ->with('success', 'Cart deleted successfully.');
+            ->with('success', 'Cart cleared and deleted successfully.');
     }
 
-    /**
-     * Clear all items from a cart
-     */
     public function clearCart(Cart $cart)
     {
         $cart->clear();
 
-        return redirect()->back()
+        return redirect()->route('cms.carts.show', $cart)
             ->with('success', 'Cart cleared successfully.');
     }
 
     /**
-     * Add item to cart
+     * Check if color stock is available
      */
-    public function addItem(Request $request, Cart $cart)
+    private function checkColorStockAvailability(Item $item, string $color, int $quantity): bool
     {
-        $validated = $request->validate([
-            'item_id' => 'required|exists:items,id',
-            'quantity' => 'required|integer|min:1',
-            'selected_size' => 'nullable|string',
-            'selected_color' => 'nullable|string',
-        ]);
-
-        // Get the current item price
-        $item = Item::findOrFail($validated['item_id']);
-        $itemPrice = $item->price;
-
-        // Check if item already exists in cart with same variants
-        $existingCartItem = CartItem::where('cart_id', $cart->id)
-            ->where('item_id', $validated['item_id'])
-            ->where('selected_size', $validated['selected_size'])
-            ->where('selected_color', $validated['selected_color'])
-            ->first();
-
-        if ($existingCartItem) {
-            // Update quantity if already exists
-            $existingCartItem->update([
-                'quantity' => $existingCartItem->quantity + $validated['quantity']
-            ]);
-        } else {
-            // Create new cart item
-            CartItem::create([
-                'cart_id' => $cart->id,
-                'item_id' => $validated['item_id'],
-                'quantity' => $validated['quantity'],
-                'selected_size' => $validated['selected_size'],
-                'selected_color' => $validated['selected_color'],
-                'item_price' => $itemPrice,
-            ]);
-        }
-
-        // Update cart total
-        $cart->updateTotal();
-
-        return redirect()->back()
-            ->with('success', 'Item added to cart successfully.');
+        return $item->isColorInStock($color, $quantity);
     }
 
     /**
-     * Remove item from cart
+     * Decrease color stock for an item
      */
-    public function removeItem(Cart $cart, CartItem $cartItem)
+    private function decreaseColorStock(Item $item, string $color, int $quantity): void
     {
-        if ($cartItem->cart_id !== $cart->id) {
-            return redirect()->back()
-                ->with('error', 'Cart item not found in this cart.');
-        }
-
-        $cartItem->delete();
-        $cart->updateTotal();
-
-        return redirect()->back()
-            ->with('success', 'Item removed from cart successfully.');
+        $item->decreaseColorStock($color, $quantity);
     }
 
     /**
-     * Update cart item quantity
+     * Increase color stock for an item (when cart items are removed)
      */
-    public function updateItemQuantity(Request $request, Cart $cart, CartItem $cartItem)
+    private function increaseColorStock(Item $item, string $color, int $quantity): void
     {
-        if ($cartItem->cart_id !== $cart->id) {
-            return redirect()->back()
-                ->with('error', 'Cart item not found in this cart.');
-        }
-
-        $validated = $request->validate([
-            'quantity' => 'required|integer|min:1',
-        ]);
-
-        $cartItem->updateQuantity($validated['quantity']);
-
-        return redirect()->back()
-            ->with('success', 'Cart item quantity updated successfully.');
+        $item->increaseColorStock($color, $quantity);
     }
 }

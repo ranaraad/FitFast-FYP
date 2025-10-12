@@ -36,7 +36,7 @@
                                 <th>Price</th>
                                 <th>Category</th>
                                 <th>Garment Type</th>
-                                <th>Color</th>
+                                <th>Colors</th>
                                 <th>Stock</th>
                                 <th>Users</th>
                                 <th>Actions</th>
@@ -69,9 +69,26 @@
                                     @endif
                                 </td>
                                 <td>
-                                    <span class="badge" style="background-color: {{ $item->color }}; color: white;">
-                                        {{ $item->color }}
-                                    </span>
+                                    @if($item->color_variants && count($item->color_variants) > 0)
+                                        <div class="d-flex flex-wrap gap-1">
+                                            @foreach($item->color_variants as $colorCode => $colorData)
+                                                @php
+                                                    $colorName = $colorData['name'] ?? $colorCode;
+                                                    // Generate a color hash for consistent badge colors
+                                                    $colorHash = '#' . substr(md5($colorName), 0, 6);
+                                                @endphp
+                                                <span class="badge" style="background-color: {{ $colorHash }}; color: white;" title="{{ $colorName }}">
+                                                    {{ $colorName }}
+                                                    @if(($colorData['stock'] ?? 0) > 0)
+                                                        <small>({{ $colorData['stock'] }})</small>
+                                                    @endif
+                                                </span>
+                                            @endforeach
+                                        </div>
+                                        <small class="text-muted">{{ count($item->color_variants) }} color(s)</small>
+                                    @else
+                                        <span class="text-muted">No colors</span>
+                                    @endif
                                 </td>
                                 <td>
                                     @if($item->stock_quantity > 10)
@@ -123,6 +140,18 @@
 </div>
 @endsection
 
+@push('styles')
+<style>
+.badge {
+    font-size: 0.75em;
+    margin: 1px;
+}
+.gap-1 {
+    gap: 0.25rem;
+}
+</style>
+@endpush
+
 @push('scripts')
 <script>
     $(document).ready(function() {
@@ -130,7 +159,7 @@
             "pageLength": 25,
             "order": [[0, 'desc']],
             "columnDefs": [
-                { "orderable": false, "targets": [8, 9] } // Disable sorting for users and actions columns
+                { "orderable": false, "targets": [6, 8, 9] } // Disable sorting for colors, users and actions columns
             ]
         });
     });

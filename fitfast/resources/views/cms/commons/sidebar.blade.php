@@ -29,27 +29,27 @@
             <i class="fas fa-fw fa-cog"></i>
             <span>Management</span>
         </a>
-        <div id="collapseManagement" class="collapse" aria-labelledby="headingManagement" data-parent="#accordionSidebar">
+        <div id="collapseManagement" class="collapse" aria-labelledby="headingManagement"
+            data-parent="#accordionSidebar">
             <div class="bg-white py-2 collapse-inner rounded">
                 <h6 class="collapse-header">User Management:</h6>
                 <a class="collapse-item" href="{{ route('cms.users.index') }}">
                     <i class="fas fa-users fa-sm mr-2"></i>Users
                 </a>
 
-                <h6 class="collapse-header mt-3">Store Operations:</h6>
-                <a class="collapse-item" href="{{ route('cms.stores.index') }}">
-                    <i class="fas fa-store fa-sm mr-2"></i>Stores
-                </a>
-                <a class="collapse-item" href="{{ route('cms.items.index') }}">
-                    <i class="fas fa-box fa-sm mr-2"></i>Items
-                </a>
-                <a class="collapse-item" href="{{ route('cms.orders.index') }}">
-                    <i class="fas fa-shopping-cart fa-sm mr-2"></i>Orders
-                </a>
-                <a class="collapse-item" href="{{ route('cms.deliveries.index') }}">
-                    <i class="fas fa-shipping-fast fa-sm mr-2"></i>Deliveries
-                </a>
-
+<h6 class="collapse-header mt-3">Store Operations:</h6>
+<a class="collapse-item" href="{{ route('cms.stores.index') }}">
+    <i class="fas fa-store fa-sm mr-2"></i>Stores
+</a>
+<a class="collapse-item" href="{{ route('cms.items.index') }}">
+    <i class="fas fa-box fa-sm mr-2"></i>Items
+</a>
+<a class="collapse-item" href="{{ route('cms.orders.index') }}">
+    <i class="fas fa-shopping-cart fa-sm mr-2"></i>Orders
+</a>
+<a class="collapse-item" href="{{ route('cms.deliveries.index') }}">
+    <i class="fas fa-shipping-fast fa-sm mr-2"></i>Deliveries
+</a>
                 <h6 class="collapse-header mt-3">Financial:</h6>
                 <a class="collapse-item" href="{{ route('cms.payments.index') }}">
                     <i class="fas fa-credit-card fa-sm mr-2"></i>Payments

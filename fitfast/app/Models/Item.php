@@ -290,24 +290,40 @@ class Item extends Model
     /**
      * Decrease stock for a specific size
      */
-    public function decreaseSizeStock($size, $quantity = 1)
-    {
-        $currentStock = $this->getSizeStock($size);
-        if ($currentStock >= $quantity) {
-            $this->setSizeStock($size, $currentStock - $quantity);
-            return true;
-        }
-        return false;
+   // In App\Models\Item
+public function decrementStock($size, $color, $quantity = 1): void
+{
+    // Update size stock
+    if (isset($this->size_stock[$size])) {
+        $this->size_stock[$size] = max(0, $this->size_stock[$size] - $quantity);
     }
+    
+    // Update color stock
+    if (isset($this->color_variants[$color])) {
+        $this->color_variants[$color]['stock'] = max(0, $this->color_variants[$color]['stock'] - $quantity);
+    }
+    
+    // Update total stock quantity
+    $this->stock_quantity = max(0, $this->stock_quantity - $quantity);
+    $this->save();
+}
 
-    /**
-     * Increase stock for a specific size
-     */
-    public function increaseSizeStock($size, $quantity = 1)
-    {
-        $currentStock = $this->getSizeStock($size);
-        $this->setSizeStock($size, $currentStock + $quantity);
+public function incrementStock($size, $color, $quantity = 1): void
+{
+    // Update size stock
+    if (isset($this->size_stock[$size])) {
+        $this->size_stock[$size] = ($this->size_stock[$size] ?? 0) + $quantity;
     }
+    
+    // Update color stock
+    if (isset($this->color_variants[$color])) {
+        $this->color_variants[$color]['stock'] = ($this->color_variants[$color]['stock'] ?? 0) + $quantity;
+    }
+    
+    // Update total stock quantity
+    $this->stock_quantity = ($this->stock_quantity ?? 0) + $quantity;
+    $this->save();
+}
 
     /**
      * Get available garment types for a specific category slug

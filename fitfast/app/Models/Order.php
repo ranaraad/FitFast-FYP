@@ -106,4 +106,18 @@ class Order extends Model
     {
         return $this->payments()->latest()->first();
     }
+
+    // In App\Models\Order
+public function getStatusBadgeClass(): string
+{
+    return match($this->status) {
+        'pending' => 'warning',
+        'confirmed' => 'info',
+        'processing' => 'primary',
+        'shipped' => 'success',
+        'delivered' => 'success',
+        'cancelled' => 'danger',
+        default => 'secondary'
+    };
+}
 }

@@ -14,6 +14,7 @@ use App\Http\Controllers\CMS\DeliveryController;
 use App\Http\Controllers\CMS\PaymentController;
 use App\Http\Controllers\CMS\PaymentMethodController;
 use App\Http\Controllers\CMS\RoleController;
+use App\Http\Controllers\CMS\OrderItemController;
 use Illuminate\Support\Facades\Route;
 
 // Public routes (if any)
@@ -45,10 +46,16 @@ Route::prefix('cms')->name('cms.')->group(function () {
 
     // Stores
     Route::resource('stores', StoreController::class);
+// Orders
+Route::resource('orders', OrderController::class);
+Route::get('stores/{store}/items', [OrderController::class, 'getStoreItems'])->name('stores.items');
+Route::get('items/{item}/details', [OrderController::class, 'getItemDetails'])->name('items.details');
+Route::post('orders/{order}/status', [OrderController::class, 'updateStatus'])->name('orders.update-status');
 
-    // Orders
-    Route::resource('orders', OrderController::class);
-    Route::post('orders/{order}/status', [OrderController::class, 'updateStatus'])->name('orders.update-status');
+// Order Items (nested)
+Route::prefix('orders/{order}')->group(function () {
+    Route::resource('order-items', OrderItemController::class);
+});
 
     // Reviews
     Route::resource('reviews', ReviewController::class)->only([

@@ -3,267 +3,170 @@
 namespace App\Http\Controllers\CMS;
 
 use App\Models\Order;
-use App\Models\Store;
+use App\Models\Cart;
 use App\Models\User;
-use App\Models\Item;
+use App\Models\Store;
+use App\Models\Item; // Add this import
 use App\Models\OrderItem;
+use App\Models\Delivery;
+use App\Models\Payment;
 use Illuminate\Http\Request;
 use App\Http\Controllers\Controller;
 
 class OrderController extends Controller
 {
-    /**
-     * Display a listing of the orders.
-     */
     public function index()
     {
-        $orders = Order::with(['store', 'user', 'orderItems'])
+        $orders = Order::with(['user', 'store', 'orderItems.item'])
             ->latest()
             ->paginate(10);
 
         return view('cms.pages.orders.index', compact('orders'));
     }
 
-    /**
-     * Show the form for creating a new order.
-     */
-    public function create()
-    {
-        $stores = Store::where('status', 'active')->get();
-        
-        // FIXED: Get all users (since we don't have role setup yet, or use a fallback)
-        $users = User::all();
-        
-        // Alternative: If you have roles setup, use this:
-        // $users = User::where('role_id', 2)->get(); // Assuming 2 is customer role
-        // OR if you have a role relationship:
-        // $users = User::whereHas('role', function($query) {
-        //     $query->where('name', 'customer');
-        // })->get();
+public function create()
+{
+    $users = User::all();
+    $stores = Store::where('status', 'active')->get();
+    $carts = Cart::with(['user', 'cartItems.item'])
+        ->whereHas('cartItems')
+        ->get();
 
-        return view('cms.pages.orders.create', compact('stores', 'users'));
+    return view('cms.pages.orders.create', compact('users', 'stores', 'carts'));
+}
+
+public function store(Request $request)
+{
+    $validated = $request->validate([
+        'user_id' => 'required|exists:users,id',
+        'store_id' => 'required|exists:stores,id',
+        'cart_id' => 'required|exists:carts,id',
+        'items' => 'required|array',
+        'items.*.item_id' => 'required|exists:items,id',
+        'items.*.quantity' => 'required|integer|min:1',
+        'items.*.selected_size' => 'nullable|string|max:50',
+        'items.*.selected_color' => 'required|string|max:50',
+        'items.*.unit_price' => 'required|numeric|min:0',
+        'delivery_address' => 'required|string|max:500',
+        // Remove payment_method from validation
+    ]);
+
+    // Calculate total amount from items
+    $totalAmount = 0;
+    foreach ($validated['items'] as $item) {
+        $totalAmount += $item['quantity'] * $item['unit_price'];
     }
 
-    /**
-     * Store a newly created order.
-     */
-    public function store(Request $request)
-    {
-        $validated = $request->validate([
-            'store_id' => 'required|exists:stores,id',
-            'user_id' => 'required|exists:users,id',
-            'status' => 'required|in:pending,confirmed,processing,shipped,delivered,cancelled',
-            'order_items' => 'required|array|min:1',
-            'order_items.*.item_id' => 'required|exists:items,id',
-            'order_items.*.quantity' => 'required|integer|min:1',
-            'order_items.*.selected_size' => 'required|string|max:10',
-            'order_items.*.selected_color' => 'required|string|max:50',
-            'order_items.*.selected_brand' => 'nullable|string|max:100',
+    // Create order
+    $order = Order::create([
+        'user_id' => $validated['user_id'],
+        'store_id' => $validated['store_id'],
+        'total_amount' => $totalAmount,
+        'status' => Order::STATUS_PENDING,
+    ]);
+
+    // Create order items
+    foreach ($validated['items'] as $itemData) {
+        OrderItem::create([
+            'order_id' => $order->id,
+            'item_id' => $itemData['item_id'],
+            'quantity' => $itemData['quantity'],
+            'selected_size' => $itemData['selected_size'] ?? null,
+            'selected_color' => $itemData['selected_color'],
+            'unit_price' => $itemData['unit_price'],
         ]);
 
-        // Check if all items belong to the selected store
-        $itemIds = collect($validated['order_items'])->pluck('item_id')->unique();
-        $itemsFromStore = Item::where('store_id', $validated['store_id'])
-            ->whereIn('id', $itemIds)
-            ->count();
-
-        if ($itemsFromStore !== count($itemIds)) {
-            return redirect()->back()
-                ->with('error', 'Some selected items do not belong to the chosen store.')
-                ->withInput();
-        }
-
-        // Check stock availability for all items
-        foreach ($validated['order_items'] as $orderItemData) {
-            $item = Item::find($orderItemData['item_id']);
-            
-            if (!$item->isSizeInStock($orderItemData['selected_size']) || 
-                !$item->isColorInStock($orderItemData['selected_color'], $orderItemData['quantity'])) {
-                return redirect()->back()
-                    ->with('error', "Item '{$item->name}' is not available in the requested quantity, size, or color.")
-                    ->withInput();
-            }
-        }
-
-        // Create the order
-        $order = Order::create([
-            'store_id' => $validated['store_id'],
-            'user_id' => $validated['user_id'],
-            'status' => $validated['status'],
-            'total_amount' => 0, // Will be calculated after adding items
-        ]);
-
-        // Add order items and calculate total
-        $totalAmount = 0;
-        foreach ($validated['order_items'] as $orderItemData) {
-            $item = Item::find($orderItemData['item_id']);
-            
-            $orderItem = OrderItem::create([
-                'order_id' => $order->id,
-                'item_id' => $orderItemData['item_id'],
-                'quantity' => $orderItemData['quantity'],
-                'selected_size' => $orderItemData['selected_size'],
-                'selected_color' => $orderItemData['selected_color'],
-                'selected_brand' => $orderItemData['selected_brand'] ?? $item->brand ?? null,
-                'unit_price' => $item->price,
-            ]);
-
-            $totalAmount += $orderItem->unit_price * $orderItem->quantity;
-
-            // Update item stock (you might want to do this when order is confirmed)
-            // $item->decrementStock($orderItemData['selected_size'], $orderItemData['selected_color'], $orderItemData['quantity']);
-        }
-
-        // Update order total
-        $order->update(['total_amount' => $totalAmount]);
-
-        return redirect()->route('cms.orders.show', $order)
-            ->with('success', 'Order created successfully.');
+        // Decrease item stock
+        $item = Item::find($itemData['item_id']);
+        $item->decreaseColorStock($itemData['selected_color'], $itemData['quantity']);
     }
 
-    /**
-     * Display the specified order.
-     */
+    // Create delivery record (keep this)
+    Delivery::create([
+        'order_id' => $order->id,
+        'address' => $validated['delivery_address'],
+        'status' => 'pending',
+    ]);
+
+    // REMOVE THE PAYMENT CREATION ENTIRELY
+    // Payment::create([...]); // Delete this block
+
+    // Clear the cart after creating order
+    $cart = Cart::find($validated['cart_id']);
+    if ($cart) {
+        $cart->clear();
+    }
+
+    return redirect()->route('cms.orders.show', $order)
+        ->with('success', 'Order created successfully from cart.');
+}
     public function show(Order $order)
     {
-        $order->load(['store', 'user', 'orderItems.item', 'delivery', 'payments']);
-        
+        $order->load(['user', 'store', 'orderItems.item.store', 'delivery', 'payment']);
         return view('cms.pages.orders.show', compact('order'));
     }
 
-    /**
-     * Show the form for editing the specified order.
-     */
     public function edit(Order $order)
     {
-        $order->load(['orderItems.item']);
-        $stores = Store::where('status', 'active')->get();
-        
-        // FIXED: Get all users
+        $order->load(['orderItems.item', 'delivery', 'payment']);
         $users = User::all();
+        $stores = Store::where('status', 'active')->get();
+        $statuses = Order::STATUSES;
 
-        // Get available items from the order's store
-        $availableItems = Item::where('store_id', $order->store_id)
-            ->where('stock_quantity', '>', 0)
-            ->with('store')
-            ->get();
-
-        return view('cms.pages.orders.edit', compact('order', 'stores', 'users', 'availableItems'));
+        return view('cms.pages.orders.edit', compact('order', 'users', 'stores', 'statuses'));
     }
 
-    /**
-     * Update the specified order.
-     */
     public function update(Request $request, Order $order)
     {
         $validated = $request->validate([
-            'store_id' => 'required|exists:stores,id',
             'user_id' => 'required|exists:users,id',
-            'status' => 'required|in:pending,confirmed,processing,shipped,delivered,cancelled',
-            'order_items' => 'required|array|min:1',
-            'order_items.*.id' => 'nullable|exists:order_items,id', // For existing items
-            'order_items.*.item_id' => 'required|exists:items,id',
-            'order_items.*.quantity' => 'required|integer|min:1',
-            'order_items.*.selected_size' => 'required|string|max:10',
-            'order_items.*.selected_color' => 'required|string|max:50',
-            'order_items.*.selected_brand' => 'nullable|string|max:100',
-            'order_items.*._remove' => 'nullable|boolean', // Flag to remove item
+            'store_id' => 'required|exists:stores,id',
+            'status' => 'required|in:' . implode(',', array_keys(Order::STATUSES)),
+            'total_amount' => 'required|numeric|min:0',
+            'delivery_address' => 'required|string|max:500',
+            'delivery_status' => 'required|in:pending,shipped,delivered,failed',
+            'payment_status' => 'required|in:pending,completed,failed,refunded',
         ]);
 
-        // Check if store changed and validate items belong to new store
-        if ($order->store_id != $validated['store_id']) {
-            $itemIds = collect($validated['order_items'])->pluck('item_id')->unique();
-            $itemsFromStore = Item::where('store_id', $validated['store_id'])
-                ->whereIn('id', $itemIds)
-                ->count();
-
-            if ($itemsFromStore !== count($itemIds)) {
-                return redirect()->back()
-                    ->with('error', 'Some selected items do not belong to the chosen store.')
-                    ->withInput();
-            }
-        }
-
-        // Update basic order info
+        // Update order
         $order->update([
-            'store_id' => $validated['store_id'],
             'user_id' => $validated['user_id'],
+            'store_id' => $validated['store_id'],
             'status' => $validated['status'],
+            'total_amount' => $validated['total_amount'],
         ]);
 
-        // Process order items
-        $existingOrderItemIds = $order->orderItems->pluck('id')->toArray();
-        $updatedOrderItemIds = [];
-        $totalAmount = 0;
-
-        foreach ($validated['order_items'] as $orderItemData) {
-            // Skip items marked for removal
-            if (isset($orderItemData['_remove']) && $orderItemData['_remove']) {
-                continue;
-            }
-
-            $item = Item::find($orderItemData['item_id']);
-
-            // Check stock availability
-            if (!$item->isSizeInStock($orderItemData['selected_size']) || 
-                !$item->isColorInStock($orderItemData['selected_color'], $orderItemData['quantity'])) {
-                return redirect()->back()
-                    ->with('error', "Item '{$item->name}' is not available in the requested quantity, size, or color.")
-                    ->withInput();
-            }
-
-            // Update or create order item
-            if (isset($orderItemData['id']) && in_array($orderItemData['id'], $existingOrderItemIds)) {
-                // Update existing order item
-                $orderItem = OrderItem::find($orderItemData['id']);
-                $orderItem->update([
-                    'item_id' => $orderItemData['item_id'],
-                    'quantity' => $orderItemData['quantity'],
-                    'selected_size' => $orderItemData['selected_size'],
-                    'selected_color' => $orderItemData['selected_color'],
-                    'selected_brand' => $orderItemData['selected_brand'] ?? $item->brand ?? null,
-                    'unit_price' => $item->price, // Update price in case it changed
-                ]);
-                $updatedOrderItemIds[] = $orderItemData['id'];
-            } else {
-                // Create new order item
-                $orderItem = OrderItem::create([
-                    'order_id' => $order->id,
-                    'item_id' => $orderItemData['item_id'],
-                    'quantity' => $orderItemData['quantity'],
-                    'selected_size' => $orderItemData['selected_size'],
-                    'selected_color' => $orderItemData['selected_color'],
-                    'selected_brand' => $orderItemData['selected_brand'] ?? $item->brand ?? null,
-                    'unit_price' => $item->price,
-                ]);
-                $updatedOrderItemIds[] = $orderItem->id;
-            }
-
-            $totalAmount += $orderItem->unit_price * $orderItem->quantity;
+        // Update delivery
+        if ($order->delivery) {
+            $order->delivery->update([
+                'address' => $validated['delivery_address'],
+                'status' => $validated['delivery_status'],
+            ]);
         }
 
-        // Remove order items that weren't in the updated list
-        $itemsToRemove = array_diff($existingOrderItemIds, $updatedOrderItemIds);
-        if (!empty($itemsToRemove)) {
-            OrderItem::whereIn('id', $itemsToRemove)->delete();
+        // Update payment
+        if ($order->payment) {
+            $order->payment->update([
+                'status' => $validated['payment_status'],
+            ]);
         }
-
-        // Update order total
-        $order->update(['total_amount' => $totalAmount]);
 
         return redirect()->route('cms.orders.show', $order)
             ->with('success', 'Order updated successfully.');
     }
 
-    /**
-     * Remove the specified order.
-     */
     public function destroy(Order $order)
     {
-        // Check if order can be deleted (e.g., not shipped/delivered)
-        if (in_array($order->status, ['shipped', 'delivered'])) {
+        // Prevent deletion of orders that are already processing or beyond
+        if (!$order->canBeCancelled()) {
             return redirect()->back()
-                ->with('error', 'Cannot delete order that has been shipped or delivered.');
+                ->with('error', 'Cannot delete order that is already being processed.');
+        }
+
+        // Restore stock for order items
+        foreach ($order->orderItems as $orderItem) {
+            $item = $orderItem->item;
+            $item->increaseColorStock($orderItem->selected_color, $orderItem->quantity);
         }
 
         $order->delete();
@@ -272,63 +175,62 @@ class OrderController extends Controller
             ->with('success', 'Order deleted successfully.');
     }
 
-    /**
-     * Get items for a specific store (AJAX)
-     */
-    public function getStoreItems(Store $store)
-    {
-        $items = Item::where('store_id', $store->id)
-            ->where('stock_quantity', '>', 0)
-            ->with(['category'])
-            ->get()
-            ->map(function ($item) {
-                return [
-                    'id' => $item->id,
-                    'name' => $item->name,
-                    'price' => $item->price,
-                    'stock_quantity' => $item->stock_quantity,
-                    'color_variants' => $item->color_variants ?? [],
-                    'size_stock' => $item->size_stock ?? [],
-                    'sizing_data' => $item->sizing_data,
-                    'category' => $item->category->name,
-                    'available_sizes' => array_keys(array_filter($item->size_stock ?? [])),
-                    'available_colors' => array_keys($item->color_variants ?? []),
-                ];
-            });
-
-        return response()->json($items);
-    }
-
-    /**
-     * Get item details (AJAX)
-     */
-    public function getItemDetails(Item $item)
-    {
-        return response()->json([
-            'id' => $item->id,
-            'name' => $item->name,
-            'price' => $item->price,
-            'stock_quantity' => $item->stock_quantity,
-            'color_variants' => $item->color_variants ?? [],
-            'size_stock' => $item->size_stock ?? [],
-            'sizing_data' => $item->sizing_data,
-            'available_sizes' => array_keys(array_filter($item->size_stock ?? [])),
-            'available_colors' => array_keys($item->color_variants ?? []),
-        ]);
-    }
-
-    /**
-     * Update order status
-     */
     public function updateStatus(Request $request, Order $order)
     {
         $validated = $request->validate([
-            'status' => 'required|in:pending,confirmed,processing,shipped,delivered,cancelled',
+            'status' => 'required|in:' . implode(',', array_keys(Order::STATUSES)),
         ]);
 
-        $order->update(['status' => $validated['status']]);
+        $order->updateStatus($validated['status']);
 
         return redirect()->back()
             ->with('success', 'Order status updated successfully.');
     }
+
+    /**
+     * Get cart items for a specific cart
+     */
+// Add this method to your OrderController
+/**
+ * Get cart items for order creation
+ */
+public function getCartItems(Cart $cart)
+{
+    try {
+        $cart->load(['cartItems.item.store']);
+        
+        $items = $cart->cartItems->map(function ($cartItem) {
+            return [
+                'item_id' => $cartItem->item_id,
+                'name' => $cartItem->item->name,
+                'store_name' => $cartItem->item->store->name,
+                'quantity' => $cartItem->quantity,
+                'selected_size' => $cartItem->selected_size,
+                'selected_color' => $cartItem->selected_color,
+                'unit_price' => (float) $cartItem->item_price,
+                'total_price' => (float) $cartItem->total_price,
+            ];
+        });
+
+        return response()->json($items);
+    } catch (\Exception $e) {
+        return response()->json(['error' => 'Failed to load cart items: ' . $e->getMessage()], 500);
+    }
+}
+    /**
+     * Helper method to get payment method ID
+     */
+    /**
+ * Helper method to get payment method ID
+ */
+private function getPaymentMethodId($method)
+{
+    $methods = [
+        'cash' => 1,
+        'card' => 2, 
+        'transfer' => 3,
+    ];
+
+    return $methods[$method] ?? 1;
+}
 }

@@ -1,448 +1,353 @@
 @extends('cms.layouts.app')
 
 @section('content')
-<div class="container-fluid">
-    <div class="row">
-        <div class="col-12">
-            <div class="d-flex justify-content-between align-items-center mb-4">
-                <h1 class="h3 mb-0 text-gray-800">Create New Order</h1>
-                <a href="{{ route('cms.orders.index') }}" class="btn btn-secondary">
-                    <i class="fas fa-arrow-left"></i> Back to Orders
-                </a>
+<!-- Page Heading -->
+<div class="d-sm-flex align-items-center justify-content-between mb-4">
+    <h1 class="h3 mb-0 text-gray-800">Create New Order</h1>
+    <a href="{{ route('cms.orders.index') }}" class="d-none d-sm-inline-block btn btn-sm btn-secondary shadow-sm">
+        <i class="fas fa-arrow-left fa-sm text-white-50"></i> Back to Orders
+    </a>
+</div>
+
+<!-- Content Row -->
+<div class="row">
+    <div class="col-12">
+        <div class="card shadow mb-4">
+            <div class="card-header py-3">
+                <h6 class="m-0 font-weight-bold text-primary">Order Information</h6>
             </div>
+            <div class="card-body">
+                <form action="{{ route('cms.orders.store') }}" method="POST" id="orderForm">
+                    @csrf
 
-            @if($errors->any())
-                <div class="alert alert-danger alert-dismissible fade show" role="alert">
-                    <ul class="mb-0">
-                        @foreach($errors->all() as $error)
-                            <li>{{ $error }}</li>
-                        @endforeach
-                    </ul>
-                    <button type="button" class="close" data-dismiss="alert" aria-label="Close">
-                        <span aria-hidden="true">&times;</span>
-                    </button>
-                </div>
-            @endif
-
-            <div class="card shadow mb-4">
-                <div class="card-header py-3">
-                    <h6 class="m-0 font-weight-bold text-primary">Order Information</h6>
-                </div>
-                <div class="card-body">
-                    <form action="{{ route('cms.orders.store') }}" method="POST" id="orderForm">
-                        @csrf
-
-                        <div class="row">
-                            <div class="col-md-6">
-                                <div class="form-group">
-                                    <label for="store_id">Store *</label>
-                                    <select name="store_id" id="store_id" class="form-control" required>
-                                        <option value="">Select Store</option>
-                                        @foreach($stores as $store)
-                                            <option value="{{ $store->id }}" 
-                                                {{ old('store_id') == $store->id ? 'selected' : '' }}>
-                                                {{ $store->name }}
-                                            </option>
-                                        @endforeach
-                                    </select>
-                                </div>
-                            </div>
-                            <div class="col-md-6">
-                                <div class="form-group">
-                                    <label for="user_id">Customer *</label>
-                                    <select name="user_id" id="user_id" class="form-control" required>
-                                        <option value="">Select Customer</option>
-                                        @foreach($users as $user)
-                                            <option value="{{ $user->id }}" 
-                                                {{ old('user_id') == $user->id ? 'selected' : '' }}>
-                                                {{ $user->name }} ({{ $user->email }})
-                                            </option>
-                                        @endforeach
-                                    </select>
-                                </div>
+                    <div class="row mb-4">
+                        <div class="col-md-6">
+                            <div class="form-group">
+                                <label for="user_id">Customer *</label>
+                                <select class="form-control @error('user_id') is-invalid @enderror"
+                                        id="user_id" name="user_id" required onchange="loadUserCarts()">
+                                    <option value="">Select Customer</option>
+                                    @foreach($users as $user)
+                                        <option value="{{ $user->id }}" {{ old('user_id') == $user->id ? 'selected' : '' }}>
+                                            {{ $user->name }} ({{ $user->email }})
+                                        </option>
+                                    @endforeach
+                                </select>
+                                @error('user_id')
+                                    <div class="invalid-feedback">{{ $message }}</div>
+                                @enderror
                             </div>
                         </div>
-
-                        <div class="row">
-                            <div class="col-md-6">
-                                <div class="form-group">
-                                    <label for="status">Status *</label>
-                                    <select name="status" id="status" class="form-control" required>
-                                        <option value="pending" {{ old('status') == 'pending' ? 'selected' : '' }}>Pending</option>
-                                        <option value="confirmed" {{ old('status') == 'confirmed' ? 'selected' : '' }}>Confirmed</option>
-                                        <option value="processing" {{ old('status') == 'processing' ? 'selected' : '' }}>Processing</option>
-                                        <option value="shipped" {{ old('status') == 'shipped' ? 'selected' : '' }}>Shipped</option>
-                                        <option value="delivered" {{ old('status') == 'delivered' ? 'selected' : '' }}>Delivered</option>
-                                        <option value="cancelled" {{ old('status') == 'cancelled' ? 'selected' : '' }}>Cancelled</option>
-                                    </select>
-                                </div>
+                        <div class="col-md-6">
+                            <div class="form-group">
+                                <label for="store_id">Store *</label>
+                                <select class="form-control @error('store_id') is-invalid @enderror"
+                                        id="store_id" name="store_id" required>
+                                    <option value="">Select Store</option>
+                                    @foreach($stores as $store)
+                                        <option value="{{ $store->id }}" {{ old('store_id') == $store->id ? 'selected' : '' }}>
+                                            {{ $store->name }}
+                                        </option>
+                                    @endforeach
+                                </select>
+                                @error('store_id')
+                                    <div class="invalid-feedback">{{ $message }}</div>
+                                @enderror
                             </div>
                         </div>
+                    </div>
 
-                        <hr>
-
-                        <!-- Order Items Section -->
-                        <div class="row mb-4">
-                            <div class="col-12">
-                                <h5>Order Items</h5>
-                                <div id="storeItemsContainer" class="mb-3" style="display: none;">
-                                    <label>Available Items from Store:</label>
-                                    <select id="itemSelector" class="form-control">
-                                        <option value="">Select Item to Add</option>
-                                    </select>
-                                    <button type="button" id="addItemBtn" class="btn btn-sm btn-success mt-2">
-                                        <i class="fas fa-plus"></i> Add Item
-                                    </button>
-                                </div>
-
-                                <div id="orderItemsContainer">
-                                    <!-- Dynamic order items will be added here -->
-                                </div>
-
-                                <div id="noItemsMessage" class="alert alert-info">
-                                    Please select a store first to add items to the order.
-                                </div>
+                    <!-- Cart Selection -->
+                    <div class="row mb-4" id="cart-section" style="display: none;">
+                        <div class="col-12">
+                            <div class="form-group">
+                                <label for="cart_id">Select Cart *</label>
+                                <select class="form-control @error('cart_id') is-invalid @enderror" 
+                                        id="cart_id" name="cart_id" required onchange="loadCartItems()">
+                                    <option value="">Select a Cart</option>
+                                </select>
+                                @error('cart_id')
+                                    <div class="invalid-feedback">{{ $message }}</div>
+                                @enderror
+                                <small class="form-text text-muted">Select a cart to create order from</small>
                             </div>
                         </div>
+                    </div>
 
-                        <!-- Order Summary -->
-                        <div class="row">
-                            <div class="col-md-6 offset-md-6">
-                                <div class="card">
-                                    <div class="card-header">
-                                        <h6 class="mb-0">Order Summary</h6>
+                    <!-- Order Items Display -->
+                    <div class="row mb-4">
+                        <div class="col-12">
+                            <h5 class="text-primary">Order Items</h5>
+                            <div id="order-items-container" class="text-center py-4">
+                                <i class="fas fa-shopping-cart fa-3x text-muted mb-3"></i>
+                                <p class="text-muted">Select a cart to view items</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Order Summary -->
+                    <div class="row mb-4">
+                        <div class="col-md-6">
+                            <div class="card">
+                                <div class="card-header">
+                                    <h6 class="m-0 font-weight-bold text-primary">Order Summary</h6>
+                                </div>
+                                <div class="card-body">
+                                    <div class="row mb-2">
+                                        <div class="col-6">
+                                            <strong>Total Items:</strong>
+                                        </div>
+                                        <div class="col-6 text-right">
+                                            <span id="total-items">0</span>
+                                        </div>
                                     </div>
-                                    <div class="card-body">
-                                        <div class="d-flex justify-content-between mb-2">
-                                            <span>Subtotal:</span>
-                                            <span id="subtotal">$0.00</span>
+                                    <div class="row">
+                                        <div class="col-6">
+                                            <strong>Order Total:</strong>
                                         </div>
-                                        <div class="d-flex justify-content-between mb-2">
-                                            <span>Tax:</span>
-                                            <span id="tax">$0.00</span>
-                                        </div>
-                                        <hr>
-                                        <div class="d-flex justify-content-between font-weight-bold">
-                                            <span>Total:</span>
-                                            <span id="totalAmount">$0.00</span>
+                                        <div class="col-6 text-right">
+                                            <strong id="order-total">$0.00</strong>
                                         </div>
                                     </div>
                                 </div>
                             </div>
                         </div>
+                    </div>
 
-                        <div class="row mt-4">
-                            <div class="col-12">
-                                <button type="submit" class="btn btn-primary">
-                                    <i class="fas fa-save"></i> Create Order
-                                </button>
-                                <a href="{{ route('cms.orders.index') }}" class="btn btn-secondary">Cancel</a>
+                    <!-- Payment & Delivery -->
+                    <div class="row mb-4">
+                        
+                        <div class="col-md-6">
+                            <div class="form-group">
+                                <label for="delivery_address">Delivery Address *</label>
+                                <textarea class="form-control @error('delivery_address') is-invalid @enderror"
+                                          id="delivery_address" name="delivery_address" rows="3" required
+                                          placeholder="Enter full delivery address">{{ old('delivery_address') }}</textarea>
+                                @error('delivery_address')
+                                    <div class="invalid-feedback">{{ $message }}</div>
+                                @enderror
                             </div>
                         </div>
-                    </form>
-                </div>
+                    </div>
+
+                    <div class="row mt-4">
+                        <div class="col-12">
+                            <button type="submit" class="btn btn-primary" id="submit-btn" disabled>
+                                <i class="fas fa-save"></i> Create Order
+                            </button>
+                            <a href="{{ route('cms.orders.index') }}" class="btn btn-secondary">
+                                <i class="fas fa-times"></i> Cancel
+                            </a>
+                        </div>
+                    </div>
+                </form>
             </div>
         </div>
     </div>
 </div>
 @endsection
 
-@push('styles')
-<style>
-    .order-item-card {
-        border: 1px solid #e3e6f0;
-        border-radius: 0.35rem;
-        padding: 1rem;
-        margin-bottom: 1rem;
-        background: #f8f9fc;
-    }
-    .remove-item {
-        color: #e74a3b;
-        cursor: pointer;
-    }
-    .remove-item:hover {
-        color: #be2617;
-    }
-</style>
-@endpush
-
 @push('scripts')
 <script>
-    let storeItems = [];
-    let orderItems = [];
-    let itemCounter = 0;
+function loadUserCarts() {
+    const userId = document.getElementById('user_id').value;
+    const cartSelect = document.getElementById('cart_id');
+    const cartSection = document.getElementById('cart-section');
+    const submitBtn = document.getElementById('submit-btn');
 
-    // Load store items when store is selected
-    $('#store_id').change(function() {
-        const storeId = $(this).val();
+    cartSelect.innerHTML = '<option value="">Select a Cart</option>';
+    submitBtn.disabled = true;
+    
+    if (userId) {
+        cartSection.style.display = 'block';
         
-        if (storeId) {
-            $('#noItemsMessage').hide();
-            $('#storeItemsContainer').show();
-            
-            // Load items from the selected store
-            $.get(`/cms/stores/${storeId}/items`, function(data) {
-                storeItems = data;
-                updateItemSelector();
+        // Load user's carts via AJAX
+        fetch(`/cms/carts/user/${userId}`)
+            .then(response => response.json())
+            .then(carts => {
+                if (carts.length === 0) {
+                    cartSelect.innerHTML = '<option value="">No carts available for this user</option>';
+                } else {
+                    carts.forEach(cart => {
+                        const option = document.createElement('option');
+                        option.value = cart.id;
+                        option.textContent = `Cart #${cart.id} - ${cart.total_items} items - $${cart.formatted_total}`;
+                        cartSelect.appendChild(option);
+                    });
+                }
+            })
+            .catch(error => {
+                console.error('Error loading carts:', error);
+                cartSelect.innerHTML = '<option value="">Error loading carts</option>';
             });
-        } else {
-            $('#storeItemsContainer').hide();
-            $('#noItemsMessage').show();
-            orderItems = [];
-            updateOrderItemsDisplay();
-        }
-    });
-
-    // Update item selector dropdown
-    function updateItemSelector() {
-        const selector = $('#itemSelector');
-        selector.empty().append('<option value="">Select Item to Add</option>');
-        
-        storeItems.forEach(item => {
-            selector.append(`<option value="${item.id}">${item.name} - $${item.price} (Stock: ${item.stock_quantity})</option>`);
-        });
-    }
-
-    // Add item to order
-    $('#addItemBtn').click(function() {
-        const itemId = $('#itemSelector').val();
-        if (!itemId) return;
-
-        const item = storeItems.find(i => i.id == itemId);
-        if (!item) return;
-
-        // Generate a unique ID for this order item
-        const orderItemId = itemCounter++;
-
-        const orderItem = {
-            id: orderItemId,
-            item_id: item.id,
-            name: item.name,
-            price: item.price,
-            quantity: 1,
-            selected_size: item.available_sizes.length > 0 ? item.available_sizes[0] : '',
-            selected_color: item.available_colors.length > 0 ? item.available_colors[0] : '',
-            selected_brand: '',
-            available_sizes: item.available_sizes,
-            available_colors: item.available_colors,
-            // Add unique identifier for this specific combination
-            unique_key: `${item.id}_${orderItemId}`
-        };
-
-        orderItems.push(orderItem);
-        updateOrderItemsDisplay();
-        $('#itemSelector').val('');
-        
-        // Re-calculate available stock for all items
-        updateAvailableStock();
-    });
-
-    // Update order items display
-    function updateOrderItemsDisplay() {
-        const container = $('#orderItemsContainer');
-        container.empty();
-
-        if (orderItems.length === 0) {
-            container.html('<div class="alert alert-info">No items added to order yet.</div>');
-            updateOrderSummary();
-            return;
-        }
-
-        orderItems.forEach(item => {
-            const itemTotal = item.price * item.quantity;
-            const itemHtml = `
-                <div class="order-item-card" data-item-id="${item.id}" data-unique-key="${item.unique_key}">
-                    <div class="row align-items-center">
-                        <div class="col-md-3">
-                            <strong>${item.name}</strong>
-                            <br>
-                            <small class="text-muted">Price: $${item.price}</small>
-                            <br>
-                            <small class="text-info">Available Stock: <span class="available-stock" data-item-id="${item.item_id}" data-size="${item.selected_size}" data-color="${item.selected_color}">Calculating...</span></small>
-                        </div>
-                        <div class="col-md-2">
-                            <label class="small">Quantity</label>
-                            <input type="number" name="order_items[${item.unique_key}][quantity]" 
-                                   value="${item.quantity}" min="1" class="form-control form-control-sm item-quantity"
-                                   data-unique-key="${item.unique_key}">
-                        </div>
-                        <div class="col-md-2">
-                            <label class="small">Size</label>
-                            <select name="order_items[${item.unique_key}][selected_size]" class="form-control form-control-sm item-size"
-                                    data-unique-key="${item.unique_key}">
-                                ${item.available_sizes.map(size => 
-                                    `<option value="${size}" ${item.selected_size === size ? 'selected' : ''}>${size}</option>`
-                                ).join('')}
-                            </select>
-                        </div>
-                        <div class="col-md-2">
-                            <label class="small">Color</label>
-                            <select name="order_items[${item.unique_key}][selected_color]" class="form-control form-control-sm item-color"
-                                    data-unique-key="${item.unique_key}">
-                                ${item.available_colors.map(color => 
-                                    `<option value="${color}" ${item.selected_color === color ? 'selected' : ''}>${color}</option>`
-                                ).join('')}
-                            </select>
-                        </div>
-                        <div class="col-md-2">
-                            <label class="small">Total</label>
-                            <div class="item-total font-weight-bold">$${itemTotal.toFixed(2)}</div>
-                        </div>
-                        <div class="col-md-1">
-                            <label class="small">&nbsp;</label>
-                            <div>
-                                <i class="fas fa-times remove-item text-danger" data-unique-key="${item.unique_key}" style="cursor: pointer;"></i>
-                            </div>
-                        </div>
-                    </div>
-                    <input type="hidden" name="order_items[${item.unique_key}][item_id]" value="${item.item_id}">
-                    <input type="hidden" name="order_items[${item.unique_key}][selected_brand]" value="${item.selected_brand}">
-                </div>
-            `;
-            container.append(itemHtml);
-        });
-
+    } else {
+        cartSection.style.display = 'none';
+        document.getElementById('order-items-container').innerHTML = `
+            <div class="text-center py-4">
+                <i class="fas fa-shopping-cart fa-3x text-muted mb-3"></i>
+                <p class="text-muted">Select a cart to view items</p>
+            </div>
+        `;
         updateOrderSummary();
-        updateAvailableStock();
     }
+}
 
-    // Remove item from order
-    $(document).on('click', '.remove-item', function() {
-        const uniqueKey = $(this).data('unique-key');
-        orderItems = orderItems.filter(item => item.unique_key !== uniqueKey);
-        updateOrderItemsDisplay();
-    });
-
-    // Update quantity
-    $(document).on('change', '.item-quantity', function() {
-        const uniqueKey = $(this).data('unique-key');
-        const quantity = parseInt($(this).val()) || 1;
-        
-        const item = orderItems.find(i => i.unique_key === uniqueKey);
-        if (item) {
-            item.quantity = quantity;
-            updateOrderItemsDisplay();
-        }
-    });
-
-    // Update size
-    $(document).on('change', '.item-size', function() {
-        const uniqueKey = $(this).data('unique-key');
-        const size = $(this).val();
-        
-        const item = orderItems.find(i => i.unique_key === uniqueKey);
-        if (item) {
-            item.selected_size = size;
-            updateOrderItemsDisplay();
-        }
-    });
-
-    // Update color
-    $(document).on('change', '.item-color', function() {
-        const uniqueKey = $(this).data('unique-key');
-        const color = $(this).val();
-        
-        const item = orderItems.find(i => i.unique_key === uniqueKey);
-        if (item) {
-            item.selected_color = color;
-            updateOrderItemsDisplay();
-        }
-    });
-
-    // Calculate available stock considering all order items
-    function updateAvailableStock() {
-        orderItems.forEach(item => {
-            const originalItem = storeItems.find(i => i.id == item.item_id);
-            if (!originalItem) return;
-
-            // Calculate total quantity of this item+size+color combination in the current order
-            const totalOrderedForThisCombination = orderItems
-                .filter(orderItem => 
-                    orderItem.item_id === item.item_id && 
-                    orderItem.selected_size === item.selected_size && 
-                    orderItem.selected_color === item.selected_color
-                )
-                .reduce((sum, orderItem) => sum + orderItem.quantity, 0);
-
-            // Get available stock from the original item
-            const sizeStock = originalItem.size_stock[item.selected_size] || 0;
-            const colorStock = originalItem.color_variants[item.selected_color]?.stock || 0;
-            
-            // Available stock is the minimum of size stock and color stock
-            const availableStock = Math.min(sizeStock, colorStock);
-            
-            // Remaining available stock after considering all orders for this combination
-            const remainingStock = Math.max(0, availableStock - totalOrderedForThisCombination + item.quantity);
-            
-            // Update the display
-            $(`.available-stock[data-item-id="${item.item_id}"][data-size="${item.selected_size}"][data-color="${item.selected_color}"]`)
-                .text(remainingStock)
-                .toggleClass('text-danger', remainingStock < item.quantity)
-                .toggleClass('text-success', remainingStock >= item.quantity);
-        });
+function loadCartItems() {
+    const cartId = document.getElementById('cart_id').value;
+    const submitBtn = document.getElementById('submit-btn');
+    const container = document.getElementById('order-items-container');
+    
+    if (cartId) {
+        fetch(`/cms/orders/cart/${cartId}/items`)
+            .then(response => response.json())
+            .then(items => {
+                if (items.length === 0) {
+                    container.innerHTML = `
+                        <div class="text-center py-4">
+                            <i class="fas fa-exclamation-triangle fa-3x text-warning mb-3"></i>
+                            <p class="text-warning">No items found in this cart</p>
+                        </div>
+                    `;
+                    submitBtn.disabled = true;
+                } else {
+                    // Display items in a table
+                    let itemsHTML = `
+                        <div class="table-responsive">
+                            <table class="table table-bordered">
+                                <thead class="thead-light">
+                                    <tr>
+                                        <th>Product</th>
+                                        <th>Price</th>
+                                        <th>Quantity</th>
+                                        <th>Size</th>
+                                        <th>Color</th>
+                                        <th>Total</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                    `;
+                    
+                    let totalItems = 0;
+                    let orderTotal = 0;
+                    
+                    items.forEach(item => {
+                        const itemTotal = item.quantity * item.unit_price;
+                        totalItems += item.quantity;
+                        orderTotal += itemTotal;
+                        
+                        itemsHTML += `
+                            <tr>
+                                <td>
+                                    <div class="d-flex align-items-center">
+                                        <div class="flex-shrink-0">
+                                            <i class="fas fa-tshirt fa-2x text-primary"></i>
+                                        </div>
+                                        <div class="flex-grow-1 ms-3">
+                                            <h6 class="mb-0">${item.name}</h6>
+                                            <small class="text-muted">Store: ${item.store_name}</small>
+                                        </div>
+                                    </div>
+                                </td>
+                                <td>$${item.unit_price.toFixed(2)}</td>
+                                <td>
+                                    <span class="badge badge-secondary">${item.quantity}</span>
+                                </td>
+                                <td>
+                                    ${item.selected_size ? `<span class="badge badge-info">${item.selected_size}</span>` : '<span class="text-muted">N/A</span>'}
+                                </td>
+                                <td>
+                                    <span class="badge" style="background-color: ${item.selected_color}; color: white;">
+                                        ${item.selected_color}
+                                    </span>
+                                </td>
+                                <td>
+                                    <strong>$${itemTotal.toFixed(2)}</strong>
+                                </td>
+                            </tr>
+                        `;
+                    });
+                    
+                    itemsHTML += `
+                                </tbody>
+                            </table>
+                        </div>
+                    `;
+                    
+                    container.innerHTML = itemsHTML;
+                    
+                    // Update summary
+                    document.getElementById('total-items').textContent = totalItems;
+                    document.getElementById('order-total').textContent = `$${orderTotal.toFixed(2)}`;
+                    
+                    // Enable submit button
+                    submitBtn.disabled = false;
+                    
+                    // Add hidden inputs for items
+                    addHiddenItemInputs(items);
+                }
+            })
+            .catch(error => {
+                console.error('Error loading cart items:', error);
+                container.innerHTML = `
+                    <div class="text-center py-4">
+                        <i class="fas fa-exclamation-triangle fa-3x text-danger mb-3"></i>
+                        <p class="text-danger">Error loading cart items</p>
+                    </div>
+                `;
+                submitBtn.disabled = true;
+            });
+    } else {
+        container.innerHTML = `
+            <div class="text-center py-4">
+                <i class="fas fa-shopping-cart fa-3x text-muted mb-3"></i>
+                <p class="text-muted">Select a cart to view items</p>
+            </div>
+        `;
+        updateOrderSummary();
+        submitBtn.disabled = true;
     }
+}
 
-    // Update order summary
-    function updateOrderSummary() {
-        let subtotal = 0;
+function addHiddenItemInputs(items) {
+    // Remove any existing hidden inputs
+    document.querySelectorAll('input[name^="items"]').forEach(input => input.remove());
+    
+    // Add hidden inputs for each item
+    const form = document.getElementById('orderForm');
+    
+    items.forEach((item, index) => {
+        const fields = [
+            { name: `items[${index}][item_id]`, value: item.item_id },
+            { name: `items[${index}][quantity]`, value: item.quantity },
+            { name: `items[${index}][selected_size]`, value: item.selected_size || '' },
+            { name: `items[${index}][selected_color]`, value: item.selected_color },
+            { name: `items[${index}][unit_price]`, value: item.unit_price }
+        ];
         
-        orderItems.forEach(item => {
-            subtotal += item.price * item.quantity;
+        fields.forEach(field => {
+            const input = document.createElement('input');
+            input.type = 'hidden';
+            input.name = field.name;
+            input.value = field.value;
+            form.appendChild(input);
         });
-
-        const tax = subtotal * 0.1; // 10% tax for example
-        const total = subtotal + tax;
-
-        $('#subtotal').text('$' + subtotal.toFixed(2));
-        $('#tax').text('$' + tax.toFixed(2));
-        $('#totalAmount').text('$' + total.toFixed(2));
-    }
-
-    // Form submission with stock validation
-    $('#orderForm').submit(function(e) {
-        if (orderItems.length === 0) {
-            e.preventDefault();
-            alert('Please add at least one item to the order.');
-            return false;
-        }
-
-        // Validate stock for all items
-        let hasStockIssues = false;
-        let errorMessages = [];
-
-        orderItems.forEach(item => {
-            const originalItem = storeItems.find(i => i.id == item.item_id);
-            if (!originalItem) return;
-
-            const sizeStock = originalItem.size_stock[item.selected_size] || 0;
-            const colorStock = originalItem.color_variants[item.selected_color]?.stock || 0;
-            const availableStock = Math.min(sizeStock, colorStock);
-
-            // Calculate total ordered for this combination
-            const totalOrderedForThisCombination = orderItems
-                .filter(orderItem => 
-                    orderItem.item_id === item.item_id && 
-                    orderItem.selected_size === item.selected_size && 
-                    orderItem.selected_color === item.selected_color
-                )
-                .reduce((sum, orderItem) => sum + orderItem.quantity, 0);
-
-            if (totalOrderedForThisCombination > availableStock) {
-                hasStockIssues = true;
-                errorMessages.push(
-                    `"${item.name}" in ${item.selected_size}/${item.selected_color}: ` +
-                    `Requested ${totalOrderedForThisCombination}, but only ${availableStock} available.`
-                );
-            }
-        });
-
-        if (hasStockIssues) {
-            e.preventDefault();
-            alert('Stock issues found:\n\n' + errorMessages.join('\n'));
-            return false;
-        }
-
-        return true;
     });
+}
+
+function updateOrderSummary() {
+    document.getElementById('total-items').textContent = '0';
+    document.getElementById('order-total').textContent = '$0.00';
+}
+
+// Form validation
+document.getElementById('orderForm').addEventListener('submit', function(e) {
+    const cartId = document.getElementById('cart_id').value;
+    
+    if (!cartId) {
+        e.preventDefault();
+        Swal.fire('Error', 'Please select a cart to create order from.', 'error');
+        return;
+    }
+});
 </script>
 @endpush

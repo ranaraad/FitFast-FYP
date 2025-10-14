@@ -225,4 +225,25 @@ class CartController extends Controller
     {
         $item->increaseColorStock($color, $quantity);
     }
+
+   // Add to CartController.php
+// In CartController.php
+public function getUserCarts(User $user)
+{
+    $carts = Cart::with(['cartItems.item.store'])
+        ->where('user_id', $user->id)
+        ->whereHas('cartItems')
+        ->get()
+        ->map(function ($cart) {
+            return [
+                'id' => $cart->id,
+                'total_items' => $cart->cartItems->sum('quantity'),
+                'cart_total' => $cart->cart_total,
+                'formatted_total' => number_format($cart->cart_total, 2),
+                'last_activity' => $cart->updated_at->format('M d, Y H:i'),
+            ];
+        });
+
+    return response()->json($carts);
+}
 }

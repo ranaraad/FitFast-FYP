@@ -48,16 +48,8 @@ Route::prefix('cms')->name('cms.')->group(function () {
     Route::resource('stores', StoreController::class);
 // Orders
 Route::resource('orders', OrderController::class);
-Route::get('stores/{store}/items', [OrderController::class, 'getStoreItems'])->name('stores.items');
-Route::get('items/{item}/details', [OrderController::class, 'getItemDetails'])->name('items.details');
 Route::post('orders/{order}/status', [OrderController::class, 'updateStatus'])->name('orders.update-status');
-
-// Order Items (nested)
-Route::prefix('orders/{order}')->group(function () {
-    Route::resource('order-items', OrderItemController::class);
-});
-
-    // Reviews
+Route::get('orders/cart/{cart}/items', [OrderController::class, 'getCartItems'])->name('orders.cart-items');    // Reviews
     Route::resource('reviews', ReviewController::class)->only([
         'index', 'show', 'destroy'
     ]);
@@ -67,8 +59,9 @@ Route::prefix('orders/{order}')->group(function () {
     // Carts 
     Route::resource('carts', CartController::class); // Now includes all methods
     Route::post('carts/{cart}/clear', [CartController::class, 'clearCart'])->name('carts.clear');
+Route::get('carts/user/{user}', [CartController::class, 'getUserCarts'])->name('carts.user-carts');  
 
-    // Deliveries
+// Deliveries
     Route::resource('deliveries', DeliveryController::class);
     Route::post('deliveries/{delivery}/status', [DeliveryController::class, 'updateStatus'])->name('deliveries.update-status');
     Route::post('deliveries/{delivery}/shipped', [DeliveryController::class, 'markAsShipped'])->name('deliveries.mark-shipped');

@@ -98,4 +98,6 @@ class Cart extends Model
         return $this->updated_at->diffForHumans();
     }
 
+    
+
 }

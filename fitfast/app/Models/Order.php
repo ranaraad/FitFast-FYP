@@ -34,6 +34,25 @@ class Order extends Model
     ];
 
     /**
+     * Order status constants
+     */
+    public const STATUS_PENDING = 'pending';
+    public const STATUS_CONFIRMED = 'confirmed';
+    public const STATUS_PROCESSING = 'processing';
+    public const STATUS_SHIPPED = 'shipped';
+    public const STATUS_DELIVERED = 'delivered';
+    public const STATUS_CANCELLED = 'cancelled';
+
+    public const STATUSES = [
+        self::STATUS_PENDING => 'Pending',
+        self::STATUS_CONFIRMED => 'Confirmed',
+        self::STATUS_PROCESSING => 'Processing',
+        self::STATUS_SHIPPED => 'Shipped',
+        self::STATUS_DELIVERED => 'Delivered',
+        self::STATUS_CANCELLED => 'Cancelled',
+    ];
+
+    /**
      * Get the store that owns the order.
      */
     public function store(): BelongsTo
@@ -42,7 +61,7 @@ class Order extends Model
     }
 
     /**
-     * Get the user that placed the order.
+     * Get the user that owns the order.
      */
     public function user(): BelongsTo
     {
@@ -58,7 +77,7 @@ class Order extends Model
     }
 
     /**
-     * Get the delivery associated with the order.
+     * Get the delivery for the order.
      */
     public function delivery(): HasOne
     {
@@ -66,58 +85,74 @@ class Order extends Model
     }
 
     /**
-     * Check if order has delivery information.
+     * Get the payment for the order.
      */
-    public function hasDelivery(): bool
+    public function payment(): HasOne
     {
-        return $this->delivery !== null;
+        return $this->hasOne(Payment::class);
     }
 
     /**
-     * Get delivery status.
+     * Calculate total items in order
      */
-    public function getDeliveryStatusAttribute(): string
+    public function getTotalItemsAttribute(): int
     {
-        return $this->delivery ? $this->delivery->status : 'not_created';
+        return $this->orderItems->sum('quantity');
     }
 
     /**
-     * Get the payments for the order.
+     * Check if order can be cancelled
      */
-    public function payments(): HasMany
+    public function canBeCancelled(): bool
     {
-        return $this->hasMany(Payment::class);
+        return in_array($this->status, [self::STATUS_PENDING, self::STATUS_CONFIRMED]);
     }
 
     /**
-     * Check if order has been paid.
+     * Scope a query to only include pending orders.
      */
-    public function isPaid(): bool
+    public function scopePending($query)
     {
-        return $this->payments()
-            ->where('status', 'completed')
-            ->exists();
+        return $query->where('status', self::STATUS_PENDING);
     }
 
     /**
-     * Get the latest payment for the order.
+     * Scope a query to only include completed orders.
      */
-    public function latestPayment()
+    public function scopeCompleted($query)
     {
-        return $this->payments()->latest()->first();
+        return $query->where('status', self::STATUS_DELIVERED);
     }
 
-    // In App\Models\Order
-public function getStatusBadgeClass(): string
-{
-    return match($this->status) {
-        'pending' => 'warning',
-        'confirmed' => 'info',
-        'processing' => 'primary',
-        'shipped' => 'success',
-        'delivered' => 'success',
-        'cancelled' => 'danger',
-        default => 'secondary'
-    };
-}
+    /**
+     * Get formatted status with badge color
+     */
+    public function getStatusBadgeAttribute(): string
+    {
+        $badgeColors = [
+            self::STATUS_PENDING => 'secondary',
+            self::STATUS_CONFIRMED => 'info',
+            self::STATUS_PROCESSING => 'primary',
+            self::STATUS_SHIPPED => 'warning',
+            self::STATUS_DELIVERED => 'success',
+            self::STATUS_CANCELLED => 'danger',
+        ];
+
+        $color = $badgeColors[$this->status] ?? 'secondary';
+        $statusText = self::STATUSES[$this->status] ?? $this->status;
+
+        return '<span class="badge badge-' . $color . '">' . $statusText . '</span>';
+    }
+
+    /**
+     * Update order status
+     */
+    public function updateStatus(string $status): bool
+    {
+        if (array_key_exists($status, self::STATUSES)) {
+            $this->update(['status' => $status]);
+            return true;
+        }
+        return false;
+    }
 }

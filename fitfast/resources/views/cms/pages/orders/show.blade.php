@@ -206,39 +206,60 @@
                 <h6 class="m-0 font-weight-bold text-primary">Payment Information</h6>
             </div>
             <div class="card-body">
-                @if($order->payment)
-                <div class="row mb-3">
-                    <div class="col-6">
-                        <strong>Payment Status:</strong>
-                    </div>
-                    <div class="col-6 text-right">
-                        <span class="badge badge-{{ $order->payment->status === 'completed' ? 'success' : ($order->payment->status === 'pending' ? 'warning' : 'danger') }}">
-                            {{ ucfirst($order->payment->status) }}
-                        </span>
-                    </div>
-                </div>
-                @if($order->payment->transaction_id)
-                <div class="row mb-3">
-                    <div class="col-6">
-                        <strong>Transaction ID:</strong>
-                    </div>
-                    <div class="col-6 text-right">
-                        {{ $order->payment->transaction_id }}
-                    </div>
-                </div>
-                @endif
-                @if($order->payment->paymentMethod)
+                @if($order->payment && $order->payment->paymentMethod)
                 <div class="row">
-                    <div class="col-6">
-                        <strong>Payment Method:</strong>
+                    <div class="col-md-6">
+                        <div class="row mb-3">
+                            <div class="col-6">
+                                <strong>Payment Method:</strong>
+                            </div>
+                            <div class="col-6 text-right">
+                                <span class="badge badge-{{ $order->payment->paymentMethod->type == 'card' ? 'primary' : 'success' }}">
+                                    {{ ucfirst($order->payment->paymentMethod->type) }}
+                                </span>
+                            </div>
+                        </div>
+                        <div class="row mb-3">
+                            <div class="col-6">
+                                <strong>Payment Status:</strong>
+                            </div>
+                            <div class="col-6 text-right">
+                                <span class="badge badge-{{ $order->payment->status === 'completed' ? 'success' : ($order->payment->status === 'pending' ? 'warning' : 'danger') }}">
+                                    {{ ucfirst($order->payment->status) }}
+                                </span>
+                            </div>
+                        </div>
                     </div>
-                    <div class="col-6 text-right">
-                        {{ ucfirst($order->payment->paymentMethod->type) }}
+                    <div class="col-md-6">
+                        <div class="row mb-3">
+                            <div class="col-6">
+                                <strong>Amount:</strong>
+                            </div>
+                            <div class="col-6 text-right">
+                                <strong>${{ number_format($order->payment->amount, 2) }}</strong>
+                            </div>
+                        </div>
+                        @if($order->payment->transaction_id)
+                        <div class="row">
+                            <div class="col-6">
+                                <strong>Transaction ID:</strong>
+                            </div>
+                            <div class="col-6 text-right">
+                                <code>{{ $order->payment->transaction_id }}</code>
+                            </div>
+                        </div>
+                        @endif
                     </div>
                 </div>
-                @endif
+                <div class="alert alert-info mt-3">
+                    <i class="fas fa-info-circle"></i>
+                    <strong>Demo Only:</strong> This is a mock payment system. No real payments were processed.
+                </div>
                 @else
-                <p class="text-muted">No payment information available.</p>
+                <div class="text-center py-3">
+                    <i class="fas fa-credit-card fa-2x text-muted mb-3"></i>
+                    <p class="text-muted">No payment information available</p>
+                </div>
                 @endif
             </div>
         </div>

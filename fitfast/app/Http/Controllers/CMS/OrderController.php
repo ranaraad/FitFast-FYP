@@ -116,44 +116,49 @@ public function store(Request $request)
         return view('cms.pages.orders.edit', compact('order', 'users', 'stores', 'statuses'));
     }
 
-    public function update(Request $request, Order $order)
-    {
-        $validated = $request->validate([
-            'user_id' => 'required|exists:users,id',
-            'store_id' => 'required|exists:stores,id',
-            'status' => 'required|in:' . implode(',', array_keys(Order::STATUSES)),
-            'total_amount' => 'required|numeric|min:0',
-            'delivery_address' => 'required|string|max:500',
-            'delivery_status' => 'required|in:pending,shipped,delivered,failed',
-            'payment_status' => 'required|in:pending,completed,failed,refunded',
+  public function update(Request $request, Order $order)
+{
+    $validated = $request->validate([
+        'user_id' => 'required|exists:users,id',
+        'store_id' => 'required|exists:stores,id',
+        'status' => 'required|in:' . implode(',', array_keys(Order::STATUSES)),
+        'total_amount' => 'required|numeric|min:0',
+        'delivery_address' => 'required|string|max:500',
+        'delivery_status' => 'required|in:pending,shipped,delivered,failed',
+        'payment_method' => 'required|in:cash,card',
+        'card_number' => 'nullable|string|max:19',
+        'expiry_date' => 'nullable|string|max:5',
+        'cvv' => 'nullable|string|max:3',
+        'card_holder' => 'nullable|string|max:255',
+    ]);
+
+    // Update order
+    $order->update([
+        'user_id' => $validated['user_id'],
+        'store_id' => $validated['store_id'],
+        'status' => $validated['status'],
+        'total_amount' => $validated['total_amount'],
+    ]);
+
+    // Update delivery
+    if ($order->delivery) {
+        $order->delivery->update([
+            'address' => $validated['delivery_address'],
+            'status' => $validated['delivery_status'],
         ]);
-
-        // Update order
-        $order->update([
-            'user_id' => $validated['user_id'],
-            'store_id' => $validated['store_id'],
-            'status' => $validated['status'],
-            'total_amount' => $validated['total_amount'],
-        ]);
-
-        // Update delivery
-        if ($order->delivery) {
-            $order->delivery->update([
-                'address' => $validated['delivery_address'],
-                'status' => $validated['delivery_status'],
-            ]);
-        }
-
-        // Update payment
-        if ($order->payment) {
-            $order->payment->update([
-                'status' => $validated['payment_status'],
-            ]);
-        }
-
-        return redirect()->route('cms.orders.show', $order)
-            ->with('success', 'Order updated successfully.');
     }
+
+    // Update payment method if payment exists
+    if ($order->payment) {
+        $paymentMethodId = $validated['payment_method'] === 'card' ? 2 : 1; // 2 for card, 1 for cash
+        $order->payment->update([
+            'payment_method_id' => $paymentMethodId,
+        ]);
+    }
+
+    return redirect()->route('cms.orders.show', $order)
+        ->with('success', 'Order updated successfully.');
+}
 
     public function destroy(Order $order)
     {

@@ -57,7 +57,7 @@ Route::prefix('cms')->name('cms.')->group(function () {
     Route::get('reviews/item/{item}', [ReviewController::class, 'itemReviews'])->name('reviews.item');
     Route::get('reviews/user/{user}', [ReviewController::class, 'userReviews'])->name('reviews.user');
 
-    // Carts 
+    // Carts
     Route::resource('carts', CartController::class); // Now includes all methods
     Route::post('carts/{cart}/clear', [CartController::class, 'clearCart'])->name('carts.clear');
 
@@ -87,4 +87,10 @@ Route::prefix('cms')->name('cms.')->group(function () {
 
     // Tips
     Route::resource('tips', TipController::class);
+
+    // Chat Support
+    Route::resource('chat-support', ChatSupportController::class);
+    Route::post('chat-support/{chatSupport}/take', [ChatSupportController::class, 'takeChat'])->name('chat-support.take');
+    Route::post('chat-support/{chatSupport}/resolve', [ChatSupportController::class, 'resolve'])->name('chat-support.resolve');
+    Route::get('chat-support/status/{status}', [ChatSupportController::class, 'byStatus'])->name('chat-support.by-status');
 });

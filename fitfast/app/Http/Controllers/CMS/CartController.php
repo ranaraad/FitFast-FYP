@@ -228,21 +228,30 @@ class CartController extends Controller
 
    // Add to CartController.php
 // In CartController.php
-public function getUserCarts(User $user)
+public function getUserCarts(User $user, Request $request)
 {
-    $carts = Cart::with(['cartItems.item.store'])
+    $storeId = $request->get('store_id');
+    
+    $query = Cart::with(['cartItems.item.store'])
         ->where('user_id', $user->id)
-        ->whereHas('cartItems')
-        ->get()
-        ->map(function ($cart) {
-            return [
-                'id' => $cart->id,
-                'total_items' => $cart->cartItems->sum('quantity'),
-                'cart_total' => $cart->cart_total,
-                'formatted_total' => number_format($cart->cart_total, 2),
-                'last_activity' => $cart->updated_at->format('M d, Y H:i'),
-            ];
+        ->whereHas('cartItems');
+    
+    // Filter by store if provided
+    if ($storeId) {
+        $query->whereHas('cartItems.item', function($q) use ($storeId) {
+            $q->where('store_id', $storeId);
         });
+    }
+    
+    $carts = $query->get()->map(function ($cart) {
+        return [
+            'id' => $cart->id,
+            'total_items' => $cart->total_items,
+            'cart_total' => $cart->cart_total,
+            'formatted_total' => number_format($cart->cart_total, 2),
+            'last_activity' => $cart->last_activity,
+        ];
+    });
 
     return response()->json($carts);
 }

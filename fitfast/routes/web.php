@@ -25,8 +25,9 @@ Route::get('/', function () {
 
 // CMS Routes (Admin Panel)
 Route::prefix('cms')->name('cms.')->group(function () {
-    Route::get('/dashboard', [DashboardController::class, 'index'])->name('dashboard');
 
+    Route::get('/dashboard', [DashboardController::class, 'index'])->name('dashboard');
+    
     Route::resource('users', CMSUserController::class)->names([
         'index' => 'users.index',
         'create' => 'users.create',
@@ -56,10 +57,10 @@ Route::get('orders/cart/{cart}/items', [OrderController::class, 'getCartItems'])
     Route::get('reviews/item/{item}', [ReviewController::class, 'itemReviews'])->name('reviews.item');
     Route::get('reviews/user/{user}', [ReviewController::class, 'userReviews'])->name('reviews.user');
 
-    // Carts 
+    // Carts
     Route::resource('carts', CartController::class); // Now includes all methods
     Route::post('carts/{cart}/clear', [CartController::class, 'clearCart'])->name('carts.clear');
-Route::get('carts/user/{user}', [CartController::class, 'getUserCarts'])->name('carts.user-carts');  
+Route::get('carts/user/{user}', [CartController::class, 'getUserCarts'])->name('carts.user-carts');
 
 // Deliveries
     Route::resource('deliveries', DeliveryController::class);
@@ -78,9 +79,8 @@ Route::get('carts/user/{user}', [CartController::class, 'getUserCarts'])->name('
 
     // Payment Methods
     Route::resource('payment-methods', PaymentMethodController::class);
-    Route::post('payment-methods/{paymentMethod}/default', [PaymentMethodController::class, 'setAsDefault'])->name('payment-methods.set-default');
-    Route::get('payment-methods/user/{user}', [PaymentMethodController::class, 'byUser'])->name('payment-methods.by-user');
-    Route::get('payment-methods/type/{type}', [PaymentMethodController::class, 'byType'])->name('payment-methods.by-type');
+    Route::post('payment-methods/{paymentMethod}/set-default', [PaymentMethodController::class, 'setDefault'])
+        ->name('payment-methods.set-default');
 
     // FAQs
     Route::resource('faqs', FAQController::class);

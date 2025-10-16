@@ -20,16 +20,16 @@
             <div class="nav-link">
                 <div class="d-flex align-items-center">
                     <div class="px-3 border-right">
-                        <small class="text-muted">Online Users</small>
-                        <div class="text-center font-weight-bold text-success">24</div>
+                        <small class="text-muted">Active Users</small>
+                        <div class="text-center font-weight-bold text-success">{{ $topbarStats['active_users'] ?? 0 }}</div>
                     </div>
                     <div class="px-3 border-right">
                         <small class="text-muted">Pending Support</small>
-                        <div class="text-center font-weight-bold text-warning">5</div>
+                        <div class="text-center font-weight-bold text-warning">{{ $topbarStats['pending_support'] ?? 0 }}</div>
                     </div>
                     <div class="px-3">
-                        <small class="text-muted">New Orders</small>
-                        <div class="text-center font-weight-bold text-primary">12</div>
+                        <small class="text-muted">Today's Revenue</small>
+                        <div class="text-center font-weight-bold text-primary">${{ number_format($topbarStats['today_revenue'] ?? 0, 2) }}</div>
                     </div>
                 </div>
             </div>
@@ -41,7 +41,7 @@
                 aria-haspopup="true" aria-expanded="false">
                 <i class="fas fa-bell fa-fw"></i>
                 <!-- Counter - Alerts -->
-                <span class="badge badge-danger badge-counter">3</span>
+                <span class="badge badge-danger badge-counter">{{ $topbarStats['pending_support'] ?? 0 }}</span>
             </a>
             <!-- Dropdown - Alerts -->
             <div class="dropdown-list dropdown-menu dropdown-menu-right shadow animated--grow-in"
@@ -57,18 +57,18 @@
                     </div>
                     <div>
                         <div class="small text-gray-500">Just now</div>
-                        <span class="font-weight-bold">New support ticket received</span>
+                        <span class="font-weight-bold">{{ $topbarStats['pending_support'] ?? 0 }} pending support tickets</span>
                     </div>
                 </a>
-                <a class="dropdown-item d-flex align-items-center" href="#">
+                <a class="dropdown-item d-flex align-items-center" href="{{ route('cms.orders.index') }}">
                     <div class="mr-3">
                         <div class="icon-circle bg-success">
                             <i class="fas fa-shopping-cart text-white"></i>
                         </div>
                     </div>
                     <div>
-                        <div class="small text-gray-500">10 minutes ago</div>
-                        New order placed #ORD-2876
+                        <div class="small text-gray-500">Today</div>
+                        ${{ number_format($topbarStats['today_revenue'] ?? 0, 2) }} revenue generated
                     </div>
                 </a>
                 <a class="dropdown-item d-flex align-items-center" href="{{ route('cms.users.index') }}">
@@ -78,8 +78,8 @@
                         </div>
                     </div>
                     <div>
-                        <div class="small text-gray-500">1 hour ago</div>
-                        3 new users registered today
+                        <div class="small text-gray-500">Active</div>
+                        {{ $topbarStats['active_users'] ?? 0 }} users with orders
                     </div>
                 </a>
                 <a class="dropdown-item text-center small text-gray-500" href="#">View All Notifications</a>
@@ -92,7 +92,7 @@
                 data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
                 <i class="fas fa-envelope fa-fw"></i>
                 <!-- Counter - Messages -->
-                <span class="badge badge-warning badge-counter">2</span>
+                <span class="badge badge-warning badge-counter">{{ $topbarStats['pending_support'] ?? 0 }}</span>
             </a>
             <!-- Dropdown - Messages -->
             <div class="dropdown-list dropdown-menu dropdown-menu-right shadow animated--grow-in"
@@ -108,20 +108,8 @@
                         </div>
                     </div>
                     <div>
-                        <div class="text-truncate">Hi, I need help with my recent order tracking</div>
-                        <div class="small text-gray-500">Customer · 15m ago</div>
-                    </div>
-                </a>
-                <a class="dropdown-item d-flex align-items-center" href="{{ route('cms.chat-support.index') }}">
-                    <div class="dropdown-list-image mr-3">
-                        <div class="status-indicator bg-warning"></div>
-                        <div class="icon-circle bg-light">
-                            <i class="fas fa-user text-gray-600"></i>
-                        </div>
-                    </div>
-                    <div>
-                        <div class="text-truncate">Question about size exchange policy</div>
-                        <div class="small text-gray-500">Customer · 1h ago</div>
+                        <div class="text-truncate">You have {{ $topbarStats['pending_support'] ?? 0 }} pending support tickets</div>
+                        <div class="small text-gray-500">Click to view</div>
                     </div>
                 </a>
                 <a class="dropdown-item text-center small text-gray-500" href="{{ route('cms.chat-support.index') }}">View All Messages</a>
@@ -158,7 +146,7 @@
                     <i class="fas fa-cogs fa-sm fa-fw mr-2 text-gray-400"></i>
                     Account Settings
                 </a>
-                <a class="dropdown-item" href="#">
+                <a class="dropdown-item" href="{{ route('cms.dashboard') }}">
                     <i class="fas fa-chart-line fa-sm fa-fw mr-2 text-gray-400"></i>
                     Analytics
                 </a>
@@ -216,5 +204,20 @@
 }
 .dropdown-header.bg-primary {
     border-radius: 0.35rem 0.35rem 0 0;
+}
+.status-indicator {
+    height: 0.8rem;
+    width: 0.8rem;
+    border-radius: 50%;
+    position: absolute;
+    bottom: 0;
+    right: 0;
+    border: 2px solid #fff;
+}
+.dropdown-list-image {
+    position: relative;
+}
+.border-right {
+    border-right: 1px solid #e3e6f0 !important;
 }
 </style>

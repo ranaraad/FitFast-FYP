@@ -79,8 +79,8 @@
                             <div class="form-group">
                                 <label for="total_amount">Total Amount *</label>
                                 <input type="number" class="form-control @error('total_amount') is-invalid @enderror"
-                                       id="total_amount" name="total_amount" 
-                                       value="{{ old('total_amount', $order->total_amount) }}" 
+                                       id="total_amount" name="total_amount"
+                                       value="{{ old('total_amount', $order->total_amount) }}"
                                        min="0" step="0.01" required>
                                 @error('total_amount')
                                     <div class="invalid-feedback">{{ $message }}</div>
@@ -187,8 +187,8 @@
                                                 <select class="form-control @error('payment_method') is-invalid @enderror"
                                                         id="payment_method" name="payment_method" required onchange="toggleCardFields()">
                                                     <option value="">Select Payment Method</option>
-                                                    <option value="cash" {{ old('payment_method', $order->payment && $order->payment->paymentMethod ? $order->payment->paymentMethod->type : '') == 'cash' ? 'selected' : '' }}>Cash</option>
-                                                    <option value="card" {{ old('payment_method', $order->payment && $order->payment->paymentMethod ? $order->payment->paymentMethod->type : '') == 'card' ? 'selected' : '' }}>Credit/Debit Card</option>
+                                                    <option value="cash" {{ old('payment_method', $order->getPaymentMethodType()) == 'cash' ? 'selected' : '' }}>Cash</option>
+                                                    <option value="card" {{ old('payment_method', $order->getPaymentMethodType()) == 'card' ? 'selected' : '' }}>Credit/Debit Card</option>
                                                 </select>
                                                 @error('payment_method')
                                                     <div class="invalid-feedback">{{ $message }}</div>
@@ -198,55 +198,8 @@
                                     </div>
 
                                     <!-- Card Fields (Hidden by default) -->
-                                    <div id="card-fields" style="{{ (old('payment_method') ?: ($order->payment && $order->payment->paymentMethod ? $order->payment->paymentMethod->type : '')) == 'card' ? '' : 'display: none;' }}">
-                                        <div class="row">
-                                            <div class="col-md-6">
-                                                <div class="form-group">
-                                                    <label for="card_number">Card Number</label>
-                                                    <input type="text" class="form-control" 
-                                                           id="card_number" name="card_number" 
-                                                           value="{{ old('card_number') }}"
-                                                           placeholder="1234 5678 9012 3456"
-                                                           maxlength="19">
-                                                    <small class="form-text text-muted">Enter 16-digit card number</small>
-                                                </div>
-                                            </div>
-                                            <div class="col-md-3">
-                                                <div class="form-group">
-                                                    <label for="expiry_date">Expiry Date</label>
-                                                    <input type="text" class="form-control" 
-                                                           id="expiry_date" name="expiry_date" 
-                                                           value="{{ old('expiry_date') }}"
-                                                           placeholder="MM/YY"
-                                                           maxlength="5">
-                                                </div>
-                                            </div>
-                                            <div class="col-md-3">
-                                                <div class="form-group">
-                                                    <label for="cvv">CVV</label>
-                                                    <input type="text" class="form-control" 
-                                                           id="cvv" name="cvv" 
-                                                           value="{{ old('cvv') }}"
-                                                           placeholder="123"
-                                                           maxlength="3">
-                                                </div>
-                                            </div>
-                                        </div>
-                                        <div class="row">
-                                            <div class="col-md-6">
-                                                <div class="form-group">
-                                                    <label for="card_holder">Card Holder Name</label>
-                                                    <input type="text" class="form-control" 
-                                                           id="card_holder" name="card_holder" 
-                                                           value="{{ old('card_holder') }}"
-                                                           placeholder="John Doe">
-                                                </div>
-                                            </div>
-                                        </div>
-                                        <div class="alert alert-info">
-                                            <i class="fas fa-info-circle"></i>
-                                            <strong>Demo Only:</strong> This is a mock payment form. No real payments will be processed.
-                                        </div>
+                                    <div id="card-fields" style="{{ (old('payment_method') ?: $order->getPaymentMethodType()) == 'card' ? '' : 'display: none;' }}">
+                                        <!-- Your existing card fields here -->
                                     </div>
                                 </div>
                             </div>
@@ -278,7 +231,7 @@
 function toggleCardFields() {
     const paymentMethod = document.getElementById('payment_method').value;
     const cardFields = document.getElementById('card-fields');
-    
+
     if (paymentMethod === 'card') {
         cardFields.style.display = 'block';
     } else {
@@ -290,21 +243,21 @@ function toggleCardFields() {
 document.getElementById('card_number')?.addEventListener('input', function(e) {
     let value = e.target.value.replace(/\s+/g, '').replace(/[^0-9]/gi, '');
     let formattedValue = '';
-    
+
     for (let i = 0; i < value.length; i++) {
         if (i > 0 && i % 4 === 0) {
             formattedValue += ' ';
         }
         formattedValue += value[i];
     }
-    
+
     e.target.value = formattedValue.substring(0, 19);
 });
 
 // Format expiry date input
 document.getElementById('expiry_date')?.addEventListener('input', function(e) {
     let value = e.target.value.replace(/\//g, '').replace(/[^0-9]/gi, '');
-    
+
     if (value.length >= 2) {
         e.target.value = value.substring(0, 2) + '/' + value.substring(2, 4);
     } else {

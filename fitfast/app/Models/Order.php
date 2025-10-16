@@ -155,4 +155,23 @@ class Order extends Model
         }
         return false;
     }
+
+    /**
+     * Get the payment method type for this order
+     */
+    public function getPaymentMethodType(): string
+    {
+        if (!$this->payment || !$this->payment->paymentMethod) {
+            return 'cash'; // default
+        }
+
+        // Map payment method IDs to types
+        $methodMapping = [
+            1 => 'cash',
+            2 => 'card',
+            3 => 'transfer'
+        ];
+
+        return $methodMapping[$this->payment->paymentMethod->id] ?? 'cash';
+    }
 }

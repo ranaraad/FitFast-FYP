@@ -66,11 +66,12 @@ Route::prefix('cms')->name('cms.')->group(function () {
     Route::get('carts/user/{user}', [CartController::class, 'getUserCarts'])->name('carts.user-carts');
 
     // Deliveries
+    Route::get('deliveries/search', [DeliveryController::class, 'search'])->name('deliveries.search');
+    Route::post('deliveries/{delivery}/mark-delivered', [DeliveryController::class, 'markAsDelivered'])->name('deliveries.mark-delivered');
+    Route::post('deliveries/{delivery}/add-tracking', [DeliveryController::class, 'addTracking'])->name('deliveries.add-tracking');
+    Route::post('deliveries/{delivery}/update-status', [DeliveryController::class, 'updateStatus'])->name('deliveries.update-status');
+    Route::post('deliveries/{delivery}/update-tracking', [DeliveryController::class, 'updateTracking'])->name('deliveries.update-tracking');
     Route::resource('deliveries', DeliveryController::class);
-    Route::post('deliveries/{delivery}/status', [DeliveryController::class, 'updateStatus'])->name('deliveries.update-status');
-    Route::post('deliveries/{delivery}/shipped', [DeliveryController::class, 'markAsShipped'])->name('deliveries.mark-shipped');
-    Route::post('deliveries/{delivery}/delivered', [DeliveryController::class, 'markAsDelivered'])->name('deliveries.mark-delivered');
-    Route::get('deliveries/status/{status}', [DeliveryController::class, 'byStatus'])->name('deliveries.by-status');
 
     // Payments
     Route::get('payments/search', [PaymentController::class, 'search'])->name('payments.search');

@@ -38,9 +38,13 @@ class UserController extends Controller
             'email' => 'required|email|unique:users,email',
             'password' => 'required|string|min:8|confirmed',
             'role_id' => 'required|exists:roles,id',
+            'phone' => 'nullable|string|max:20',
             'height_cm' => $this->getMeasurementValidation($request->role_id, 'height_cm'),
             'weight_kg' => $this->getMeasurementValidation($request->role_id, 'weight_kg'),
             'shoe_size' => $this->getMeasurementValidation($request->role_id, 'shoe_size'),
+            'address' => $this->getAddressValidation($request->role_id, 'address'),
+            'shipping_address' => $this->getAddressValidation($request->role_id, 'shipping_address'),
+            'billing_address' => $this->getAddressValidation($request->role_id, 'billing_address'),
         ]);
 
         // Build measurements array if user role
@@ -91,9 +95,13 @@ class UserController extends Controller
             'email' => 'required|email|unique:users,email,' . $user->id,
             'password' => 'nullable|string|min:8|confirmed',
             'role_id' => 'required|exists:roles,id',
+            'phone' => 'nullable|string|max:20',
             'height_cm' => $this->getMeasurementValidation($request->role_id, 'height_cm'),
             'weight_kg' => $this->getMeasurementValidation($request->role_id, 'weight_kg'),
             'shoe_size' => $this->getMeasurementValidation($request->role_id, 'shoe_size'),
+            'address' => $this->getAddressValidation($request->role_id, 'address'),
+            'shipping_address' => $this->getAddressValidation($request->role_id, 'shipping_address'),
+            'billing_address' => $this->getAddressValidation($request->role_id, 'billing_address'),
         ]);
 
         // Build measurements array if user role
@@ -150,6 +158,18 @@ class UserController extends Controller
         ];
 
         return $rules[$field] ?? 'nullable|numeric';
+    }
+
+    /**
+     * Get address validation rules based on role
+     */
+    private function getAddressValidation($roleId, $field)
+    {
+        if (!$this->isUserRole($roleId)) {
+            return 'nullable|string|max:500';
+        }
+
+        return 'required|string|max:500';
     }
 
     /**

@@ -19,6 +19,9 @@ return new class extends Migration
             $table->string('password');
             $table->foreignId('role_id')->constrained('roles')->onDelete('cascade');
             $table->json('measurements')->nullable(); // Store as JSON for flexibility
+            $table->text('address')->nullable();
+            $table->text('shipping_address')->nullable();
+            $table->text('billing_address')->nullable();
             $table->rememberToken();
             $table->timestamps();
         });

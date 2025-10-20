@@ -51,9 +51,12 @@ class PaymentMethod extends Model
 
     /**
      * Set the payment method details (encrypt before saving).
+     * Handle empty arrays by storing them as empty JSON objects.
      */
     public function setDetailsAttribute($value)
     {
+        // Ensure we always have a valid JSON structure
+        $value = empty($value) ? (object)[] : $value;
         $this->attributes['details'] = Crypt::encryptString(json_encode($value));
     }
 
@@ -67,7 +70,9 @@ class PaymentMethod extends Model
         }
 
         try {
-            return json_decode(Crypt::decryptString($value), true);
+            $decrypted = Crypt::decryptString($value);
+            $decoded = json_decode($decrypted, true);
+            return $decoded ?? [];
         } catch (\Exception $e) {
             return [];
         }

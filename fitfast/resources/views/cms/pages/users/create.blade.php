@@ -68,12 +68,11 @@
                             <div class="form-group">
                                 <label for="role_id">Role *</label>
                                 <select class="form-control @error('role_id') is-invalid @enderror"
-                                    id="role_id" name="role_id" required onchange="toggleMeasurements()">
+                                        id="role_id" name="role_id" required onchange="toggleUserFields()">
                                     <option value="">Select Role</option>
                                     @foreach($roles as $role)
-                                        <option value="{{ $role->id }}"
-                                                {{ old('role_id', $user->role_id ?? '') == $role->id ? 'selected' : '' }}>
-                                            {{ $role->getDisplayNameAttribute() }}
+                                        <option value="{{ $role->id }}" {{ old('role_id') == $role->id ? 'selected' : '' }}>
+                                            {{ $role->name }}
                                         </option>
                                     @endforeach
                                 </select>
@@ -82,10 +81,22 @@
                                 @enderror
                             </div>
                         </div>
+                        <div class="col-md-6">
+                            <div class="form-group">
+                                <label for="phone">Phone</label>
+                                <input type="text" class="form-control @error('phone') is-invalid @enderror"
+                                       id="phone" name="phone" value="{{ old('phone') }}"
+                                       placeholder="e.g., +1 (555) 123-4567">
+                                @error('phone')
+                                    <div class="invalid-feedback">{{ $message }}</div>
+                                @enderror
+                            </div>
+                        </div>
                     </div>
 
-                    <!-- Measurements Section - Initially hidden -->
-                    <div id="measurements-section" style="display: none;">
+                    <!-- User-specific fields (measurements + addresses) -->
+                    <div id="user-fields-section" style="display: none;">
+                        <!-- Measurements Section -->
                         <div class="row mt-4">
                             <div class="col-12">
                                 <h5 class="text-primary">Body Measurements (Required for Users)</h5>
@@ -102,8 +113,7 @@
                                            placeholder="e.g., 175.5" min="100" max="250">
                                     @error('height_cm')
                                         <div class="invalid-feedback">{{ $message }}</div>
-                                    @enderror
-                                    <small class="form-text text-muted">Overall body height in centimeters</small>
+                                    @enderror>
                                 </div>
                             </div>
                             <div class="col-md-4">
@@ -114,8 +124,7 @@
                                            placeholder="e.g., 70.5" min="30" max="200">
                                     @error('weight_kg')
                                         <div class="invalid-feedback">{{ $message }}</div>
-                                    @enderror
-                                    <small class="form-text text-muted">Body weight in kilograms</small>
+                                    @enderror>
                                 </div>
                             </div>
                             <div class="col-md-4">
@@ -126,8 +135,56 @@
                                            placeholder="e.g., 40.5" min="30" max="50">
                                     @error('shoe_size')
                                         <div class="invalid-feedback">{{ $message }}</div>
-                                    @enderror
-                                    <small class="form-text text-muted">Standard shoe size</small>
+                                    @enderror>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Address Section -->
+                        <div class="row mt-4">
+                            <div class="col-12">
+                                <h5 class="text-primary">Address Information (Required for Users)</h5>
+                                <p class="text-muted">These addresses are required for order delivery and billing.</p>
+                            </div>
+                        </div>
+
+                        <div class="row">
+                            <div class="col-12">
+                                <div class="form-group">
+                                    <label for="address">Primary Address *</label>
+                                    <textarea class="form-control @error('address') is-invalid @enderror"
+                                              id="address" name="address" rows="3"
+                                              placeholder="Enter your primary address" required>{{ old('address') }}</textarea>
+                                    @error('address')
+                                        <div class="invalid-feedback">{{ $message }}</div>
+                                    @enderror>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="row">
+                            <div class="col-md-6">
+                                <div class="form-group">
+                                    <label for="shipping_address">Shipping Address *</label>
+                                    <textarea class="form-control @error('shipping_address') is-invalid @enderror"
+                                              id="shipping_address" name="shipping_address" rows="3"
+                                              placeholder="Enter shipping address (if different from primary)">{{ old('shipping_address') }}</textarea>
+                                    @error('shipping_address')
+                                        <div class="invalid-feedback">{{ $message }}</div>
+                                    @enderror>
+                                    <small class="form-text text-muted">Leave blank to use primary address</small>
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="form-group">
+                                    <label for="billing_address">Billing Address *</label>
+                                    <textarea class="form-control @error('billing_address') is-invalid @enderror"
+                                              id="billing_address" name="billing_address" rows="3"
+                                              placeholder="Enter billing address (if different from primary)">{{ old('billing_address') }}</textarea>
+                                    @error('billing_address')
+                                        <div class="invalid-feedback">{{ $message }}</div>
+                                    @enderror>
+                                    <small class="form-text text-muted">Leave blank to use primary address</small>
                                 </div>
                             </div>
                         </div>
@@ -152,54 +209,54 @@
 
 @push('scripts')
 <script>
-    function toggleMeasurements() {
-        const roleSelect = document.getElementById('role_id');
-        const measurementsSection = document.getElementById('measurements-section');
-        const selectedOption = roleSelect.options[roleSelect.selectedIndex];
-        const selectedRoleText = selectedOption.text.toLowerCase().trim();
+function toggleUserFields() {
+    const roleSelect = document.getElementById('role_id');
+    const userFieldsSection = document.getElementById('user-fields-section');
+    const selectedOption = roleSelect.options[roleSelect.selectedIndex];
+    const selectedRoleText = selectedOption.text.toLowerCase().trim();
 
-        console.log('Selected role text:', selectedRoleText); // Debug line
+    // Show user-specific fields only for 'user' role
+    const isUserRole = selectedRoleText === 'user';
 
-        // Show measurements for 'user' role (case insensitive check)
-        const isUserRole = selectedRoleText === 'user';
+    if (isUserRole) {
+        userFieldsSection.style.display = 'block';
+        // Make user fields required
+        document.getElementById('height_cm').required = true;
+        document.getElementById('weight_kg').required = true;
+        document.getElementById('shoe_size').required = true;
+        document.getElementById('address').required = true;
+    } else {
+        userFieldsSection.style.display = 'none';
+        // Remove required attribute for non-user roles
+        document.getElementById('height_cm').required = false;
+        document.getElementById('weight_kg').required = false;
+        document.getElementById('shoe_size').required = false;
+        document.getElementById('address').required = false;
+        document.getElementById('shipping_address').required = false;
+        document.getElementById('billing_address').required = false;
+    }
+}
 
-        if (isUserRole) {
-            console.log('Showing measurements section'); // Debug line
-            measurementsSection.style.display = 'block';
-            // Make measurement fields required
-            document.getElementById('height_cm').required = true;
-            document.getElementById('weight_kg').required = true;
-            document.getElementById('shoe_size').required = true;
-        } else {
-            console.log('Hiding measurements section'); // Debug line
-            measurementsSection.style.display = 'none';
-            // Remove required attribute for non-user roles
-            document.getElementById('height_cm').required = false;
-            document.getElementById('weight_kg').required = false;
-            document.getElementById('shoe_size').required = false;
-        }
+// Initialize on page load
+document.addEventListener('DOMContentLoaded', function() {
+    toggleUserFields();
+});
+
+// Form validation
+$('#userForm').on('submit', function() {
+    const password = $('#password').val();
+    const confirmPassword = $('#password_confirmation').val();
+
+    if (password !== confirmPassword) {
+        Swal.fire({
+            icon: 'error',
+            title: 'Password Mismatch',
+            text: 'Password and confirmation password do not match.'
+        });
+        return false;
     }
 
-    // Initialize on page load
-    document.addEventListener('DOMContentLoaded', function() {
-        toggleMeasurements();
-    });
-
-    // Form validation
-    $('#userForm').on('submit', function() {
-        const password = $('#password').val();
-        const confirmPassword = $('#password_confirmation').val();
-
-        if (password !== confirmPassword) {
-            Swal.fire({
-                icon: 'error',
-                title: 'Password Mismatch',
-                text: 'Password and confirmation password do not match.'
-            });
-            return false;
-        }
-
-        return true;
-    });
+    return true;
+});
 </script>
 @endpush

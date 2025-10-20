@@ -123,6 +123,51 @@
         </div>
         @endif
 
+        @if($user->address || $user->shipping_address || $user->billing_address)
+        <div class="card shadow mb-4">
+            <div class="card-header py-3">
+                <h6 class="m-0 font-weight-bold text-primary">Address Information</h6>
+            </div>
+            <div class="card-body">
+                @if($user->address)
+                <div class="row">
+                    <div class="col-sm-3">
+                        <p class="mb-0 font-weight-bold">Primary Address</p>
+                    </div>
+                    <div class="col-sm-9">
+                        <p class="text-muted mb-0">{{ $user->address }}</p>
+                    </div>
+                </div>
+                <hr>
+                @endif
+
+                @if($user->shipping_address)
+                <div class="row">
+                    <div class="col-sm-3">
+                        <p class="mb-0 font-weight-bold">Shipping Address</p>
+                    </div>
+                    <div class="col-sm-9">
+                        <p class="text-muted mb-0">{{ $user->shipping_address }}</p>
+                    </div>
+                </div>
+                <hr>
+                @endif
+
+                @if($user->billing_address)
+                <div class="row">
+                    <div class="col-sm-3">
+                        <p class="mb-0 font-weight-bold">Billing Address</p>
+                    </div>
+                    <div class="col-sm-9">
+                        <p class="text-muted mb-0">{{ $user->billing_address }}</p>
+                    </div>
+                </div>
+                @endif
+            </div>
+        </div>
+        @endif
+
+
         <!-- Quick Actions Card -->
         <div class="card shadow mb-4">
             <div class="card-header py-3">

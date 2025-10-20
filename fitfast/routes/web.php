@@ -27,7 +27,7 @@ Route::get('/', function () {
 Route::prefix('cms')->name('cms.')->group(function () {
 
     Route::get('/dashboard', [DashboardController::class, 'index'])->name('dashboard');
-    
+
     Route::resource('users', CMSUserController::class)->names([
         'index' => 'users.index',
         'create' => 'users.create',
@@ -47,10 +47,13 @@ Route::prefix('cms')->name('cms.')->group(function () {
 
     // Stores
     Route::resource('stores', StoreController::class);
-// Orders
-Route::resource('orders', OrderController::class);
-Route::post('orders/{order}/status', [OrderController::class, 'updateStatus'])->name('orders.update-status');
-Route::get('orders/cart/{cart}/items', [OrderController::class, 'getCartItems'])->name('orders.cart-items');    // Reviews
+
+    // Orders
+    Route::resource('orders', OrderController::class);
+    Route::post('orders/{order}/status', [OrderController::class, 'updateStatus'])->name('orders.update-status');
+    Route::get('orders/cart/{cart}/items', [OrderController::class, 'getCartItems'])->name('orders.cart-items');
+
+    // Reviews
     Route::resource('reviews', ReviewController::class)->only([
         'index', 'show', 'destroy'
     ]);
@@ -60,9 +63,9 @@ Route::get('orders/cart/{cart}/items', [OrderController::class, 'getCartItems'])
     // Carts
     Route::resource('carts', CartController::class); // Now includes all methods
     Route::post('carts/{cart}/clear', [CartController::class, 'clearCart'])->name('carts.clear');
-Route::get('carts/user/{user}', [CartController::class, 'getUserCarts'])->name('carts.user-carts');
+    Route::get('carts/user/{user}', [CartController::class, 'getUserCarts'])->name('carts.user-carts');
 
-// Deliveries
+    // Deliveries
     Route::resource('deliveries', DeliveryController::class);
     Route::post('deliveries/{delivery}/status', [DeliveryController::class, 'updateStatus'])->name('deliveries.update-status');
     Route::post('deliveries/{delivery}/shipped', [DeliveryController::class, 'markAsShipped'])->name('deliveries.mark-shipped');
@@ -70,12 +73,9 @@ Route::get('carts/user/{user}', [CartController::class, 'getUserCarts'])->name('
     Route::get('deliveries/status/{status}', [DeliveryController::class, 'byStatus'])->name('deliveries.by-status');
 
     // Payments
-    Route::resource('payments', PaymentController::class);
-    Route::post('payments/{payment}/status', [PaymentController::class, 'updateStatus'])->name('payments.update-status');
-    Route::post('payments/{payment}/complete', [PaymentController::class, 'markAsCompleted'])->name('payments.mark-completed');
-    Route::post('payments/{payment}/fail', [PaymentController::class, 'markAsFailed'])->name('payments.mark-failed');
-    Route::post('payments/{payment}/refund', [PaymentController::class, 'markAsRefunded'])->name('payments.mark-refunded');
-    Route::get('payments/status/{status}', [PaymentController::class, 'byStatus'])->name('payments.by-status');
+    Route::get('payments/search', [PaymentController::class, 'search'])->name('payments.search');
+    Route::post('payments/{payment}/refund', [PaymentController::class, 'refund'])->name('payments.refund');
+    Route::resource('payments', PaymentController::class)->only(['index', 'show', 'edit', 'update']);
 
     // Payment Methods
     Route::resource('payment-methods', PaymentMethodController::class);

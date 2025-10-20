@@ -12,7 +12,7 @@ return new class extends Migration
             $table->id();
             $table->foreignId('user_id')->constrained()->onDelete('cascade');
             $table->string('type'); // credit_card, debit_card, paypal, etc.
-            $table->json('details'); // Store encrypted payment details
+            $table->text('details');
             $table->boolean('is_default')->default(false);
             $table->timestamps();
 

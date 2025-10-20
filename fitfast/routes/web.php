@@ -87,4 +87,10 @@ Route::get('carts/user/{user}', [CartController::class, 'getUserCarts'])->name('
 
     // Tips
     Route::resource('tips', TipController::class);
+
+    // Chat Support
+    Route::resource('chat-support', ChatSupportController::class);
+    Route::post('chat-support/{chatSupport}/take', [ChatSupportController::class, 'takeChat'])->name('chat-support.take');
+    Route::post('chat-support/{chatSupport}/resolve', [ChatSupportController::class, 'resolve'])->name('chat-support.resolve');
+    Route::get('chat-support/status/{status}', [ChatSupportController::class, 'byStatus'])->name('chat-support.by-status');
 });

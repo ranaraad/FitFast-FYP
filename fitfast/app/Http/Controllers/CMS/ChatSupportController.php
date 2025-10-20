@@ -2,132 +2,213 @@
 
 namespace App\Http\Controllers\CMS;
 
-use App\Http\Controllers\Controller;
 use App\Models\ChatSupport;
 use App\Models\User;
 use Illuminate\Http\Request;
+use Illuminate\Routing\Controller;
 use Illuminate\Support\Facades\Auth;
 
 class ChatSupportController extends Controller
 {
-    /**
-     * Display a listing of the resource.
-     */
+    // public function __construct()
+    // {
+    //     $this->middleware('auth');
+    // }
+
     public function index()
     {
-        $chats = ChatSupport::with(['user', 'admin'])
-            ->orderBy('created_at', 'desc')
+        $tickets = ChatSupport::with(['user', 'admin'])
+            ->latest()
             ->paginate(20);
 
-        return view('cms.chat_support.index', compact('chats'));
+        return view('cms.pages.chat-support.index', compact('tickets'));
     }
 
-    /**
-     * Show the form for creating a new resource.
-     */
-    public function create()
+    public function show(ChatSupport $chatSupport)
     {
-        $users = User::where('role_id', 2)->get(); // Assuming role_id 2 is customers
-        return view('cms.chat_support.create', compact('users'));
+        $chatSupport->load(['user', 'admin']);
+
+        // Get conversation thread (all messages in this ticket)
+        $conversation = ChatSupport::where(function($query) use ($chatSupport) {
+            $query->where('user_id', $chatSupport->user_id)
+                  ->orWhere('id', $chatSupport->id);
+        })->with(['user', 'admin'])
+          ->latest()
+          ->get();
+
+        $admins = User::whereHas('role', function($query) {
+            $query->where('name', 'admin');
+        })->get();
+
+        return view('cms.pages.chat-support.show', compact('chatSupport', 'conversation', 'admins'));
     }
 
-    /**
-     * Store a newly created resource in storage.
-     */
     public function store(Request $request)
     {
         $validated = $request->validate([
             'user_id' => 'required|exists:users,id',
             'message' => 'required|string|max:1000',
-            'type' => 'required|in:question,complaint,suggestion,technical'
+            'type' => 'required|in:general,technical,billing,other',
         ]);
 
-        $validated['admin_id'] = Auth::id();
+        ChatSupport::create([
+            'user_id' => $validated['user_id'],
+            'message' => $validated['message'],
+            'type' => $validated['type'],
+            'status' => 'open',
+        ]);
 
-        ChatSupport::create($validated);
-
-        return redirect()->route('admin.chat-support.index')
-            ->with('success', 'Chat message created successfully.');
+        return redirect()->route('cms.chat-support.index')
+            ->with('success', 'Support ticket created successfully.');
     }
 
-    /**
-     * Display the specified resource.
-     */
-    public function show(ChatSupport $chatSupport)
-    {
-        $chatSupport->load(['user', 'admin']);
-        return view('cms.chat_support.show', compact('chatSupport'));
-    }
-
-    /**
-     * Show the form for editing the specified resource.
-     */
-    public function edit(ChatSupport $chatSupport)
-    {
-        $users = User::where('role_id', 2)->get();
-        $admins = User::where('role_id', 1)->get(); // Assuming role_id 1 is admins
-        return view('cms.chat_support.edit', compact('chatSupport', 'users', 'admins'));
-    }
-
-    /**
-     * Update the specified resource in storage.
-     */
     public function update(Request $request, ChatSupport $chatSupport)
     {
         $validated = $request->validate([
-            'user_id' => 'required|exists:users,id',
             'admin_id' => 'nullable|exists:users,id',
-            'message' => 'required|string|max:1000',
             'status' => 'required|in:open,in_progress,resolved,closed',
-            'type' => 'required|in:question,complaint,suggestion,technical'
+            'message' => 'sometimes|string|max:1000', // For admin replies
         ]);
 
-        if ($validated['status'] === 'resolved' && $chatSupport->status !== 'resolved') {
+        // Get authenticated user ID safely
+        $adminId = $this->getAuthenticatedUserId();
+
+        // If admin is assigning themselves
+        if ($request->has('admin_id') && !$chatSupport->admin_id && $adminId) {
+            $validated['admin_id'] = $adminId;
+            $validated['status'] = 'in_progress';
+        }
+
+        // If resolving ticket
+        if ($validated['status'] === 'resolved') {
             $validated['resolved_at'] = now();
         }
 
         $chatSupport->update($validated);
 
-        return redirect()->route('admin.chat-support.index')
-            ->with('success', 'Chat message updated successfully.');
+        // If admin is sending a reply
+        if ($request->has('message') && !empty($request->message) && $adminId) {
+            ChatSupport::create([
+                'user_id' => $chatSupport->user_id,
+                'admin_id' => $adminId,
+                'message' => $request->message,
+                'type' => $chatSupport->type,
+                'status' => 'in_progress',
+            ]);
+        }
+
+        return redirect()->route('cms.chat-support.show', $chatSupport)
+            ->with('success', 'Ticket updated successfully.');
     }
 
-    /**
-     * Remove the specified resource from storage.
-     */
     public function destroy(ChatSupport $chatSupport)
     {
         $chatSupport->delete();
 
-        return redirect()->route('admin.chat-support.index')
-            ->with('success', 'Chat message deleted successfully.');
+        return redirect()->route('cms.chat-support.index')
+            ->with('success', 'Ticket deleted successfully.');
     }
 
     /**
-     * Update chat status to in progress.
+     * Admin takes ownership of a ticket
      */
     public function takeChat(ChatSupport $chatSupport)
     {
+        $adminId = $this->getAuthenticatedUserId();
+
+        if (!$adminId) {
+            return redirect()->back()
+                ->with('error', 'You must be logged in to take ownership of a ticket.');
+        }
+
         $chatSupport->update([
-            'admin_id' => Auth::id(),
-            'status' => 'in_progress'
+            'admin_id' => $adminId,
+            'status' => 'in_progress',
         ]);
 
-        return redirect()->back()
-            ->with('success', 'Chat assigned to you.');
+        return redirect()->route('cms.chat-support.show', $chatSupport)
+            ->with('success', 'You have taken ownership of this ticket.');
     }
 
     /**
-     * Resolve a chat.
+     * Resolve a ticket
      */
     public function resolve(ChatSupport $chatSupport)
     {
         $chatSupport->update([
             'status' => 'resolved',
-            'resolved_at' => now()
+            'resolved_at' => now(),
         ]);
 
-        return redirect()->back()
-            ->with('success', 'Chat marked as resolved.');
+        return redirect()->route('cms.chat-support.show', $chatSupport)
+            ->with('success', 'Ticket marked as resolved.');
+    }
+
+    /**
+     * Get tickets by status
+     */
+    public function byStatus($status)
+    {
+        $validStatuses = ['open', 'in_progress', 'resolved', 'closed'];
+
+        if (!in_array($status, $validStatuses)) {
+            return redirect()->route('cms.chat-support.index')
+                ->with('error', 'Invalid status provided.');
+        }
+
+        $tickets = ChatSupport::with(['user', 'admin'])
+            ->where('status', $status)
+            ->latest()
+            ->paginate(20);
+
+        return view('cms.pages.chat-support.index', compact('tickets', 'status'));
+    }
+
+    /**
+     * Safely get authenticated user ID with fallback
+     */
+    private function getAuthenticatedUserId()
+    {
+        try {
+            return Auth::check() ? Auth::id() : null;
+        } catch (\Exception $e) {
+            return null;
+        }
+    }
+
+    /**
+     * Get current user's assigned tickets
+     */
+    public function myTickets()
+    {
+        $adminId = $this->getAuthenticatedUserId();
+
+        if (!$adminId) {
+            return redirect()->route('cms.chat-support.index')
+                ->with('error', 'You must be logged in to view your tickets.');
+        }
+
+        $tickets = ChatSupport::with(['user', 'admin'])
+            ->where('admin_id', $adminId)
+            ->latest()
+            ->paginate(20);
+
+        return view('cms.pages.chat-support.index', compact('tickets'))
+            ->with('title', 'My Assigned Tickets');
+    }
+
+    /**
+     * Get unassigned tickets
+     */
+    public function unassigned()
+    {
+        $tickets = ChatSupport::with(['user'])
+            ->whereNull('admin_id')
+            ->where('status', 'open')
+            ->latest()
+            ->paginate(20);
+
+        return view('cms.paages.chat-support.index', compact('tickets'))
+            ->with('title', 'Unassigned Tickets');
     }
 }

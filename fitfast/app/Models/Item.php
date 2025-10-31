@@ -7,6 +7,7 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Support\Facades\DB;
 
 class Item extends Model
 {
@@ -731,5 +732,100 @@ class Item extends Model
         ];
 
         return $descriptions[$measurement] ?? 'Garment measurement';
+    }
+
+    public function safeDecreaseStock(int $quantity = 1, $color = null): bool
+    {
+        // If using color variants, decrease color stock safely
+        if ($color && !empty($this->color_variants)) {
+            return $this->safeDecreaseColorStock($color, $quantity);
+        }
+
+        // For regular stock - atomic operation that prevents race conditions
+        $affected = DB::table('items')
+            ->where('id', $this->id)
+            ->where('stock_quantity', '>=', $quantity)
+            ->decrement('stock_quantity', $quantity);
+
+        // Refresh the model to get updated stock quantity
+        if ($affected > 0) {
+            $this->refresh();
+            return true;
+        }
+
+        return false;
+    }
+
+    /**
+     * SAFELY decrease color stock - prevents overselling
+     */
+    public function safeDecreaseColorStock($color, $quantity = 1): bool
+    {
+        $colorVariants = $this->color_variants ?? [];
+
+        if (!isset($colorVariants[$color])) {
+            return false;
+        }
+
+        $currentStock = $colorVariants[$color]['stock'] ?? 0;
+
+        if ($currentStock < $quantity) {
+            return false;
+        }
+
+        // Update color stock
+        $colorVariants[$color]['stock'] = $currentStock - $quantity;
+        $this->color_variants = $colorVariants;
+
+        // Update total stock quantity
+        $this->stock_quantity = $this->calculateTotalStock();
+
+        return $this->save();
+    }
+
+    /**
+     * Check if item can fulfill order (has enough stock)
+     */
+    public function canFulfillOrder($quantity, $color = null): bool
+    {
+        if ($color && !empty($this->color_variants)) {
+            return $this->getColorStock($color) >= $quantity;
+        }
+
+        return $this->stock_quantity >= $quantity;
+    }
+
+    /**
+     * SAFELY increase stock (for returns/cancellations)
+     */
+    public function safeIncreaseStock(int $quantity = 1, $color = null): bool
+    {
+        if ($color && !empty($this->color_variants)) {
+            return $this->safeIncreaseColorStock($color, $quantity);
+        }
+
+        $this->increment('stock_quantity', $quantity);
+        return true;
+    }
+
+    /**
+     * SAFELY increase color stock
+     */
+    public function safeIncreaseColorStock($color, $quantity = 1): bool
+    {
+        $colorVariants = $this->color_variants ?? [];
+
+        if (!isset($colorVariants[$color])) {
+            $colorVariants[$color] = ['name' => $color, 'stock' => 0];
+        }
+
+        $currentStock = $colorVariants[$color]['stock'] ?? 0;
+        $colorVariants[$color]['stock'] = $currentStock + $quantity;
+        $this->color_variants = $colorVariants;
+
+        // Update total stock quantity
+        $this->stock_quantity = $this->calculateTotalStock();
+
+        return $this->save();
     }
 }

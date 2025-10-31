@@ -95,3 +95,5 @@ Route::prefix('cms')->name('cms.')->group(function () {
     Route::post('chat-support/{chatSupport}/resolve', [ChatSupportController::class, 'resolve'])->name('chat-support.resolve');
     Route::get('chat-support/status/{status}', [ChatSupportController::class, 'byStatus'])->name('chat-support.by-status');
 });
+
+

@@ -12,6 +12,7 @@ use App\Models\Delivery;
 use App\Models\Payment;
 use Illuminate\Http\Request;
 use App\Http\Controllers\Controller;
+use Illuminate\Support\Facades\DB;
 
 class OrderController extends Controller
 {
@@ -24,82 +25,103 @@ class OrderController extends Controller
         return view('cms.pages.orders.index', compact('orders'));
     }
 
-public function create()
-{
-    $users = User::all();
-    $stores = Store::where('status', 'active')->get();
-    $carts = Cart::with(['user', 'cartItems.item'])
-        ->whereHas('cartItems')
-        ->get();
+    public function create()
+    {
+        $users = User::all();
+        $stores = Store::where('status', 'active')->get();
+        $carts = Cart::with(['user', 'cartItems.item'])
+            ->whereHas('cartItems')
+            ->get();
 
-    return view('cms.pages.orders.create', compact('users', 'stores', 'carts'));
-}
-
-public function store(Request $request)
-{
-    $validated = $request->validate([
-        'user_id' => 'required|exists:users,id',
-        'store_id' => 'required|exists:stores,id',
-        'cart_id' => 'required|exists:carts,id',
-        'items' => 'required|array',
-        'items.*.item_id' => 'required|exists:items,id',
-        'items.*.quantity' => 'required|integer|min:1',
-        'items.*.selected_size' => 'nullable|string|max:50',
-        'items.*.selected_color' => 'required|string|max:50',
-        'items.*.unit_price' => 'required|numeric|min:0',
-        'delivery_address' => 'required|string|max:500',
-        // Remove payment_method from validation
-    ]);
-
-    // Calculate total amount from items
-    $totalAmount = 0;
-    foreach ($validated['items'] as $item) {
-        $totalAmount += $item['quantity'] * $item['unit_price'];
+        return view('cms.pages.orders.create', compact('users', 'stores', 'carts'));
     }
 
-    // Create order
-    $order = Order::create([
-        'user_id' => $validated['user_id'],
-        'store_id' => $validated['store_id'],
-        'total_amount' => $totalAmount,
-        'status' => Order::STATUS_PENDING,
-    ]);
-
-    // Create order items
-    foreach ($validated['items'] as $itemData) {
-        OrderItem::create([
-            'order_id' => $order->id,
-            'item_id' => $itemData['item_id'],
-            'quantity' => $itemData['quantity'],
-            'selected_size' => $itemData['selected_size'] ?? null,
-            'selected_color' => $itemData['selected_color'],
-            'unit_price' => $itemData['unit_price'],
+    public function store(Request $request)
+    {
+        $validated = $request->validate([
+            'user_id' => 'required|exists:users,id',
+            'store_id' => 'required|exists:stores,id',
+            'cart_id' => 'required|exists:carts,id',
+            'items' => 'required|array',
+            'items.*.item_id' => 'required|exists:items,id',
+            'items.*.quantity' => 'required|integer|min:1',
+            'items.*.selected_size' => 'nullable|string|max:50',
+            'items.*.selected_color' => 'required|string|max:50',
+            'items.*.unit_price' => 'required|numeric|min:0',
+            'delivery_address' => 'required|string|max:500',
         ]);
 
-        // Decrease item stock
-        $item = Item::find($itemData['item_id']);
-        $item->decreaseColorStock($itemData['selected_color'], $itemData['quantity']);
+        // Use database transaction for safety
+        return DB::transaction(function () use ($validated) {
+            // Calculate total amount from items
+            $totalAmount = 0;
+            $outOfStockItems = [];
+
+            // PRE-CHECK: Verify all items have sufficient stock before processing
+            foreach ($validated['items'] as $itemData) {
+                $item = Item::find($itemData['item_id']);
+                $totalAmount += $itemData['quantity'] * $itemData['unit_price'];
+
+                if (!$item->canFulfillOrder($itemData['quantity'], $itemData['selected_color'])) {
+                    $outOfStockItems[] = $item->name;
+                }
+            }
+
+            // If any items are out of stock, abort the order
+            if (!empty($outOfStockItems)) {
+                return redirect()->back()
+                    ->with('error', 'Some items are out of stock: ' . implode(', ', $outOfStockItems))
+                    ->withInput();
+            }
+
+            // Create order
+            $order = Order::create([
+                'user_id' => $validated['user_id'],
+                'store_id' => $validated['store_id'],
+                'total_amount' => $totalAmount,
+                'status' => Order::STATUS_PENDING,
+            ]);
+
+            // Create order items and SAFELY decrease stock
+            foreach ($validated['items'] as $itemData) {
+                $item = Item::find($itemData['item_id']);
+
+                OrderItem::create([
+                    'order_id' => $order->id,
+                    'item_id' => $itemData['item_id'],
+                    'quantity' => $itemData['quantity'],
+                    'selected_size' => $itemData['selected_size'] ?? null,
+                    'selected_color' => $itemData['selected_color'],
+                    'unit_price' => $itemData['unit_price'],
+                ]);
+
+                // SAFELY decrease item stock - this prevents overselling
+                $success = $item->safeDecreaseStock($itemData['quantity'], $itemData['selected_color']);
+
+                if (!$success) {
+                    // This should rarely happen due to our pre-check, but handle it just in case
+                    throw new \Exception("Failed to decrease stock for {$item->name}. Item may be out of stock.");
+                }
+            }
+
+            // Create delivery record
+            Delivery::create([
+                'order_id' => $order->id,
+                'address' => $validated['delivery_address'],
+                'status' => 'pending',
+            ]);
+
+            // Clear the cart after creating order
+            $cart = Cart::find($validated['cart_id']);
+            if ($cart) {
+                $cart->clear();
+            }
+
+            return redirect()->route('cms.orders.show', $order)
+                ->with('success', 'Order created successfully from cart.');
+        });
     }
 
-    // Create delivery record (keep this)
-    Delivery::create([
-        'order_id' => $order->id,
-        'address' => $validated['delivery_address'],
-        'status' => 'pending',
-    ]);
-
-    // REMOVE THE PAYMENT CREATION ENTIRELY
-    // Payment::create([...]); // Delete this block
-
-    // Clear the cart after creating order
-    $cart = Cart::find($validated['cart_id']);
-    if ($cart) {
-        $cart->clear();
-    }
-
-    return redirect()->route('cms.orders.show', $order)
-        ->with('success', 'Order created successfully from cart.');
-}
     public function show(Order $order)
     {
         $order->load(['user', 'store', 'orderItems.item.store', 'delivery', 'payment']);
@@ -177,16 +199,19 @@ public function store(Request $request)
                 ->with('error', 'Cannot delete order that is already being processed.');
         }
 
-        // Restore stock for order items
-        foreach ($order->orderItems as $orderItem) {
-            $item = $orderItem->item;
-            $item->increaseColorStock($orderItem->selected_color, $orderItem->quantity);
-        }
+        // Use transaction for safety
+        return DB::transaction(function () use ($order) {
+            // SAFELY restore stock for order items
+            foreach ($order->orderItems as $orderItem) {
+                $item = $orderItem->item;
+                $item->safeIncreaseStock($orderItem->quantity, $orderItem->selected_color);
+            }
 
-        $order->delete();
+            $order->delete();
 
-        return redirect()->route('cms.orders.index')
-            ->with('success', 'Order deleted successfully.');
+            return redirect()->route('cms.orders.index')
+                ->with('success', 'Order deleted successfully and stock restored.');
+        });
     }
 
     public function updateStatus(Request $request, Order $order)
@@ -204,10 +229,7 @@ public function store(Request $request)
     /**
      * Get cart items for a specific cart
      */
-// Add this method to your OrderController
-/**
- * Get cart items for order creation
- */
+
 public function getCartItems(Cart $cart)
 {
     try {

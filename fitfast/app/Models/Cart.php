@@ -98,6 +98,48 @@ class Cart extends Model
         return $this->updated_at->diffForHumans();
     }
 
-    
+    /**
+     * Check if all items in cart have sufficient stock
+     */
+    public function validateStock(): array
+    {
+        $outOfStockItems = [];
+
+        foreach ($this->cartItems as $cartItem) {
+            $item = $cartItem->item;
+
+            if (!$item->canFulfillOrder($cartItem->quantity, $cartItem->selected_color)) {
+                $available = $item->getColorStock($cartItem->selected_color);
+                $outOfStockItems[] = [
+                    'name' => $item->name,
+                    'requested' => $cartItem->quantity,
+                    'available' => $available,
+                    'color' => $cartItem->selected_color
+                ];
+            }
+        }
+
+        return $outOfStockItems;
+    }
+
+    /**
+     * Get cart items with stock status
+     */
+    public function getItemsWithStockStatus()
+    {
+        return $this->cartItems->map(function ($cartItem) {
+            $item = $cartItem->item;
+            $hasStock = $item->canFulfillOrder($cartItem->quantity, $cartItem->selected_color);
+            $availableStock = $item->getColorStock($cartItem->selected_color);
+
+            return [
+                'cart_item' => $cartItem,
+                'has_sufficient_stock' => $hasStock,
+                'available_stock' => $availableStock,
+                'needs_attention' => !$hasStock
+            ];
+        });
+    }
+
 
 }

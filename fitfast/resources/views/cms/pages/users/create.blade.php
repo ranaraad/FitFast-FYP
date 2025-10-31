@@ -81,17 +81,6 @@
                                 @enderror
                             </div>
                         </div>
-                        <div class="col-md-6">
-                            <div class="form-group">
-                                <label for="phone">Phone</label>
-                                <input type="text" class="form-control @error('phone') is-invalid @enderror"
-                                       id="phone" name="phone" value="{{ old('phone') }}"
-                                       placeholder="e.g., +1 (555) 123-4567">
-                                @error('phone')
-                                    <div class="invalid-feedback">{{ $message }}</div>
-                                @enderror
-                            </div>
-                        </div>
                     </div>
 
                     <!-- User-specific fields (measurements + addresses) -->
@@ -113,7 +102,7 @@
                                            placeholder="e.g., 175.5" min="100" max="250">
                                     @error('height_cm')
                                         <div class="invalid-feedback">{{ $message }}</div>
-                                    @enderror>
+                                    @enderror
                                 </div>
                             </div>
                             <div class="col-md-4">
@@ -124,7 +113,7 @@
                                            placeholder="e.g., 70.5" min="30" max="200">
                                     @error('weight_kg')
                                         <div class="invalid-feedback">{{ $message }}</div>
-                                    @enderror>
+                                    @enderror
                                 </div>
                             </div>
                             <div class="col-md-4">
@@ -135,7 +124,7 @@
                                            placeholder="e.g., 40.5" min="30" max="50">
                                     @error('shoe_size')
                                         <div class="invalid-feedback">{{ $message }}</div>
-                                    @enderror>
+                                    @enderror
                                 </div>
                             </div>
                         </div>
@@ -157,7 +146,7 @@
                                               placeholder="Enter your primary address" required>{{ old('address') }}</textarea>
                                     @error('address')
                                         <div class="invalid-feedback">{{ $message }}</div>
-                                    @enderror>
+                                    @enderror
                                 </div>
                             </div>
                         </div>
@@ -171,7 +160,7 @@
                                               placeholder="Enter shipping address (if different from primary)">{{ old('shipping_address') }}</textarea>
                                     @error('shipping_address')
                                         <div class="invalid-feedback">{{ $message }}</div>
-                                    @enderror>
+                                    @enderror
                                     <small class="form-text text-muted">Leave blank to use primary address</small>
                                 </div>
                             </div>
@@ -183,7 +172,7 @@
                                               placeholder="Enter billing address (if different from primary)">{{ old('billing_address') }}</textarea>
                                     @error('billing_address')
                                         <div class="invalid-feedback">{{ $message }}</div>
-                                    @enderror>
+                                    @enderror
                                     <small class="form-text text-muted">Leave blank to use primary address</small>
                                 </div>
                             </div>

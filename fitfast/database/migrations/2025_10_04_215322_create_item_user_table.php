@@ -16,6 +16,10 @@ return new class extends Migration
 
             // Ensure unique combination
             $table->unique(['item_id', 'user_id']);
+
+            // Helpful indexes
+            $table->index(['user_id', 'item_id']); // Reverse lookup
+            $table->index('created_at'); // For time-based queries
         });
     }
 

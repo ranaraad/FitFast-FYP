@@ -120,38 +120,30 @@ Route::prefix('store-admin')->name('store-admin.')->group(function () {
     // Dashboard
     Route::get('/dashboard', [StoreAdminDashboardController::class, 'index'])->name('dashboard');
 
-    // Stores - Only show stores managed by the current store admin
-    Route::get('/stores', [StoreAdminStoreController::class, 'index'])->name('stores.index');
-    Route::get('/stores/{store}', [StoreAdminStoreController::class, 'show'])->name('stores.show');
-
-    // Items - Only show items from stores managed by the current store admin
-    Route::get('/items', [StoreAdminItemController::class, 'index'])->name('items.index');
-    Route::get('/items/create', [StoreAdminItemController::class, 'create'])->name('items.create');
-    Route::post('/items', [StoreAdminItemController::class, 'store'])->name('items.store');
-    Route::get('/items/{item}', [StoreAdminItemController::class, 'show'])->name('items.show');
-    Route::get('/items/{item}/edit', [StoreAdminItemController::class, 'edit'])->name('items.edit');
-    Route::put('/items/{item}', [StoreAdminItemController::class, 'update'])->name('items.update');
-    Route::delete('/items/{item}', [StoreAdminItemController::class, 'destroy'])->name('items.destroy');
-
-    // Orders - Only show orders for stores managed by the current store admin
-    Route::get('/orders', [StoreAdminOrderController::class, 'index'])->name('orders.index');
-    Route::get('/orders/{order}', [StoreAdminOrderController::class, 'show'])->name('orders.show');
-    Route::get('/orders/{order}/edit', [StoreAdminOrderController::class, 'edit'])->name('orders.edit');
-    Route::put('/orders/{order}', [StoreAdminOrderController::class, 'update'])->name('orders.update');
-    Route::post('/orders/{order}/status', [StoreAdminOrderController::class, 'updateStatus'])->name('orders.update-status');
-
-    // Deliveries - Only show deliveries for stores managed by the current store admin
-    Route::get('/deliveries', [StoreAdminDeliveryController::class, 'index'])->name('deliveries.index');
-    Route::get('/deliveries/{delivery}', [StoreAdminDeliveryController::class, 'show'])->name('deliveries.show');
-    Route::get('/deliveries/{delivery}/edit', [StoreAdminDeliveryController::class, 'edit'])->name('deliveries.edit');
-    Route::put('/deliveries/{delivery}', [StoreAdminDeliveryController::class, 'update'])->name('deliveries.update');
-    Route::post('/deliveries/{delivery}/update-status', [StoreAdminDeliveryController::class, 'updateStatus'])->name('deliveries.update-status');
-    Route::post('/deliveries/{delivery}/update-tracking', [StoreAdminDeliveryController::class, 'updateTracking'])->name('deliveries.update-tracking');
-    Route::post('/deliveries/{delivery}/mark-delivered', [StoreAdminDeliveryController::class, 'markAsDelivered'])->name('deliveries.mark-delivered');
-
     // Store Admin specific exports
     Route::get('/items/export', [StoreAdminItemController::class, 'export'])->name('items.export');
     Route::get('/items/export-low-stock', [StoreAdminItemController::class, 'exportLowStock'])->name('items.export-low-stock');
     Route::get('/orders/export', [StoreAdminOrderController::class, 'export'])->name('orders.export');
+    Route::get('/orders/export-advanced', [StoreAdminOrderController::class, 'exportAdvanced'])->name('orders.export-advanced');
+
+    // Stores - Only show stores managed by the current store admin
+    Route::get('/stores', [StoreAdminStoreController::class, 'index'])->name('stores.index');
+    Route::get('/stores/{store}', [StoreAdminStoreController::class, 'show'])->name('stores.show');
+
+    // Items - Resource routes with custom methods
+    Route::resource('items', StoreAdminItemController::class);
+
+    // Orders - Resource routes with custom status update
+    Route::resource('orders', StoreAdminOrderController::class)->only(['index', 'show', 'edit', 'update', 'destroy']);
+    Route::post('orders/{order}/status', [StoreAdminOrderController::class, 'updateStatus'])->name('orders.update-status');
+
+    // Deliveries - Resource routes with custom methods
+    Route::resource('deliveries', StoreAdminDeliveryController::class)->only(['index', 'show', 'edit', 'update']);
+    Route::post('deliveries/{delivery}/update-status', [StoreAdminDeliveryController::class, 'updateStatus'])->name('deliveries.update-status');
+    Route::post('deliveries/{delivery}/update-tracking', [StoreAdminDeliveryController::class, 'updateTracking'])->name('deliveries.update-tracking');
+    Route::post('deliveries/{delivery}/mark-delivered', [StoreAdminDeliveryController::class, 'markAsDelivered'])->name('deliveries.mark-delivered');
+
+
+
 });
 

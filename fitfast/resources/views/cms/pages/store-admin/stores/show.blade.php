@@ -1,4 +1,4 @@
-@extends('cms.layouts.app')
+@extends('cms.layouts.store-admin-app')
 
 @section('page-title', $store->name)
 @section('page-subtitle', 'Store Details & Analytics')

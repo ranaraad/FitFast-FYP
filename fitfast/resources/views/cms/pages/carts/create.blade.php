@@ -1,5 +1,8 @@
 @extends('cms.layouts.app')
 
+@section('page-title', 'Carts Management')
+@section('page-subtitle', 'Manage system carts')
+
 @section('content')
 <!-- Page Heading -->
 <div class="d-sm-flex align-items-center justify-content-between mb-4">

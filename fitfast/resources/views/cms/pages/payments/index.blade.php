@@ -1,8 +1,79 @@
 @extends('cms.layouts.app')
 
+@section('page-title', 'Payment Management')
+@section('page-subtitle', 'Manage user payments')
+
 @section('content')
 <div class="d-sm-flex align-items-center justify-content-between mb-4">
     <h1 class="h3 mb-0 text-gray-800">Payment Transactions</h1>
+
+    <div>
+        <!-- Export Dropdown -->
+        <div class="btn-group mr-2">
+            <button type="button" class="btn btn-success dropdown-toggle" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
+                <i class="fas fa-file-export fa-sm text-white-50"></i> Export
+            </button>
+            <div class="dropdown-menu">
+                <a class="dropdown-item" href="{{ route('cms.payments.export') }}">
+                    <i class="fas fa-file-csv text-success"></i> Export All Payments
+                </a>
+                <div class="dropdown-divider"></div>
+                <h6 class="dropdown-header">Export by Status</h6>
+                <a class="dropdown-item" href="{{ route('cms.payments.export-by-status', 'completed') }}">
+                    <i class="fas fa-check-circle text-success"></i> Completed Payments
+                </a>
+                <a class="dropdown-item" href="{{ route('cms.payments.export-by-status', 'pending') }}">
+                    <i class="fas fa-clock text-warning"></i> Pending Payments
+                </a>
+                <a class="dropdown-item" href="{{ route('cms.payments.export-by-status', 'failed') }}">
+                    <i class="fas fa-times-circle text-danger"></i> Failed Payments
+                </a>
+                <a class="dropdown-item" href="{{ route('cms.payments.export-by-status', 'refunded') }}">
+                    <i class="fas fa-undo text-info"></i> Refunded Payments
+                </a>
+            </div>
+        </div>
+
+        <!-- Date Range Export Form -->
+        <button type="button" class="btn btn-info" data-toggle="modal" data-target="#dateRangeModal">
+            <i class="fas fa-calendar-alt fa-sm text-white-50"></i> Export by Date
+        </button>
+    </div>
+</div>
+
+<!-- Date Range Modal -->
+<div class="modal fade" id="dateRangeModal" tabindex="-1" role="dialog" aria-labelledby="dateRangeModalLabel" aria-hidden="true">
+    <div class="modal-dialog" role="document">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="dateRangeModalLabel">Export Payments by Date Range</h5>
+                <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                    <span aria-hidden="true">&times;</span>
+                </button>
+            </div>
+            <form action="{{ route('cms.payments.export-by-date') }}" method="POST">
+                @csrf
+                <div class="modal-body">
+                    <div class="form-group">
+                        <label for="start_date">Start Date</label>
+                        <input type="date" class="form-control" id="start_date" name="start_date"
+                               value="{{ date('Y-m-d', strtotime('-30 days')) }}" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="end_date">End Date</label>
+                        <input type="date" class="form-control" id="end_date" name="end_date"
+                               value="{{ date('Y-m-d') }}" required>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn btn-primary">
+                        <i class="fas fa-download"></i> Export Payments
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
 </div>
 
 <!-- Stats Cards -->
@@ -129,9 +200,23 @@
 <div class="card shadow mb-4">
     <div class="card-header py-3 d-flex justify-content-between align-items-center">
         <h6 class="m-0 font-weight-bold text-primary">Payment Transactions</h6>
-        <span class="badge badge-primary">Showing {{ $payments->count() }} of {{ $payments->total() }} payments</span>
+        <div>
+            @if(request()->hasAny(['transaction_id', 'status']))
+            <span class="badge badge-warning mr-2">Filtered Results</span>
+            @endif
+            <span class="badge badge-primary">Showing {{ $payments->count() }} of {{ $payments->total() }} payments</span>
+        </div>
     </div>
     <div class="card-body">
+        @if(session('export_success'))
+            <div class="alert alert-success alert-dismissible fade show" role="alert">
+                {{ session('export_success') }}
+                <button type="button" class="close" data-dismiss="alert" aria-label="Close">
+                    <span aria-hidden="true">&times;</span>
+                </button>
+            </div>
+        @endif
+
         @if($payments->isEmpty())
         <div class="text-center py-4">
             <i class="fas fa-receipt fa-3x text-muted mb-3"></i>

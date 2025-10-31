@@ -10,7 +10,19 @@ class StoreController extends Controller
 {
     public function index()
     {
-        $stores = Store::withCount('items')->paginate(10);
+        $stores = Store::withCount([
+            'items',
+            'items as low_stock_items_count' => function($query) {
+                $query->where('stock_quantity', '<', 10)->where('stock_quantity', '>', 0);
+            },
+            'items as critical_stock_items_count' => function($query) {
+                $query->where('stock_quantity', '<', 5)->where('stock_quantity', '>', 0);
+            },
+            'items as out_of_stock_items_count' => function($query) {
+                $query->where('stock_quantity', 0);
+            }
+        ])->paginate(10);
+
         return view('cms.pages.stores.index', compact('stores'));
     }
 

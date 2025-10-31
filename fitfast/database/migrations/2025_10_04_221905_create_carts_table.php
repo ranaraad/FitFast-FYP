@@ -16,6 +16,10 @@ return new class extends Migration
 
             // Ensure one cart per user
             $table->unique(['user_id']);
+
+            // Helpful indexes
+            $table->index('cart_total'); // For analytics/abandoned cart queries
+            $table->index('updated_at'); // For recent activity
         });
     }
 

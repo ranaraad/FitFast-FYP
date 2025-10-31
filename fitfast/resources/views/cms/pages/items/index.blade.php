@@ -1,12 +1,30 @@
 @extends('cms.layouts.app')
 
+@section('page-title', 'Item Management')
+@section('page-subtitle', 'Manage item inventory')
+
 @section('content')
 <!-- Page Heading -->
 <div class="d-sm-flex align-items-center justify-content-between mb-4">
     <h1 class="h3 mb-0 text-gray-800">Items Management</h1>
-    <a href="{{ route('cms.items.create') }}" class="d-none d-sm-inline-block btn btn-sm btn-primary shadow-sm">
-        <i class="fas fa-plus fa-sm text-white-50"></i> Add New Item
-    </a>
+    <div>
+        <div class="btn-group mr-2">
+            <button type="button" class="btn btn-success dropdown-toggle" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
+                <i class="fas fa-file-export fa-sm text-white-50"></i> Export
+            </button>
+            <div class="dropdown-menu">
+                <a class="dropdown-item" href="{{ route('cms.items.export') }}">
+                    <i class="fas fa-file-csv text-success"></i> Export All Items
+                </a>
+                <a class="dropdown-item" href="{{ route('cms.items.export-low-stock') }}">
+                    <i class="fas fa-exclamation-triangle text-warning"></i> Export Low Stock Items
+                </a>
+            </div>
+        </div>
+        <a href="{{ route('cms.items.create') }}" class="d-none d-sm-inline-block btn btn-sm btn-primary shadow-sm">
+            <i class="fas fa-plus fa-sm text-white-50"></i> Add New Item
+        </a>
+    </div>
 </div>
 
 <!-- Content Row -->
@@ -24,6 +42,37 @@
                             <span aria-hidden="true">&times;</span>
                         </button>
                     </div>
+                @endif
+
+                @if(session('export_success'))
+                    <div class="alert alert-info alert-dismissible fade show" role="alert">
+                        {{ session('export_success') }}
+                        <button type="button" class="close" data-dismiss="alert" aria-label="Close">
+                            <span aria-hidden="true">&times;</span>
+                        </button>
+                    </div>
+                @endif
+
+                <!-- Low Stock Warning -->
+                @php
+                    $lowStockCount = \App\Models\Item::where('stock_quantity', '<', 10)->count();
+                    $outOfStockCount = \App\Models\Item::where('stock_quantity', 0)->count();
+                @endphp
+
+                @if($lowStockCount > 0)
+                <div class="alert alert-warning alert-dismissible fade show" role="alert">
+                    <i class="fas fa-exclamation-triangle"></i>
+                    <strong>Stock Alert:</strong>
+                    {{ $lowStockCount }} item(s) have low stock
+                    @if($outOfStockCount > 0)
+                        (including {{ $outOfStockCount }} out of stock)
+                    @endif
+                    .
+                    <a href="{{ route('cms.items.export-low-stock') }}" class="alert-link">Export low stock report</a>
+                    <button type="button" class="close" data-dismiss="alert" aria-label="Close">
+                        <span aria-hidden="true">&times;</span>
+                    </button>
+                </div>
                 @endif
 
                 <div class="table-responsive">
@@ -44,7 +93,7 @@
                         </thead>
                         <tbody>
                             @foreach($items as $item)
-                            <tr>
+                            <tr class="{{ $item->stock_quantity == 0 ? 'table-danger' : ($item->stock_quantity < 10 ? 'table-warning' : '') }}">
                                 <td>{{ $item->id }}</td>
                                 <td>
                                     <strong>{{ $item->name }}</strong>
@@ -148,6 +197,12 @@
 }
 .gap-1 {
     gap: 0.25rem;
+}
+.table-warning {
+    background-color: #fff3cd !important;
+}
+.table-danger {
+    background-color: #f8d7da !important;
 }
 </style>
 @endpush

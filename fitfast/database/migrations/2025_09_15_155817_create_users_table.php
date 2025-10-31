@@ -18,18 +18,26 @@ return new class extends Migration
             $table->timestamp('email_verified_at')->nullable();
             $table->string('password');
             $table->foreignId('role_id')->constrained('roles')->onDelete('cascade');
-            $table->json('measurements')->nullable(); // Store as JSON for flexibility
+            $table->json('measurements')->nullable();
             $table->text('address')->nullable();
             $table->text('shipping_address')->nullable();
             $table->text('billing_address')->nullable();
             $table->rememberToken();
             $table->timestamps();
+
+            // Helpful indexes
+            $table->index('role_id'); // Frequently used in WHERE clauses
+            $table->index('created_at'); // Useful for analytics and recent users
+            $table->index(['email_verified_at', 'created_at']); // Common for user onboarding queries
         });
 
         Schema::create('password_reset_tokens', function (Blueprint $table) {
             $table->string('email')->primary();
             $table->string('token');
             $table->timestamp('created_at')->nullable();
+
+            // Helpful index
+            $table->index('created_at'); // Cleanup old tokens
         });
 
         Schema::create('sessions', function (Blueprint $table) {
@@ -39,6 +47,10 @@ return new class extends Migration
             $table->text('user_agent')->nullable();
             $table->longText('payload');
             $table->integer('last_activity')->index();
+
+            // Helpful indexes
+            $table->index(['email']); // Already unique, but speeds up login
+            $table->index(['role_id']); // Fast admin/user filtering
         });
     }
 

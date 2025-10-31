@@ -1,12 +1,20 @@
 @extends('cms.layouts.app')
 
+@section('page-title', 'Users Management')
+@section('page-subtitle', 'Manage system users and permissions')
+
 @section('content')
 <!-- Page Heading -->
 <div class="d-sm-flex align-items-center justify-content-between mb-4">
     <h1 class="h3 mb-0 text-gray-800">Users Management</h1>
-    <a href="{{ route('cms.users.create') }}" class="d-none d-sm-inline-block btn btn-sm btn-primary shadow-sm">
-        <i class="fas fa-plus fa-sm text-white-50"></i> Add New User
-    </a>
+    <div>
+        <a href="{{ route('cms.users.export') }}" class="d-none d-sm-inline-block btn btn-sm btn-success shadow-sm mr-2">
+            <i class="fas fa-file-export fa-sm text-white-50"></i> Export CSV
+        </a>
+        <a href="{{ route('cms.users.create') }}" class="d-none d-sm-inline-block btn btn-sm btn-primary shadow-sm">
+            <i class="fas fa-plus fa-sm text-white-50"></i> Add New User
+        </a>
+    </div>
 </div>
 
 <!-- Content Row -->
@@ -20,6 +28,15 @@
                 @if(session('success'))
                     <div class="alert alert-success alert-dismissible fade show" role="alert">
                         {{ session('success') }}
+                        <button type="button" class="close" data-dismiss="alert" aria-label="Close">
+                            <span aria-hidden="true">&times;</span>
+                        </button>
+                    </div>
+                @endif
+
+                @if(session('export_success'))
+                    <div class="alert alert-info alert-dismissible fade show" role="alert">
+                        {{ session('export_success') }}
                         <button type="button" class="close" data-dismiss="alert" aria-label="Close">
                             <span aria-hidden="true">&times;</span>
                         </button>

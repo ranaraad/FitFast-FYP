@@ -1,5 +1,8 @@
 @extends('cms.layouts.app')
 
+@section('page-title', 'Users Management')
+@section('page-subtitle', 'Manage system users and permissions')
+
 @section('content')
 <!-- Page Heading -->
 <div class="d-sm-flex align-items-center justify-content-between mb-4">
@@ -179,7 +182,7 @@
                             </div>
                         </div>
                     </div>
-                    
+
                     <div class="row mt-4">
                         <div class="col-12">
                             <button type="submit" class="btn btn-primary">

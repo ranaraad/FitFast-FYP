@@ -12,6 +12,7 @@ use App\Models\ChatSupport;
 use Illuminate\Http\Request;
 use App\Http\Controllers\Controller;
 use Carbon\Carbon;
+use Illuminate\Support\Facades\DB;
 
 class DashboardController extends Controller
 {
@@ -36,6 +37,9 @@ class DashboardController extends Controller
         // User analytics
         $userStats = $this->getUserStats();
 
+        // Store performance metrics
+        $storeStats = $this->getStorePerformanceStats();
+
         // Recent activity
         $recentActivity = $this->getRecentActivity();
 
@@ -44,6 +48,7 @@ class DashboardController extends Controller
             'revenueStats',
             'orderStats',
             'userStats',
+            'storeStats',
             'recentActivity'
         ));
     }
@@ -90,13 +95,115 @@ class DashboardController extends Controller
         ];
     }
 
+    private function getStorePerformanceStats()
+    {
+        $today = Carbon::today();
+        $weekStart = Carbon::now()->startOfWeek();
+        $monthStart = Carbon::now()->startOfMonth();
+
+        // Calculate total revenue from stores
+        $totalStoreRevenue = Payment::whereHas('order.store')->sum('amount');
+
+        return [
+            // Overview metrics
+            'total_stores' => Store::count(),
+            'active_stores' => Store::where('status', 'active')->count(),
+            'inactive_stores' => Store::where('status', 'inactive')->count(),
+            'stores_with_orders' => Store::has('orders')->count(),
+
+            // Revenue metrics
+            'total_revenue' => $totalStoreRevenue,
+            'revenue_today' => Payment::whereDate('created_at', $today)
+                ->whereHas('order.store')
+                ->sum('amount'),
+            'revenue_this_week' => Payment::where('created_at', '>=', $weekStart)
+                ->whereHas('order.store')
+                ->sum('amount'),
+            'revenue_this_month' => Payment::where('created_at', '>=', $monthStart)
+                ->whereHas('order.store')
+                ->sum('amount'),
+
+            // Top performing stores
+            'top_stores_by_revenue' => Store::withSum(['orders' => function($query) {
+                $query->whereHas('payment', function($q) {
+                    $q->where('status', 'completed');
+                });
+            }], 'total_amount')
+            ->orderBy('orders_sum_total_amount', 'desc')
+            ->take(5)
+            ->get()
+            ->map(function($store) {
+                return [
+                    'id' => $store->id,
+                    'name' => $store->name,
+                    'revenue' => $store->orders_sum_total_amount ?? 0,
+                    'order_count' => $store->orders()->count(),
+                    'status' => $store->status,
+                ];
+            }),
+
+            // Store order distribution
+            'stores_with_most_orders' => Store::withCount('orders')
+                ->orderBy('orders_count', 'desc')
+                ->take(5)
+                ->get()
+                ->map(function($store) {
+                    return [
+                        'id' => $store->id,
+                        'name' => $store->name,
+                        'order_count' => $store->orders_count,
+                        'status' => $store->status,
+                    ];
+                }),
+
+            // Inventory metrics
+            'total_items_across_stores' => Item::count(),
+            'average_items_per_store' => Store::count() > 0
+                ? round(Item::count() / Store::count(), 2)
+                : 0,
+            'stores_with_most_items' => Store::withCount('items')
+                ->orderBy('items_count', 'desc')
+                ->take(5)
+                ->get(),
+            'low_stock_stores' => Store::whereHas('items', function($query) {
+                $query->where('stock_quantity', '<', 10);
+            })->count(),
+
+            // Revenue growth
+            'revenue_growth' => $this->getStoreRevenueGrowth(),
+        ];
+    }
+
+    private function getStoreRevenueGrowth()
+    {
+        $currentMonthRevenue = Payment::whereHas('order.store')
+            ->whereMonth('created_at', Carbon::now()->month)
+            ->sum('amount');
+
+        $lastMonthRevenue = Payment::whereHas('order.store')
+            ->whereMonth('created_at', Carbon::now()->subMonth()->month)
+            ->sum('amount');
+
+        if ($lastMonthRevenue == 0) {
+            $growthRate = $currentMonthRevenue > 0 ? 100 : 0;
+        } else {
+            $growthRate = (($currentMonthRevenue - $lastMonthRevenue) / $lastMonthRevenue) * 100;
+        }
+
+        return [
+            'current_month' => $currentMonthRevenue,
+            'last_month' => $lastMonthRevenue,
+            'growth_rate' => round($growthRate, 2),
+            'trend_direction' => $growthRate >= 0 ? 'up' : 'down',
+        ];
+    }
+
     private function getRevenueTrend()
     {
         $currentMonth = Payment::whereMonth('created_at', Carbon::now()->month)->sum('amount');
         $lastMonth = Payment::whereMonth('created_at', Carbon::now()->subMonth()->month)->sum('amount');
 
-        if ($lastMonth == 0) return 100; // 100% increase if no previous data
-
+        if ($lastMonth == 0) return 100;
         return (($currentMonth - $lastMonth) / $lastMonth) * 100;
     }
 
@@ -104,9 +211,7 @@ class DashboardController extends Controller
     {
         $totalUsers = User::count();
         $usersWithOrders = User::has('orders')->count();
-
         if ($totalUsers == 0) return 0;
-
         return ($usersWithOrders / $totalUsers) * 100;
     }
 
@@ -125,6 +230,57 @@ class DashboardController extends Controller
                 ->latest()
                 ->take(5)
                 ->get(),
+            'recent_stores' => Store::withCount(['items', 'orders'])
+                ->latest()
+                ->take(5)
+                ->get(),
         ];
+    }
+
+    /**
+     * Get detailed store performance for a specific store
+     */
+    public function storePerformance($storeId)
+    {
+        $store = Store::withCount(['items', 'orders'])->findOrFail($storeId);
+
+        $today = Carbon::today();
+        $weekStart = Carbon::now()->startOfWeek();
+        $monthStart = Carbon::now()->startOfMonth();
+
+        $storeStats = [
+            'store' => $store,
+            'total_revenue' => Payment::whereHas('order', function($query) use ($storeId) {
+                $query->where('store_id', $storeId);
+            })->sum('amount'),
+            'revenue_today' => Payment::whereHas('order', function($query) use ($storeId) {
+                $query->where('store_id', $storeId);
+            })->whereDate('created_at', $today)->sum('amount'),
+            'revenue_this_week' => Payment::whereHas('order', function($query) use ($storeId) {
+                $query->where('store_id', $storeId);
+            })->where('created_at', '>=', $weekStart)->sum('amount'),
+            'revenue_this_month' => Payment::whereHas('order', function($query) use ($storeId) {
+                $query->where('store_id', $storeId);
+            })->where('created_at', '>=', $monthStart)->sum('amount'),
+            'order_stats' => [
+                'pending' => $store->orders()->where('status', 'pending')->count(),
+                'processing' => $store->orders()->where('status', 'processing')->count(),
+                'shipped' => $store->orders()->where('status', 'shipped')->count(),
+                'delivered' => $store->orders()->where('status', 'delivered')->count(),
+                'cancelled' => $store->orders()->where('status', 'cancelled')->count(),
+            ],
+            'inventory_stats' => [
+                'total_items' => $store->items_count,
+                'low_stock_items' => $store->items()->where('stock_quantity', '<', 10)->count(),
+                'out_of_stock_items' => $store->items()->where('stock_quantity', 0)->count(),
+            ],
+            'recent_orders' => $store->orders()
+                ->with(['user', 'payment'])
+                ->latest()
+                ->take(10)
+                ->get(),
+        ];
+
+        return view('cms.pages.stores.performance', compact('storeStats'));
     }
 }

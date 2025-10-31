@@ -1,5 +1,8 @@
 @extends('cms.layouts.app')
 
+@section('page-title', 'Order Management')
+@section('page-subtitle', 'Manage user orders')
+
 @section('content')
 <!-- Page Heading -->
 <div class="d-sm-flex align-items-center justify-content-between mb-4">
@@ -274,7 +277,7 @@
                     <a href="{{ route('cms.orders.edit', $order) }}" class="btn btn-primary btn-block">
                         <i class="fas fa-edit"></i> Edit Order
                     </a>
-                    
+
                     <!-- Status Update Dropdown -->
                     <div class="dropdown">
                         <button class="btn btn-info btn-block dropdown-toggle" type="button" id="statusDropdown" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">

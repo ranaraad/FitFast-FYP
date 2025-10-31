@@ -26,18 +26,16 @@ return new class extends Migration
             $table->timestamps();
 
             // Helpful indexes
-            $table->index('role_id'); // Frequently used in WHERE clauses
-            $table->index('created_at'); // Useful for analytics and recent users
-            $table->index(['email_verified_at', 'created_at']); // Common for user onboarding queries
+            $table->index('role_id');
+            $table->index('created_at');
+            $table->index(['email_verified_at', 'created_at']);
         });
 
         Schema::create('password_reset_tokens', function (Blueprint $table) {
             $table->string('email')->primary();
             $table->string('token');
             $table->timestamp('created_at')->nullable();
-
-            // Helpful index
-            $table->index('created_at'); // Cleanup old tokens
+            $table->index('created_at');
         });
 
         Schema::create('sessions', function (Blueprint $table) {
@@ -47,10 +45,6 @@ return new class extends Migration
             $table->text('user_agent')->nullable();
             $table->longText('payload');
             $table->integer('last_activity')->index();
-
-            // Helpful indexes
-            $table->index(['email']); // Already unique, but speeds up login
-            $table->index(['role_id']); // Fast admin/user filtering
         });
     }
 
@@ -59,8 +53,15 @@ return new class extends Migration
      */
     public function down(): void
     {
-        Schema::dropIfExists('users');
-        Schema::dropIfExists('password_reset_tokens');
+        // Drop in correct order to avoid foreign key constraints
         Schema::dropIfExists('sessions');
+        Schema::dropIfExists('password_reset_tokens');
+
+        // First drop the foreign key constraint, then drop the table
+        Schema::table('users', function (Blueprint $table) {
+            $table->dropForeign(['role_id']);
+        });
+
+        Schema::dropIfExists('users');
     }
 };

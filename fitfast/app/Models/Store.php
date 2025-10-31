@@ -5,6 +5,7 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class Store extends Model
 {
@@ -16,6 +17,7 @@ class Store extends Model
      * @var list<string>
      */
     protected $fillable = [
+        'user_id',
         'name',
         'description',
         'contact_info',
@@ -33,6 +35,14 @@ class Store extends Model
     ];
 
     /**
+     * Get the user that owns the store.
+     */
+    public function user(): BelongsTo
+    {
+        return $this->belongsTo(User::class);
+    }
+
+    /**
      * Get the items for the store.
      */
     public function items(): HasMany
@@ -48,4 +58,27 @@ class Store extends Model
         return $this->hasMany(Order::class);
     }
 
+    /**
+     * Get the low stock items for the store.
+     */
+    public function low_stock_items()
+    {
+        return $this->hasMany(Item::class)->where('stock_quantity', '<', 10)->where('stock_quantity', '>', 0);
+    }
+
+    /**
+     * Get the out of stock items for the store.
+     */
+    public function out_of_stock_items()
+    {
+        return $this->hasMany(Item::class)->where('stock_quantity', 0);
+    }
+
+    /**
+     * Get the critical stock items for the store.
+     */
+    public function critical_stock_items()
+    {
+        return $this->hasMany(Item::class)->where('stock_quantity', '<', 5)->where('stock_quantity', '>', 0);
+    }
 }

@@ -10,14 +10,7 @@ class Role extends Model
 {
     use HasFactory;
 
-    /**
-     * The attributes that are mass assignable.
-     *
-     * @var list<string>
-     */
-    protected $fillable = [
-        'name',
-    ];
+    protected $fillable = ['name'];
 
     /**
      * Get the users for the role.
@@ -32,22 +25,22 @@ class Role extends Model
      */
     public function isAdmin(): bool
     {
-        return strtolower($this->name) === 'admin';
+        return $this->name === 'Admin';
     }
 
     /**
-     * Check if role is user.
+     * Check if role is store admin.
+     */
+    public function isStoreAdmin(): bool
+    {
+        return $this->name === 'Store Admin';
+    }
+
+    /**
+     * Check if role is regular user.
      */
     public function isUser(): bool
     {
-        return strtolower($this->name) === 'user';
-    }
-
-    /**
-     * Get role display name.
-     */
-    public function getDisplayNameAttribute(): string
-    {
-        return ucfirst($this->name);
+        return $this->name === 'User';
     }
 }

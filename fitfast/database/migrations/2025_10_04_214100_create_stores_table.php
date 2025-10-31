@@ -6,22 +6,41 @@ use Illuminate\Support\Facades\Schema;
 
 return new class extends Migration
 {
-    public function up()
+    /**
+     * Run the migrations.
+     */
+    public function up(): void
     {
         Schema::create('stores', function (Blueprint $table) {
             $table->id();
-            $table->foreignId('user_id')->nullable()->constrained()->onDelete('set null');
             $table->string('name');
             $table->text('description')->nullable();
-            $table->text('contact_info')->nullable();
+            $table->string('logo')->nullable();
+            $table->string('banner_image')->nullable();
+            $table->string('contact_info');
             $table->text('address')->nullable();
             $table->string('status')->default('active');
             $table->timestamps();
+
+            // Make sure user_id is properly defined
+            $table->foreignId('user_id')->nullable()->constrained('users')->onDelete('set null');
+
+            // Add indexes
+            $table->index('user_id');
+            $table->index('status');
+            $table->index('created_at');
         });
     }
 
-    public function down()
+    /**
+     * Reverse the migrations.
+     */
+    public function down(): void
     {
+        Schema::table('stores', function (Blueprint $table) {
+            $table->dropForeign(['user_id']);
+        });
+
         Schema::dropIfExists('stores');
     }
 };

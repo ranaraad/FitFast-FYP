@@ -4,41 +4,20 @@
 @section('page-subtitle', 'Manage stores in the system')
 
 @section('content')
+<!-- Calculate stats first -->
+@php
+    $totalLowStock = $stores->sum('low_stock_items_count');
+    $totalCritical = $stores->sum('critical_stock_items_count');
+    $totalOutOfStock = $stores->sum('out_of_stock_items_count');
+    $storesWithAlerts = $stores->filter(function($store) {
+        return $store->low_stock_items_count > 0 || $store->critical_stock_items_count > 0 || $store->out_of_stock_items_count > 0;
+    })->count();
+@endphp
+
 <!-- Page Heading -->
 <div class="d-sm-flex align-items-center justify-content-between mb-4">
     <h1 class="h3 mb-0 text-gray-800">Stores Management</h1>
-
-    <!-- Stock Alert Summary -->
-    @php
-        $totalLowStock = $stores->sum('low_stock_items_count');
-        $totalCritical = $stores->sum('critical_stock_items_count');
-        $totalOutOfStock = $stores->sum('out_of_stock_items_count');
-        $storesWithAlerts = $stores->filter(function($store) {
-            return $store->low_stock_items_count > 0 || $store->critical_stock_items_count > 0 || $store->out_of_stock_items_count > 0;
-        })->count();
-    @endphp
-
     <div>
-        @if($totalLowStock > 0 || $totalCritical > 0)
-        <div class="alert alert-warning alert-dismissible fade show mb-2" role="alert">
-            <i class="fas fa-exclamation-triangle mr-2"></i>
-            <strong>Stock Alerts:</strong>
-            @if($totalCritical > 0)
-                <span class="text-danger mx-2">{{ $totalCritical }} critical</span>
-            @endif
-            @if($totalLowStock > 0)
-                <span class="text-warning mx-2">{{ $totalLowStock }} low stock</span>
-            @endif
-            @if($totalOutOfStock > 0)
-                <span class="text-secondary mx-2">{{ $totalOutOfStock }} out of stock</span>
-            @endif
-            across {{ $storesWithAlerts }} store(s)
-            <button type="button" class="close" data-dismiss="alert" aria-label="Close">
-                <span aria-hidden="true">&times;</span>
-            </button>
-        </div>
-        @endif
-
         <div class="btn-group mr-2">
             <button type="button" class="btn btn-success dropdown-toggle" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
                 <i class="fas fa-file-export fa-sm text-white-50"></i> Export
@@ -59,6 +38,42 @@
         </a>
     </div>
 </div>
+
+<!-- Stock Alert Summary -->
+@if($totalLowStock > 0 || $totalCritical > 0)
+<div class="row mb-4">
+    <div class="col-12">
+        <div class="alert alert-warning alert-dismissible fade show" role="alert">
+            <div class="d-flex justify-content-between align-items-center">
+                <div>
+                    <i class="fas fa-exclamation-triangle mr-2"></i>
+                    <strong>Stock Alerts:</strong>
+                    @if($totalCritical > 0)
+                        <span class="badge badge-danger mx-2">{{ $totalCritical }} critical</span>
+                    @endif
+                    @if($totalLowStock > 0)
+                        <span class="badge badge-warning mx-2">{{ $totalLowStock }} low stock</span>
+                    @endif
+                    @if($totalOutOfStock > 0)
+                        <span class="badge badge-secondary mx-2">{{ $totalOutOfStock }} out of stock</span>
+                    @endif
+                    across {{ $storesWithAlerts }} store(s)
+                </div>
+                <div>
+                    @if($storesWithAlerts > 0)
+                    <a href="{{ route('cms.stores.export-alerts') }}" class="btn btn-sm btn-outline-warning">
+                        <i class="fas fa-download"></i> Export Alerts
+                    </a>
+                    @endif
+                    <button type="button" class="btn btn-sm btn-outline-warning ml-2" data-dismiss="alert" aria-label="Close">
+                        <i class="fas fa-times"></i> Dismiss
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+@endif
 
 <!-- Content Row -->
 <div class="row">
@@ -102,6 +117,7 @@
                             <tr>
                                 <th>ID</th>
                                 <th>Name</th>
+                                <th>Store Admin</th>
                                 <th>Status</th>
                                 <th>Inventory Health</th>
                                 <th>Address</th>
@@ -122,6 +138,20 @@
                                     <strong>{{ $store->name }}</strong>
                                     @if($store->description)
                                     <br><small class="text-muted">{{ Str::limit($store->description, 50) }}</small>
+                                    @endif
+                                </td>
+                                <td>
+                                    @if($store->user)
+                                        <div class="d-flex align-items-center">
+                                            <i class="fas fa-user-circle text-primary mr-2"></i>
+                                            <div>
+                                                <strong>{{ $store->user->name }}</strong>
+                                                <br>
+                                                <small class="text-muted">{{ $store->user->email }}</small>
+                                            </div>
+                                        </div>
+                                    @else
+                                        <span class="text-muted">No admin assigned</span>
                                     @endif
                                 </td>
                                 <td>
@@ -204,6 +234,9 @@
 .badge {
     font-size: 0.75em;
 }
+.alert-warning {
+    border-left: 4px solid #f6c23e;
+}
 </style>
 @endpush
 
@@ -214,7 +247,7 @@
             "pageLength": 25,
             "order": [[0, 'desc']],
             "columnDefs": [
-                { "orderable": false, "targets": [3, 6] } // Disable sorting for inventory and actions columns
+                { "orderable": false, "targets": [3, 4, 7] } // Disable sorting for inventory and actions columns
             ]
         });
     });

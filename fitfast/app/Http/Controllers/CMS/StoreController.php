@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\CMS;
 
 use App\Models\Store;
+use App\Models\User;
 use Illuminate\Http\Request;
 use App\Http\Controllers\Controller;
 
@@ -10,25 +11,31 @@ class StoreController extends Controller
 {
     public function index()
     {
-        $stores = Store::withCount([
-            'items',
-            'items as low_stock_items_count' => function($query) {
-                $query->where('stock_quantity', '<', 10)->where('stock_quantity', '>', 0);
-            },
-            'items as critical_stock_items_count' => function($query) {
-                $query->where('stock_quantity', '<', 5)->where('stock_quantity', '>', 0);
-            },
-            'items as out_of_stock_items_count' => function($query) {
-                $query->where('stock_quantity', 0);
-            }
-        ])->paginate(10);
+        $stores = Store::with(['user', 'items'])
+            ->withCount([
+                'items',
+                'items as low_stock_items_count' => function($query) {
+                    $query->where('stock_quantity', '<', 10)->where('stock_quantity', '>', 0);
+                },
+                'items as critical_stock_items_count' => function($query) {
+                    $query->where('stock_quantity', '<', 5)->where('stock_quantity', '>', 0);
+                },
+                'items as out_of_stock_items_count' => function($query) {
+                    $query->where('stock_quantity', 0);
+                }
+            ])
+            ->paginate(10);
 
         return view('cms.pages.stores.index', compact('stores'));
     }
 
     public function create()
     {
-        return view('cms.pages.stores.create');
+        $users = User::whereHas('role', function($query) {
+            $query->where('name', 'Store Admin');
+        })->get();
+
+        return view('cms.pages.stores.create', compact('users'));
     }
 
     public function store(Request $request)
@@ -39,6 +46,7 @@ class StoreController extends Controller
             'contact_info' => 'nullable|string',
             'address' => 'nullable|string',
             'status' => 'required|in:active,inactive',
+            'user_id' => 'nullable|exists:users,id',
         ]);
 
         Store::create($validated);
@@ -49,13 +57,17 @@ class StoreController extends Controller
 
     public function show(Store $store)
     {
-        $store->load('items');
+        $store->load(['user', 'items']);
         return view('cms.pages.stores.show', compact('store'));
     }
 
     public function edit(Store $store)
     {
-        return view('cms.pages.stores.edit', compact('store'));
+        $users = User::whereHas('role', function($query) {
+            $query->where('name', 'Store Admin');
+        })->get();
+
+        return view('cms.pages.stores.edit', compact('store', 'users'));
     }
 
     public function update(Request $request, Store $store)
@@ -66,6 +78,7 @@ class StoreController extends Controller
             'contact_info' => 'nullable|string',
             'address' => 'nullable|string',
             'status' => 'required|in:active,inactive',
+            'user_id' => 'nullable|exists:users,id',
         ]);
 
         $store->update($validated);

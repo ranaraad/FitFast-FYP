@@ -14,7 +14,7 @@ use App\Http\Controllers\CMS\DeliveryController;
 use App\Http\Controllers\CMS\PaymentController;
 use App\Http\Controllers\CMS\PaymentMethodController;
 use App\Http\Controllers\CMS\RoleController;
-use App\Http\Controllers\CMS\OrderItemController;
+use App\Http\Controllers\CMS\ExportController;
 use Illuminate\Support\Facades\Route;
 
 // Public routes (if any)
@@ -28,6 +28,17 @@ Route::prefix('cms')->name('cms.')->group(function () {
 
     Route::get('/dashboard', [DashboardController::class, 'index'])->name('dashboard');
 
+    // Exports
+    Route::get('users/export', [ExportController::class, 'exportUsers'])->name('users.export');
+    Route::get('items/export', [ExportController::class, 'exportItems'])->name('items.export');
+    Route::get('items/export-low-stock', [ExportController::class, 'exportLowStockItems'])->name('items.export-low-stock');
+    Route::get('stores/export', [ExportController::class, 'exportStores'])->name('stores.export');
+    Route::get('stores/export-alerts', [ExportController::class, 'exportStoresWithAlerts'])->name('stores.export-alerts');
+    Route::get('payments/export', [ExportController::class, 'exportPayments'])->name('payments.export');
+    Route::get('payments/export/{status}', [ExportController::class, 'exportPaymentsByStatus'])->name('payments.export-by-status');
+    Route::post('payments/export-by-date', [ExportController::class, 'exportPaymentsByDateRange'])->name('payments.export-by-date');
+
+    // Users
     Route::resource('users', CMSUserController::class)->names([
         'index' => 'users.index',
         'create' => 'users.create',
@@ -94,6 +105,8 @@ Route::prefix('cms')->name('cms.')->group(function () {
     Route::post('chat-support/{chatSupport}/take', [ChatSupportController::class, 'takeChat'])->name('chat-support.take');
     Route::post('chat-support/{chatSupport}/resolve', [ChatSupportController::class, 'resolve'])->name('chat-support.resolve');
     Route::get('chat-support/status/{status}', [ChatSupportController::class, 'byStatus'])->name('chat-support.by-status');
+
+
 });
 
 

@@ -61,6 +61,14 @@ class User extends Authenticatable
         return $this->belongsTo(Role::class);
     }
 
+    /**
+     * Get the stores managed by the user (for store admins).
+     */
+    public function stores(): HasMany
+    {
+        return $this->hasMany(Store::class, 'user_id');
+    }
+
     // Add these methods to the User model
     public function chatSupportTickets(): HasMany
     {
@@ -130,4 +138,45 @@ class User extends Authenticatable
         return $this->paymentMethods()->default()->first();
     }
 
+    /**
+     * Check if user is admin.
+     */
+    public function isAdmin(): bool
+    {
+        return $this->role && $this->role->isAdmin();
+    }
+
+    /**
+     * Check if user is store admin.
+     */
+    public function isStoreAdmin(): bool
+    {
+        return $this->role && $this->role->isStoreAdmin();
+    }
+
+    /**
+     * Check if user is regular user.
+     */
+    public function isUser(): bool
+    {
+        return $this->role && $this->role->isUser();
+    }
+
+    /**
+     * Get managed stores for store admin (with fallback for other roles).
+     */
+    public function getManagedStores()
+    {
+        if ($this->isStoreAdmin()) {
+            return $this->stores;
+        }
+
+        // For admins, return all stores
+        if ($this->isAdmin()) {
+            return Store::all();
+        }
+
+        // For regular users, return empty collection
+        return collect();
+    }
 }

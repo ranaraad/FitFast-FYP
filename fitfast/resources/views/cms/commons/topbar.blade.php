@@ -6,10 +6,22 @@
         <i class="fa fa-bars"></i>
     </button>
 
-    <!-- Page Title -->
+    <!-- Dynamic Page Title -->
     <div class="d-none d-sm-inline-block mr-auto ml-md-3 my-2">
-        <h4 class="text-gray-800 mb-0">@yield('page-title', 'Dashboard')</h4>
-        <small class="text-muted">@yield('page-subtitle', 'Welcome to FitFast Admin')</small>
+        <h4 class="text-gray-800 mb-0">
+            @hasSection('page-title')
+                @yield('page-title')
+            @else
+                {{ $pageTitle ?? 'Dashboard' }}
+            @endif
+        </h4>
+        <small class="text-muted">
+            @hasSection('page-subtitle')
+                @yield('page-subtitle')
+            @else
+                {{ $pageSubtitle ?? 'Welcome to FitFast Admin' }}
+            @endif
+        </small>
     </div>
 
     <!-- Topbar Navbar -->

@@ -1,5 +1,8 @@
 @extends('cms.layouts.app')
 
+@section('page-title', 'Order Management')
+@section('page-subtitle', 'Manage user orders')
+
 @section('content')
 <!-- Page Heading -->
 <div class="d-sm-flex align-items-center justify-content-between mb-4">

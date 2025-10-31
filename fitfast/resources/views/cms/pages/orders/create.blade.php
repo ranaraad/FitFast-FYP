@@ -1,5 +1,8 @@
 @extends('cms.layouts.app')
 
+@section('page-title', 'Order Management')
+@section('page-subtitle', 'Manage user orders')
+
 @section('content')
 <!-- Page Heading -->
 <div class="d-sm-flex align-items-center justify-content-between mb-4">
@@ -62,7 +65,7 @@
                         <div class="col-12">
                             <div class="form-group">
                                 <label for="cart_id">Select Cart *</label>
-                                <select class="form-control @error('cart_id') is-invalid @enderror" 
+                                <select class="form-control @error('cart_id') is-invalid @enderror"
                                         id="cart_id" name="cart_id" required onchange="loadCartItems()">
                                     <option value="">Select a Cart</option>
                                 </select>
@@ -148,8 +151,8 @@
                                     <div class="col-md-6">
                                         <div class="form-group">
                                             <label for="card_number">Card Number *</label>
-                                            <input type="text" class="form-control" 
-                                                   id="card_number" name="card_number" 
+                                            <input type="text" class="form-control"
+                                                   id="card_number" name="card_number"
                                                    placeholder="1234 5678 9012 3456"
                                                    maxlength="19">
                                             <small class="form-text text-muted">Enter 16-digit card number</small>
@@ -158,8 +161,8 @@
                                     <div class="col-md-3">
                                         <div class="form-group">
                                             <label for="expiry_date">Expiry Date *</label>
-                                            <input type="text" class="form-control" 
-                                                   id="expiry_date" name="expiry_date" 
+                                            <input type="text" class="form-control"
+                                                   id="expiry_date" name="expiry_date"
                                                    placeholder="MM/YY"
                                                    maxlength="5">
                                         </div>
@@ -167,8 +170,8 @@
                                     <div class="col-md-3">
                                         <div class="form-group">
                                             <label for="cvv">CVV *</label>
-                                            <input type="text" class="form-control" 
-                                                   id="cvv" name="cvv" 
+                                            <input type="text" class="form-control"
+                                                   id="cvv" name="cvv"
                                                    placeholder="123"
                                                    maxlength="3">
                                         </div>
@@ -178,8 +181,8 @@
                                     <div class="col-md-6">
                                         <div class="form-group">
                                             <label for="card_holder">Card Holder Name *</label>
-                                            <input type="text" class="form-control" 
-                                                   id="card_holder" name="card_holder" 
+                                            <input type="text" class="form-control"
+                                                   id="card_holder" name="card_holder"
                                                    placeholder="John Doe">
                                         </div>
                                     </div>
@@ -236,10 +239,10 @@ function loadStoreCarts() {
 
     cartSelect.innerHTML = '<option value="">Select a Cart</option>';
     submitBtn.disabled = true;
-    
+
     if (storeId && userId) {
         cartSection.style.display = 'block';
-        
+
         // Load user's carts for this store via AJAX
         fetch(`/cms/carts/user/${userId}?store_id=${storeId}`)
             .then(response => response.json())
@@ -274,7 +277,7 @@ function loadStoreCarts() {
 function toggleCardFields() {
     const paymentMethod = document.getElementById('payment_method').value;
     const cardFields = document.getElementById('card-fields');
-    
+
     if (paymentMethod === 'card') {
         cardFields.style.display = 'block';
         // Make card fields required
@@ -296,21 +299,21 @@ function toggleCardFields() {
 document.getElementById('card_number')?.addEventListener('input', function(e) {
     let value = e.target.value.replace(/\s+/g, '').replace(/[^0-9]/gi, '');
     let formattedValue = '';
-    
+
     for (let i = 0; i < value.length; i++) {
         if (i > 0 && i % 4 === 0) {
             formattedValue += ' ';
         }
         formattedValue += value[i];
     }
-    
+
     e.target.value = formattedValue.substring(0, 19);
 });
 
 // Format expiry date input
 document.getElementById('expiry_date')?.addEventListener('input', function(e) {
     let value = e.target.value.replace(/\//g, '').replace(/[^0-9]/gi, '');
-    
+
     if (value.length >= 2) {
         e.target.value = value.substring(0, 2) + '/' + value.substring(2, 4);
     } else {
@@ -323,9 +326,9 @@ function loadCartItems() {
     const cartId = document.getElementById('cart_id').value;
     const submitBtn = document.getElementById('submit-btn');
     const container = document.getElementById('order-items-container');
-    
+
     console.log('Loading cart items for cart ID:', cartId);
-    
+
     if (cartId) {
         // Show loading state
         container.innerHTML = `
@@ -347,7 +350,7 @@ function loadCartItems() {
             })
             .then(items => {
                 console.log('Successfully loaded items:', items);
-                
+
                 if (!items || items.length === 0) {
                     container.innerHTML = `
                         <div class="text-center py-4">
@@ -375,15 +378,15 @@ function loadCartItems() {
                             </thead>
                             <tbody>
                 `;
-                
+
                 let totalItems = 0;
                 let orderTotal = 0;
-                
+
                 items.forEach(item => {
                     const itemTotal = item.quantity * item.unit_price;
                     totalItems += item.quantity;
                     orderTotal += itemTotal;
-                    
+
                     itemsHTML += `
                         <tr>
                             <td>
@@ -415,22 +418,22 @@ function loadCartItems() {
                         </tr>
                     `;
                 });
-                
+
                 itemsHTML += `
                             </tbody>
                         </table>
                     </div>
                 `;
-                
+
                 container.innerHTML = itemsHTML;
-                
+
                 // Update summary
                 document.getElementById('total-items').textContent = totalItems;
                 document.getElementById('order-total').textContent = `$${orderTotal.toFixed(2)}`;
-                
+
                 // Enable submit button
                 submitBtn.disabled = false;
-                
+
                 // Add hidden inputs for items
                 addHiddenItemInputs(items);
             })
@@ -460,10 +463,10 @@ function loadCartItems() {
 function addHiddenItemInputs(items) {
     // Remove any existing hidden inputs
     document.querySelectorAll('input[name^="items"]').forEach(input => input.remove());
-    
+
     // Add hidden inputs for each item
     const form = document.getElementById('orderForm');
-    
+
     items.forEach((item, index) => {
         const fields = [
             { name: `items[${index}][item_id]`, value: item.item_id },
@@ -472,7 +475,7 @@ function addHiddenItemInputs(items) {
             { name: `items[${index}][selected_color]`, value: item.selected_color },
             { name: `items[${index}][unit_price]`, value: item.unit_price }
         ];
-        
+
         fields.forEach(field => {
             const input = document.createElement('input');
             input.type = 'hidden';
@@ -492,38 +495,38 @@ function updateOrderSummary() {
 document.getElementById('orderForm').addEventListener('submit', function(e) {
     const cartId = document.getElementById('cart_id').value;
     const paymentMethod = document.getElementById('payment_method').value;
-    
+
     if (!cartId) {
         e.preventDefault();
         Swal.fire('Error', 'Please select a cart to create order from.', 'error');
         return;
     }
-    
+
     if (paymentMethod === 'card') {
         // Validate card fields
         const cardNumber = document.getElementById('card_number').value.replace(/\s/g, '');
         const expiryDate = document.getElementById('expiry_date').value;
         const cvv = document.getElementById('cvv').value;
         const cardHolder = document.getElementById('card_holder').value;
-        
+
         if (cardNumber.length !== 16) {
             e.preventDefault();
             Swal.fire('Error', 'Please enter a valid 16-digit card number.', 'error');
             return;
         }
-        
+
         if (!expiryDate.match(/^\d{2}\/\d{2}$/)) {
             e.preventDefault();
             Swal.fire('Error', 'Please enter a valid expiry date (MM/YY).', 'error');
             return;
         }
-        
+
         if (cvv.length !== 3) {
             e.preventDefault();
             Swal.fire('Error', 'Please enter a valid 3-digit CVV.', 'error');
             return;
         }
-        
+
         if (!cardHolder.trim()) {
             e.preventDefault();
             Swal.fire('Error', 'Please enter card holder name.', 'error');

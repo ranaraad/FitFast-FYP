@@ -17,11 +17,11 @@ use App\Http\Controllers\CMS\RoleController;
 use App\Http\Controllers\CMS\ExportController;
 use Illuminate\Support\Facades\Route;
 
+
 // Public routes (if any)
 Route::get('/', function () {
     return view('welcome');
 });
-
 
 // CMS Routes (Admin Panel)
 Route::prefix('cms')->name('cms.')->group(function () {

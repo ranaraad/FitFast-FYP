@@ -1,5 +1,6 @@
 import { useState } from "react";
 import api from "./api";
+import { Link } from "react-router-dom";
 
 export default function RegisterPage() {
   const [name, setName] = useState("");
@@ -21,77 +22,80 @@ export default function RegisterPage() {
         password,
         password_confirmation: passwordConfirmation,
       });
-
-      // save token in localStorage
       localStorage.setItem("auth_token", res.data.token);
       localStorage.setItem("auth_user", JSON.stringify(res.data.user));
-
-      setMessage("Registered and logged in!");
-    } catch (err) {
-      console.log(err);
-      if (err.response && err.response.data) {
-        // Laravel validation errors
-        setError(JSON.stringify(err.response.data));
-      } else {
-        setError("Something went wrong.");
-      }
+      setMessage("Welcome to FitFast, " + res.data.user.name + "!");
+      setTimeout(() => (window.location.href = "/profile"), 1200);
+    } catch {
+      setError("Registration failed. Please check your details.");
     }
   }
 
   return (
-    <div style={{ maxWidth: 400, margin: "2rem auto", fontFamily: "sans-serif" }}>
-      <h2>Create Account</h2>
-      {message && <p style={{ color: "green" }}>{message}</p>}
-      {error && <p style={{ color: "red" }}>{error}</p>}
+    <>
+      <div className="logo">
+        Fit<span>Fast</span>
+      </div>
 
-      <form onSubmit={handleRegister}>
-        <div style={{ marginBottom: "1rem" }}>
-          <label>Name</label>
-          <input
-            style={{ width: "100%" }}
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-            required
-          />
-        </div>
+      <div className="auth-wrapper">
+        <h2>
+          Sign<span>Up</span>
+        </h2>
 
-        <div style={{ marginBottom: "1rem" }}>
-          <label>Email</label>
-          <input
-            style={{ width: "100%" }}
-            type="email"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            required
-          />
-        </div>
+        {message && <p className="success">{message}</p>}
+        {error && <p className="error">{error}</p>}
 
-        <div style={{ marginBottom: "1rem" }}>
-          <label>Password</label>
-          <input
-            style={{ width: "100%" }}
-            type="password"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            required
-          />
-        </div>
+        <form onSubmit={handleRegister}>
+          <div>
+            <label>Full Name</label>
+            <input
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              placeholder="John Doe"
+              required
+            />
+          </div>
 
-        <div style={{ marginBottom: "1rem" }}>
-          <label>Confirm Password</label>
-          <input
-            style={{ width: "100%" }}
-            type="password"
-            value={passwordConfirmation}
-            onChange={(e) => setPasswordConfirmation(e.target.value)}
-            required
-          />
-        </div>
+          <div>
+            <label>Email</label>
+            <input
+              type="email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              placeholder="johndoe@email.com"
+              required
+            />
+          </div>
 
-        <button type="submit" style={{ width: "100%" }}>
-          Register
-        </button>
-      </form>
-    </div>
+          <div>
+            <label>Password</label>
+            <input
+              type="password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              placeholder="********"
+              required
+            />
+          </div>
+
+          <div>
+            <label>Confirm Password</label>
+            <input
+              type="password"
+              value={passwordConfirmation}
+              onChange={(e) => setPasswordConfirmation(e.target.value)}
+              placeholder="********"
+              required
+            />
+          </div>
+
+          <button type="submit">Register</button>
+        </form>
+
+        <p>
+          Already have an account? <Link to="/login">Log In</Link>
+        </p>
+      </div>
+    </>
   );
 }

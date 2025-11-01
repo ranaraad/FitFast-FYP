@@ -5,6 +5,7 @@ namespace App\Observers;
 use App\Models\Order;
 use App\Models\Delivery;
 use Illuminate\Support\Facades\Log;
+use Carbon\Carbon;
 
 class OrderObserver
 {
@@ -85,18 +86,22 @@ class OrderObserver
         try {
             $deliveryAddress = $this->getDeliveryAddress($order->user);
 
+            // FIX: Use Carbon to properly format the timestamp
+            $estimatedDelivery = Carbon::now()->addDays(3);
+
             $delivery = Delivery::create([
                 'order_id' => $order->id,
                 'address' => $deliveryAddress,
                 'status' => 'pending',
                 'carrier' => null,
                 'tracking_id' => null,
-                'estimated_delivery' => now()->addDays(3),
+                'estimated_delivery' => $estimatedDelivery,
             ]);
 
             Log::info("OrderObserver: SUCCESS - Created delivery #{$delivery->id} for Order #{$order->id}", [
                 'delivery_id' => $delivery->id,
-                'address' => $deliveryAddress
+                'address' => $deliveryAddress,
+                'estimated_delivery' => $estimatedDelivery->toDateTimeString()
             ]);
 
         } catch (\Exception $e) {
@@ -119,6 +124,7 @@ class OrderObserver
 
         return "Address not provided for user: {$user->name} ({$user->email})";
     }
+
     /**
      * Handle the Order "deleted" event.
      */
@@ -129,5 +135,4 @@ class OrderObserver
             $order->delivery->delete();
         }
     }
-
 }

@@ -13,7 +13,7 @@ return new class extends Migration
             $table->foreignId('order_id')->constrained()->onDelete('cascade');
             $table->string('tracking_id')->nullable()->comment('3rd party API tracking ID');
             $table->string('carrier')->nullable()->comment('aramex, dhl, etc.');
-            $table->timestamp('estimated_delivery')->nullable();
+            $table->dateTime('estimated_delivery')->nullable();
             $table->string('status')->default('pending'); // pending, shipped, in_transit, out_for_delivery, delivered, failed
             $table->text('address');
             $table->timestamps();

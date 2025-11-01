@@ -138,8 +138,10 @@ Route::prefix('store-admin')->name('store-admin.')->group(function () {
     Route::post('orders/{order}/status', [StoreAdminOrderController::class, 'updateStatus'])->name('orders.update-status');
 
     // Deliveries - Resource routes with custom methods
-    Route::resource('deliveries', StoreAdminDeliveryController::class)->only(['index', 'show', 'edit', 'update']);
+    Route::get('deliveries/search', [StoreAdminDeliveryController::class, 'search'])->name('deliveries.search');
+    Route::resource('deliveries', StoreAdminDeliveryController::class)->only(['index', 'destroy']);
     Route::post('deliveries/{delivery}/update-status', [StoreAdminDeliveryController::class, 'updateStatus'])->name('deliveries.update-status');
+    Route::post('deliveries/{delivery}/add-tracking', [StoreAdminDeliveryController::class, 'addTracking'])->name('deliveries.add-tracking');
     Route::post('deliveries/{delivery}/update-tracking', [StoreAdminDeliveryController::class, 'updateTracking'])->name('deliveries.update-tracking');
     Route::post('deliveries/{delivery}/mark-delivered', [StoreAdminDeliveryController::class, 'markAsDelivered'])->name('deliveries.mark-delivered');
 

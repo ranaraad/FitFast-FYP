@@ -5,6 +5,7 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Carbon\Carbon;
 
 class Delivery extends Model
 {
@@ -32,6 +33,21 @@ class Delivery extends Model
     protected $casts = [
         'estimated_delivery' => 'datetime',
     ];
+
+    /**
+     * Boot the model.
+     */
+    protected static function boot()
+    {
+        parent::boot();
+
+        static::creating(function ($delivery) {
+            // Set default estimated delivery if not provided
+            if (empty($delivery->estimated_delivery)) {
+                $delivery->estimated_delivery = Carbon::now()->addDays(3);
+            }
+        });
+    }
 
     /**
      * Get the order that owns the delivery.
@@ -66,6 +82,15 @@ class Delivery extends Model
     }
 
     /**
+     * Scope a query to only include overdue deliveries.
+     */
+    public function scopeOverdue($query)
+    {
+        return $query->where('estimated_delivery', '<', now())
+                    ->whereNotIn('status', ['delivered', 'failed']);
+    }
+
+    /**
      * Check if delivery is pending.
      */
     public function isPending(): bool
@@ -90,11 +115,39 @@ class Delivery extends Model
     }
 
     /**
+     * Check if delivery is overdue.
+     */
+    public function isOverdue(): bool
+    {
+        return $this->estimated_delivery->isPast() && !$this->isCompleted();
+    }
+
+    /**
      * Check if delivery has tracking information.
      */
     public function hasTracking(): bool
     {
         return !empty($this->tracking_id) && !empty($this->carrier);
+    }
+
+    /**
+     * Get the estimated delivery date formatted.
+     */
+    public function getEstimatedDeliveryFormatted(): string
+    {
+        return $this->estimated_delivery ? $this->estimated_delivery->format('M j, Y') : 'Not set';
+    }
+
+    /**
+     * Get the days remaining until estimated delivery.
+     */
+    public function getDaysRemaining(): int
+    {
+        if (!$this->estimated_delivery || $this->isCompleted()) {
+            return 0;
+        }
+
+        return max(0, now()->diffInDays($this->estimated_delivery, false));
     }
 
     /**
@@ -116,12 +169,17 @@ class Delivery extends Model
      */
     public function markAsShipped(string $trackingId, string $carrier, ?string $estimatedDelivery = null): bool
     {
-        return $this->update([
+        $updateData = [
             'tracking_id' => $trackingId,
             'carrier' => $carrier,
-            'estimated_delivery' => $estimatedDelivery,
             'status' => 'shipped',
-        ]);
+        ];
+
+        if ($estimatedDelivery) {
+            $updateData['estimated_delivery'] = $estimatedDelivery;
+        }
+
+        return $this->update($updateData);
     }
 
     /**

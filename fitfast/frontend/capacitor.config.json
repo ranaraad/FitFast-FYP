@@ -1,0 +1,6 @@
+{
+  "appId": "com.fitfast.app",
+  "appName": "FitFast",
+  "webDir": "dist",
+  "bundledWebRuntime": false
+}

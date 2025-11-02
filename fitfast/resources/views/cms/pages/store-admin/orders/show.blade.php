@@ -1,4 +1,4 @@
-@extends('cms.layouts.app')
+@extends('cms.layouts.store-admin-app')
 
 @section('page-title', 'Order Details')
 @section('page-subtitle', 'View order information')
@@ -351,6 +351,10 @@
                         <i class="fas fa-trash"></i> Cancel Order
                     </button>
                     @endif
+
+                    <a href="{{ route('store-admin.items.index', ['store_id' => $order->store_id]) }}" class="btn btn-outline-primary btn-block">
+                        <i class="fas fa-box"></i> View Store Items
+                    </a>
                 </div>
                 <form id="delete-form" action="{{ route('store-admin.orders.destroy', $order) }}" method="POST" class="d-none">
                     @csrf
@@ -513,7 +517,6 @@
 }
 </style>
 @endpush
-
 
 @push('scripts')
 <script>

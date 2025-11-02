@@ -177,7 +177,7 @@
                         </div>
                     </div>
 
-                    <!-- Payment Information -->
+                    <!-- Payment Information Display (Read-only) -->
                     <div class="row mb-4">
                         <div class="col-12">
                             <h5 class="text-primary">Payment Information</h5>
@@ -186,24 +186,50 @@
                                     <div class="row">
                                         <div class="col-md-6">
                                             <div class="form-group">
-                                                <label for="payment_method">Payment Method *</label>
-                                                <select class="form-control @error('payment_method') is-invalid @enderror"
-                                                        id="payment_method" name="payment_method" required onchange="toggleCardFields()">
-                                                    <option value="">Select Payment Method</option>
-                                                    <option value="cash" {{ old('payment_method', $order->getPaymentMethodType()) == 'cash' ? 'selected' : '' }}>Cash</option>
-                                                    <option value="card" {{ old('payment_method', $order->getPaymentMethodType()) == 'card' ? 'selected' : '' }}>Credit/Debit Card</option>
-                                                </select>
-                                                @error('payment_method')
-                                                    <div class="invalid-feedback">{{ $message }}</div>
-                                                @enderror
+                                                <label>Payment Method</label>
+                                                <p class="form-control-plaintext">
+                                                    @php
+                                                        $paymentMethodType = $order->payment ? $order->getPaymentMethodType() : 'Not Set';
+                                                    @endphp
+                                                    {{ ucfirst($paymentMethodType) }}
+                                                    @if($paymentMethodType == 'card' && $order->paymentMethod)
+                                                        (**** **** **** {{ $order->paymentMethod->last_four_digits ?? 'N/A' }})
+                                                    @endif
+                                                </p>
+                                            </div>
+                                        </div>
+                                        <div class="col-md-6">
+                                            <div class="form-group">
+                                                <label>Payment Status</label>
+                                                <p class="form-control-plaintext">
+                                                    @php
+                                                        $paymentStatus = $order->payment->status ?? 'N/A';
+                                                        $badgeClass = 'secondary';
+                                                        if ($paymentStatus === 'completed') {
+                                                            $badgeClass = 'success';
+                                                        } elseif ($paymentStatus === 'pending') {
+                                                            $badgeClass = 'warning';
+                                                        } elseif (in_array($paymentStatus, ['failed', 'cancelled', 'refunded'])) {
+                                                            $badgeClass = 'danger';
+                                                        }
+                                                    @endphp
+                                                    <span class="badge badge-{{ $badgeClass }}">
+                                                        {{ ucfirst($paymentStatus) }}
+                                                    </span>
+                                                </p>
                                             </div>
                                         </div>
                                     </div>
-
-                                    <!-- Card Fields (Hidden by default) -->
-                                    <div id="card-fields" style="{{ (old('payment_method') ?: $order->getPaymentMethodType()) == 'card' ? '' : 'display: none;' }}">
-                                        <!-- Your existing card fields here -->
+                                    @if(!$order->payment)
+                                    <div class="row mt-2">
+                                        <div class="col-12">
+                                            <div class="alert alert-warning mb-0">
+                                                <i class="fas fa-exclamation-triangle"></i>
+                                                No payment record found for this order.
+                                            </div>
+                                        </div>
                                     </div>
+                                    @endif
                                 </div>
                             </div>
                         </div>
@@ -228,49 +254,3 @@
     </div>
 </div>
 @endsection
-
-@push('scripts')
-<script>
-function toggleCardFields() {
-    const paymentMethod = document.getElementById('payment_method').value;
-    const cardFields = document.getElementById('card-fields');
-
-    if (paymentMethod === 'card') {
-        cardFields.style.display = 'block';
-    } else {
-        cardFields.style.display = 'none';
-    }
-}
-
-// Format card number input
-document.getElementById('card_number')?.addEventListener('input', function(e) {
-    let value = e.target.value.replace(/\s+/g, '').replace(/[^0-9]/gi, '');
-    let formattedValue = '';
-
-    for (let i = 0; i < value.length; i++) {
-        if (i > 0 && i % 4 === 0) {
-            formattedValue += ' ';
-        }
-        formattedValue += value[i];
-    }
-
-    e.target.value = formattedValue.substring(0, 19);
-});
-
-// Format expiry date input
-document.getElementById('expiry_date')?.addEventListener('input', function(e) {
-    let value = e.target.value.replace(/\//g, '').replace(/[^0-9]/gi, '');
-
-    if (value.length >= 2) {
-        e.target.value = value.substring(0, 2) + '/' + value.substring(2, 4);
-    } else {
-        e.target.value = value;
-    }
-});
-
-// Initialize on page load
-document.addEventListener('DOMContentLoaded', function() {
-    toggleCardFields();
-});
-</script>
-@endpush

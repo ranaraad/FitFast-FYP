@@ -52,6 +52,29 @@
                         </div>
                     </div>
 
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="form-group">
+                                <label for="user_id">Store Admin</label>
+                                <select class="form-control @error('user_id') is-invalid @enderror"
+                                        id="user_id" name="user_id">
+                                    <option value="">Select Store Admin</option>
+                                    @foreach($users as $user)
+                                        <option value="{{ $user->id }}" {{ old('user_id', $store->user_id) == $user->id ? 'selected' : '' }}>
+                                            {{ $user->name }} ({{ $user->email }})
+                                        </option>
+                                    @endforeach
+                                </select>
+                                @error('user_id')
+                                    <div class="invalid-feedback">{{ $message }}</div>
+                                @enderror
+                                <small class="form-text text-muted">
+                                    Assign a Store Admin to manage this store (optional)
+                                </small>
+                            </div>
+                        </div>
+                    </div>
+
                     <div class="form-group">
                         <label for="description">Description</label>
                         <textarea class="form-control @error('description') is-invalid @enderror"

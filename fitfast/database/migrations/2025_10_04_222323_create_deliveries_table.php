@@ -3,6 +3,7 @@
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Schema;
+use Illuminate\Support\Facades\DB;
 
 return new class extends Migration
 {
@@ -13,7 +14,7 @@ return new class extends Migration
             $table->foreignId('order_id')->constrained()->onDelete('cascade');
             $table->string('tracking_id')->nullable()->comment('3rd party API tracking ID');
             $table->string('carrier')->nullable()->comment('aramex, dhl, etc.');
-            $table->timestamp('estimated_delivery')->nullable();
+            $table->dateTime('estimated_delivery')->default(DB::raw('DATE_ADD(NOW(), INTERVAL 3 DAY)'));
             $table->string('status')->default('pending'); // pending, shipped, in_transit, out_for_delivery, delivered, failed
             $table->text('address');
             $table->timestamps();

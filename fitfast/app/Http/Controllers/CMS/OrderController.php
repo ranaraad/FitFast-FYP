@@ -6,7 +6,7 @@ use App\Models\Order;
 use App\Models\Cart;
 use App\Models\User;
 use App\Models\Store;
-use App\Models\Item; // Add this import
+use App\Models\Item;
 use App\Models\OrderItem;
 use App\Models\Delivery;
 use App\Models\Payment;
@@ -147,49 +147,67 @@ class OrderController extends Controller
             'total_amount' => 'required|numeric|min:0',
             'delivery_address' => 'required|string|max:500',
             'delivery_status' => 'required|in:pending,shipped,delivered,failed',
-            'payment_method' => 'required|in:cash,card',
-            'card_number' => 'nullable|string|max:19',
-            'expiry_date' => 'nullable|string|max:5',
-            'cvv' => 'nullable|string|max:3',
-            'card_holder' => 'nullable|string|max:255',
         ]);
 
-        // Update order
-        $order->update([
-            'user_id' => $validated['user_id'],
-            'store_id' => $validated['store_id'],
-            'status' => $validated['status'],
-            'total_amount' => $validated['total_amount'],
-        ]);
-
-        // Update delivery
-        if ($order->delivery) {
-            $order->delivery->update([
-                'address' => $validated['delivery_address'],
-                'status' => $validated['delivery_status'],
+        // Use database transaction for safety
+        return DB::transaction(function () use ($order, $validated) {
+            // Update order
+            $order->update([
+                'user_id' => $validated['user_id'],
+                'store_id' => $validated['store_id'],
+                'status' => $validated['status'],
+                'total_amount' => $validated['total_amount'],
             ]);
-        }
 
-        // Update payment method if payment exists
-        if ($order->payment) {
-            $paymentMethodId = $validated['payment_method'] === 'card' ? 2 : 1;
-            $order->payment->update([
-                'payment_method_id' => $paymentMethodId,
-            ]);
-        } else {
-            // Create payment record if it doesn't exist
-            $paymentMethodId = $validated['payment_method'] === 'card' ? 2 : 1;
-            Payment::create([
-                'order_id' => $order->id,
-                'payment_method_id' => $paymentMethodId,
-                'amount' => $validated['total_amount'],
-                'status' => 'completed', // or whatever status is appropriate
-            ]);
-        }
+            // Update or create delivery
+            if ($order->delivery) {
+                $order->delivery->update([
+                    'address' => $validated['delivery_address'],
+                    'status' => $validated['delivery_status'],
+                ]);
+            } else {
+                // Create delivery record if it doesn't exist
+                Delivery::create([
+                    'order_id' => $order->id,
+                    'address' => $validated['delivery_address'],
+                    'status' => $validated['delivery_status'],
+                ]);
+            }
 
-        return redirect()->route('cms.orders.show', $order)
-            ->with('success', 'Order updated successfully.');
+            // Handle stock adjustments based on status changes
+            $this->handleStockAdjustments($order, $validated['status']);
+
+            return redirect()->route('cms.orders.show', $order)
+                ->with('success', 'Order updated successfully.');
+        });
     }
+
+/**
+ * Handle stock adjustments when order status changes
+ */
+private function handleStockAdjustments(Order $order, string $newStatus)
+{
+    $oldStatus = $order->getOriginal('status');
+
+    // If order was cancelled and is now being reactivated, decrease stock
+    if (($oldStatus === Order::STATUS_CANCELLED) &&
+        in_array($newStatus, [Order::STATUS_PENDING, Order::STATUS_CONFIRMED, Order::STATUS_PROCESSING])) {
+
+        foreach ($order->orderItems as $orderItem) {
+            $item = $orderItem->item;
+            $item->safeDecreaseStock($orderItem->quantity, $orderItem->selected_color);
+        }
+    }
+    // If order is being cancelled or refunded, restore stock
+    elseif (in_array($newStatus, [Order::STATUS_CANCELLED]) &&
+             !in_array($oldStatus, [Order::STATUS_CANCELLED])) {
+
+        foreach ($order->orderItems as $orderItem) {
+            $item = $orderItem->item;
+            $item->safeIncreaseStock($orderItem->quantity, $orderItem->selected_color);
+        }
+    }
+}
 
     public function destroy(Order $order)
     {

@@ -1,21 +1,29 @@
-@extends('cms.layouts.app')
+@extends('cms.layouts.store-admin-app')
 
-@section('page-title', 'Stores Management')
-@section('page-subtitle', 'Manage stores in the system')
+@section('page-title', $store->name)
+@section('page-subtitle', 'Store Details & Analytics')
 
 @section('content')
 <!-- Page Heading -->
 <div class="d-sm-flex align-items-center justify-content-between mb-4">
-    <h1 class="h3 mb-0 text-gray-800">Store Details</h1>
+    <h1 class="h3 mb-0 text-gray-800">{{ $store->name }}</h1>
     <div>
-        <a href="{{ route('cms.stores.edit', $store) }}" class="d-none d-sm-inline-block btn btn-sm btn-primary shadow-sm">
-            <i class="fas fa-edit fa-sm text-white-50"></i> Edit Store
-        </a>
-        <a href="{{ route('cms.stores.index') }}" class="d-none d-sm-inline-block btn btn-sm btn-secondary shadow-sm">
+        <a href="{{ route('store-admin.stores.index') }}" class="d-none d-sm-inline-block btn btn-sm btn-secondary shadow-sm">
             <i class="fas fa-arrow-left fa-sm text-white-50"></i> Back to Stores
+        </a>
+        <a href="{{ route('store-admin.items.index', ['store_id' => $store->id]) }}" class="d-none d-sm-inline-block btn btn-sm btn-primary shadow-sm">
+            <i class="fas fa-box fa-sm text-white-50"></i> Manage Items
         </a>
     </div>
 </div>
+
+<!-- Store Status Alert -->
+@if($store->status === 'inactive')
+<div class="alert alert-warning alert-dismissible fade show mb-4" role="alert">
+    <i class="fas fa-exclamation-triangle mr-2"></i>
+    <strong>This store is currently inactive.</strong> Some features may be limited.
+</div>
+@endif
 
 <!-- Content Row -->
 <div class="row">
@@ -42,23 +50,6 @@
                             <span class="info-label font-weight-bold">Store Name</span>
                         </div>
                         <span class="info-value text-dark font-weight-semibold">{{ $store->name }}</span>
-                    </div>
-
-                    <div class="info-item">
-                        <div class="info-label-container">
-                            <i class="fas fa-user-shield text-primary"></i>
-                            <span class="info-label font-weight-bold">Store Admin</span>
-                        </div>
-                        <span class="info-value">
-                            @if($store->user)
-                                <div class="d-flex flex-column align-items-end">
-                                    <span class="font-weight-semibold text-dark">{{ $store->user->name }}</span>
-                                    <small class="text-muted">{{ $store->user->email }}</small>
-                                </div>
-                            @else
-                                <span class="text-muted">No admin assigned</span>
-                            @endif
-                        </span>
                     </div>
 
                     <div class="info-item">
@@ -179,11 +170,37 @@
             </div>
         </div>
 
+        <!-- Revenue Statistics -->
+        <div class="card shadow mb-4">
+            <div class="card-header py-3 bg-success text-white">
+                <h6 class="m-0 font-weight-bold">Revenue Overview</h6>
+            </div>
+            <div class="card-body">
+                <div class="text-center">
+                    <h4 class="text-success font-weight-bold mb-1">${{ number_format($storeStats['total_revenue'], 2) }}</h4>
+                    <p class="text-muted small mb-3">Total Revenue</p>
+
+                    <div class="row text-center">
+                        <div class="col-6">
+                            <div class="border-right">
+                                <h6 class="text-primary font-weight-bold mb-1">${{ number_format($storeStats['avg_order_value'] ?? 0, 2) }}</h6>
+                                <small class="text-muted">Avg Order Value</small>
+                            </div>
+                        </div>
+                        <div class="col-6">
+                            <h6 class="text-info font-weight-bold mb-1">{{ $storeStats['total_customers'] }}</h6>
+                            <small class="text-muted">Unique Customers</small>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
         <!-- Stock Summary -->
         @php
-            $lowStockCount = $store->items->where('stock_quantity', '<', 10)->where('stock_quantity', '>', 0)->count();
-            $outOfStockCount = $store->items->where('stock_quantity', 0)->count();
-            $healthyStockCount = $store->items->where('stock_quantity', '>=', 10)->count();
+            $lowStockCount = $store->low_stock_items->count();
+            $outOfStockCount = $store->out_of_stock_items->count();
+            $healthyStockCount = $store->items->count() - $lowStockCount - $outOfStockCount;
             $totalItems = $store->items->count();
         @endphp
 
@@ -258,7 +275,7 @@
                     <i class="fas fa-box-open fa-3x text-muted mb-3"></i>
                     <h6 class="text-muted mb-2">No Stock Data Available</h6>
                     <p class="text-muted small mb-3">Add items to this store to see stock analytics</p>
-                    <a href="{{ route('cms.items.create') }}?store_id={{ $store->id }}" class="btn btn-sm btn-primary">
+                    <a href="{{ route('store-admin.items.create') }}?store_id={{ $store->id }}" class="btn btn-sm btn-primary">
                         <i class="fas fa-plus mr-1"></i> Add First Item
                     </a>
                 </div>
@@ -273,22 +290,18 @@
             </div>
             <div class="card-body">
                 <div class="d-grid gap-3">
-                    <a href="{{ route('cms.stores.edit', $store) }}" class="btn btn-primary btn-block py-2">
-                        <i class="fas fa-edit mr-2"></i> Edit Store Information
-                    </a>
-                    <a href="{{ route('cms.items.create') }}?store_id={{ $store->id }}" class="btn btn-success btn-block py-2">
+                    <a href="{{ route('store-admin.items.create') }}?store_id={{ $store->id }}" class="btn btn-success btn-block py-2">
                         <i class="fas fa-plus mr-2"></i> Add New Item
                     </a>
-                    <a href="{{ route('cms.items.index') }}?store_id={{ $store->id }}" class="btn btn-info btn-block py-2">
+                    <a href="{{ route('store-admin.items.index') }}?store_id={{ $store->id }}" class="btn btn-info btn-block py-2">
                         <i class="fas fa-list mr-2"></i> Manage All Items
                     </a>
-                    <button type="button" class="btn btn-danger btn-block py-2" onclick="confirmDelete()">
-                        <i class="fas fa-trash mr-2"></i> Delete Store
-                    </button>
-                    <form id="delete-form" action="{{ route('cms.stores.destroy', $store) }}" method="POST" class="d-none">
-                        @csrf
-                        @method('DELETE')
-                    </form>
+                    <a href="{{ route('store-admin.orders.index') }}?store_id={{ $store->id }}" class="btn btn-primary btn-block py-2">
+                        <i class="fas fa-shopping-cart mr-2"></i> View Orders
+                    </a>
+                    <a href="{{ route('store-admin.deliveries.index') }}?store_id={{ $store->id }}" class="btn btn-secondary btn-block py-2">
+                        <i class="fas fa-truck mr-2"></i> Manage Deliveries
+                    </a>
                 </div>
             </div>
         </div>
@@ -296,10 +309,10 @@
 
     <!-- Right Column - Items & Analytics -->
     <div class="col-xl-8 col-lg-7">
-        <!-- Items Table Card - Full Width -->
+        <!-- Recent Items Table Card -->
         <div class="card shadow mb-4">
             <div class="card-header py-3 d-flex justify-content-between align-items-center bg-white">
-                <h6 class="m-0 font-weight-bold text-primary">Store Items ({{ $totalItems }})</h6>
+                <h6 class="m-0 font-weight-bold text-primary">Recent Items ({{ $store->items->count() }})</h6>
                 <div class="stock-indicators">
                     @if($lowStockCount > 0)
                         <span class="badge badge-warning mr-2">
@@ -311,7 +324,7 @@
                             <i class="fas fa-times-circle"></i> {{ $outOfStockCount }} Out of Stock
                         </span>
                     @endif
-                    <a href="{{ route('cms.items.create') }}?store_id={{ $store->id }}" class="btn btn-sm btn-primary">
+                    <a href="{{ route('store-admin.items.create') }}?store_id={{ $store->id }}" class="btn btn-sm btn-primary">
                         <i class="fas fa-plus"></i> Add Item
                     </a>
                 </div>
@@ -332,7 +345,7 @@
                                 </tr>
                             </thead>
                             <tbody>
-                                @foreach($store->items as $item)
+                                @foreach($store->items->take(10) as $item)
                                 <tr class="{{ $item->stock_quantity == 0 ? 'table-danger' : ($item->stock_quantity < 10 ? 'table-warning' : '') }}">
                                     <td>
                                         <div class="d-flex align-items-center">
@@ -393,10 +406,10 @@
                                     </td>
                                     <td>
                                         <div class="btn-group btn-group-sm" role="group">
-                                            <a href="{{ route('cms.items.show', $item) }}" class="btn btn-info" title="View">
+                                            <a href="{{ route('store-admin.items.show', $item) }}" class="btn btn-info" title="View">
                                                 <i class="fas fa-eye"></i>
                                             </a>
-                                            <a href="{{ route('cms.items.edit', $item) }}" class="btn btn-primary" title="Edit">
+                                            <a href="{{ route('store-admin.items.edit', $item) }}" class="btn btn-primary" title="Edit">
                                                 <i class="fas fa-edit"></i>
                                             </a>
                                         </div>
@@ -406,12 +419,19 @@
                             </tbody>
                         </table>
                     </div>
+                    @if($store->items->count() > 10)
+                    <div class="text-center mt-3">
+                        <a href="{{ route('store-admin.items.index') }}?store_id={{ $store->id }}" class="btn btn-outline-primary btn-sm">
+                            View All {{ $store->items->count() }} Items
+                        </a>
+                    </div>
+                    @endif
                 @else
                     <div class="text-center py-5">
                         <i class="fas fa-box-open fa-4x text-muted mb-3"></i>
                         <h5 class="text-muted">No Items Found</h5>
                         <p class="text-muted mb-4">This store doesn't have any items yet.</p>
-                        <a href="{{ route('cms.items.create') }}?store_id={{ $store->id }}" class="btn btn-primary btn-lg">
+                        <a href="{{ route('store-admin.items.create') }}?store_id={{ $store->id }}" class="btn btn-primary btn-lg">
                             <i class="fas fa-plus"></i> Add First Item
                         </a>
                     </div>
@@ -419,8 +439,85 @@
             </div>
         </div>
 
-        <!-- Analytics Cards Row - Side by Side -->
-        @if($store->items->count() > 0)
+        <!-- Recent Orders Card -->
+        <div class="card shadow mb-4">
+            <div class="card-header py-3 d-flex justify-content-between align-items-center bg-white">
+                <h6 class="m-0 font-weight-bold text-primary">Recent Orders</h6>
+                <a href="{{ route('store-admin.orders.index') }}?store_id={{ $store->id }}" class="btn btn-sm btn-outline-primary">
+                    View All Orders
+                </a>
+            </div>
+            <div class="card-body">
+                @if($store->orders->count() > 0)
+                    <div class="table-responsive">
+                        <table class="table table-bordered table-hover" id="ordersTable" width="100%" cellspacing="0">
+                            <thead class="thead-light">
+                                <tr>
+                                    <th>Order ID</th>
+                                    <th>Customer</th>
+                                    <th>Amount</th>
+                                    <th>Status</th>
+                                    <th>Date</th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @foreach($store->orders->take(10) as $order)
+                                <tr>
+                                    <td>
+                                        <strong>#{{ $order->id }}</strong>
+                                    </td>
+                                    <td>
+                                        @if($order->user)
+                                            <div>
+                                                <strong>{{ $order->user->name }}</strong>
+                                                <br>
+                                                <small class="text-muted">{{ $order->user->email }}</small>
+                                            </div>
+                                        @else
+                                            <span class="text-muted">Guest</span>
+                                        @endif
+                                    </td>
+                                    <td>
+                                        <strong class="text-success">${{ number_format($order->total_amount, 2) }}</strong>
+                                    </td>
+                                    <td>
+                                        @if($order->status === 'completed')
+                                            <span class="badge badge-success">{{ ucfirst($order->status) }}</span>
+                                        @elseif($order->status === 'pending')
+                                            <span class="badge badge-warning">{{ ucfirst($order->status) }}</span>
+                                        @elseif($order->status === 'processing')
+                                            <span class="badge badge-info">{{ ucfirst($order->status) }}</span>
+                                        @else
+                                            <span class="badge badge-secondary">{{ ucfirst($order->status) }}</span>
+                                        @endif
+                                    </td>
+                                    <td>
+                                        <small class="text-muted">{{ $order->created_at->format('M d, Y') }}</small>
+                                        <br>
+                                        <small class="text-muted">{{ $order->created_at->format('H:i A') }}</small>
+                                    </td>
+                                    <td>
+                                        <a href="{{ route('store-admin.orders.show', $order) }}" class="btn btn-sm btn-info" title="View">
+                                            <i class="fas fa-eye"></i>
+                                        </a>
+                                    </td>
+                                </tr>
+                                @endforeach
+                            </tbody>
+                        </table>
+                    </div>
+                @else
+                    <div class="text-center py-4">
+                        <i class="fas fa-shopping-cart fa-3x text-muted mb-3"></i>
+                        <h6 class="text-muted mb-2">No Orders Yet</h6>
+                        <p class="text-muted small">Orders will appear here once customers start purchasing.</p>
+                    </div>
+                @endif
+            </div>
+        </div>
+
+        <!-- Analytics Cards Row -->
         <div class="row">
             <!-- Top Items by Stock -->
             <div class="col-md-6 mb-4">
@@ -466,7 +563,7 @@
                                         <small class="text-muted">Only {{ $item->stock_quantity }} left</small>
                                     </div>
                                     <div class="text-right">
-                                        <a href="{{ route('cms.items.edit', $item) }}" class="btn btn-sm btn-outline-danger">
+                                        <a href="{{ route('store-admin.items.edit', $item) }}" class="btn btn-sm btn-outline-danger">
                                             <i class="fas fa-edit"></i> Restock
                                         </a>
                                     </div>
@@ -484,7 +581,6 @@
                 </div>
             </div>
         </div>
-        @endif
     </div>
 </div>
 @endsection
@@ -593,6 +689,10 @@
 .card-header.bg-danger {
     border-bottom: none;
 }
+
+.border-right {
+    border-right: 1px solid #e3e6f0 !important;
+}
 </style>
 @endpush
 
@@ -601,33 +701,22 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/2.9.4/Chart.min.js"></script>
 
 <script>
-function confirmDelete() {
-    Swal.fire({
-        title: 'Are you sure?',
-        text: "You won't be able to revert this! All associated items and orders will be affected!",
-        icon: 'warning',
-        showCancelButton: true,
-        confirmButtonColor: '#d33',
-        cancelButtonColor: '#3085d6',
-        confirmButtonText: 'Yes, delete it!'
-    }).then((result) => {
-        if (result.isConfirmed) {
-            document.getElementById('delete-form').submit();
-        }
-    });
-}
-
-// Initialize DataTable
 $(document).ready(function() {
+    // Initialize DataTables
     $('#itemsTable').DataTable({
-        "pageLength": 10,
-        "order": [[3, 'desc']], // Sort by stock by default
-        "columnDefs": [
-            { "orderable": false, "targets": [6] } // Disable sorting for actions column
-        ],
-        "language": {
-            "emptyTable": "No items found in this store"
-        }
+        "pageLength": 5,
+        "order": [[3, 'desc']],
+        "searching": false,
+        "info": false,
+        "paging": false
+    });
+
+    $('#ordersTable').DataTable({
+        "pageLength": 5,
+        "order": [[4, 'desc']],
+        "searching": false,
+        "info": false,
+        "paging": false
     });
 
     // Stock Chart

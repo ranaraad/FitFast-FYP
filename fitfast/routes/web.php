@@ -16,6 +16,11 @@ use App\Http\Controllers\CMS\PaymentMethodController;
 use App\Http\Controllers\CMS\RoleController;
 use App\Http\Controllers\CMS\ExportController;
 use Illuminate\Support\Facades\Route;
+use App\Http\Controllers\StoreAdmin\DashboardController as StoreAdminDashboardController;
+use App\Http\Controllers\StoreAdmin\StoreController as StoreAdminStoreController;
+use App\Http\Controllers\StoreAdmin\ItemController as StoreAdminItemController;
+use App\Http\Controllers\StoreAdmin\OrderController as StoreAdminOrderController;
+use App\Http\Controllers\StoreAdmin\DeliveryController as StoreAdminDeliveryController;
 
 
 // Public routes (if any)
@@ -107,6 +112,40 @@ Route::prefix('cms')->name('cms.')->group(function () {
     Route::get('chat-support/status/{status}', [ChatSupportController::class, 'byStatus'])->name('chat-support.by-status');
 
 
+
 });
 
+Route::prefix('store-admin')->name('store-admin.')->group(function () {
+
+    // Dashboard
+    Route::get('/dashboard', [StoreAdminDashboardController::class, 'index'])->name('dashboard');
+
+    // Store Admin specific exports
+    Route::get('/items/export', [StoreAdminItemController::class, 'export'])->name('items.export');
+    Route::get('/items/export-low-stock', [StoreAdminItemController::class, 'exportLowStock'])->name('items.export-low-stock');
+    Route::get('/orders/export', [StoreAdminOrderController::class, 'export'])->name('orders.export');
+    Route::get('/orders/export-advanced', [StoreAdminOrderController::class, 'exportAdvanced'])->name('orders.export-advanced');
+
+    // Stores - Only show stores managed by the current store admin
+    Route::get('/stores', [StoreAdminStoreController::class, 'index'])->name('stores.index');
+    Route::get('/stores/{store}', [StoreAdminStoreController::class, 'show'])->name('stores.show');
+
+    // Items - Resource routes with custom methods
+    Route::resource('items', StoreAdminItemController::class);
+
+    // Orders - Resource routes with custom status update
+    Route::resource('orders', StoreAdminOrderController::class)->only(['index', 'show', 'edit', 'update', 'destroy']);
+    Route::post('orders/{order}/status', [StoreAdminOrderController::class, 'updateStatus'])->name('orders.update-status');
+
+    // Deliveries - Resource routes with custom methods
+    Route::get('deliveries/search', [StoreAdminDeliveryController::class, 'search'])->name('deliveries.search');
+    Route::resource('deliveries', StoreAdminDeliveryController::class)->only(['index', 'destroy']);
+    Route::post('deliveries/{delivery}/update-status', [StoreAdminDeliveryController::class, 'updateStatus'])->name('deliveries.update-status');
+    Route::post('deliveries/{delivery}/add-tracking', [StoreAdminDeliveryController::class, 'addTracking'])->name('deliveries.add-tracking');
+    Route::post('deliveries/{delivery}/update-tracking', [StoreAdminDeliveryController::class, 'updateTracking'])->name('deliveries.update-tracking');
+    Route::post('deliveries/{delivery}/mark-delivered', [StoreAdminDeliveryController::class, 'markAsDelivered'])->name('deliveries.mark-delivered');
+
+
+
+});
 

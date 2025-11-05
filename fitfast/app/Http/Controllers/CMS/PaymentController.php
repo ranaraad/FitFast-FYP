@@ -14,7 +14,7 @@ class PaymentController extends Controller
     {
         $payments = Payment::with(['order.user', 'order.store', 'paymentMethod'])
             ->latest()
-            ->paginate(10);
+            ->get();
 
         $stats = [
             'total_payments' => Payment::count(),
@@ -75,8 +75,8 @@ class PaymentController extends Controller
             $query->where('status', $request->status);
         }
 
-        $payments = $query->latest()->paginate(10);
-
+        $payments = $query->latest()->get();
+        
         // Get stats for the current search results
         $stats = [
             'total_payments' => $payments->total(),

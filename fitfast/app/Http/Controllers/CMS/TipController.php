@@ -10,7 +10,7 @@ class TipController extends Controller
 {
     public function index()
     {
-        $tips = Tip::orderBy('created_at', 'desc')->paginate(10);
+        $tips = Tip::orderBy('created_at', 'desc')->get();
         return view('cms.pages.tips.index', compact('tips'));
     }
 

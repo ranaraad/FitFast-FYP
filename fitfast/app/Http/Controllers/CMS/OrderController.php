@@ -20,8 +20,8 @@ class OrderController extends Controller
     {
         $orders = Order::with(['user', 'store', 'orderItems.item'])
             ->latest()
-            ->paginate(10);
-
+            ->get();
+            
         return view('cms.pages.orders.index', compact('orders'));
     }
 

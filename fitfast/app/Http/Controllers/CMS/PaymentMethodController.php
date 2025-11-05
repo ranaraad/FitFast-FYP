@@ -12,9 +12,9 @@ class PaymentMethodController extends Controller
         public function index()
     {
         $paymentMethods = PaymentMethod::with(['user'])
-            ->whereHas('user') // Only show payment methods with users
+            ->whereHas('user')
             ->latest()
-            ->paginate(10);
+            ->get();
 
         return view('cms.pages.payment-methods.index', compact('paymentMethods'));
     }

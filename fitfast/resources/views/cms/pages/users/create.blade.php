@@ -17,7 +17,7 @@
     <div class="col-12">
         <div class="card shadow mb-4">
             <div class="card-header py-3">
-                <h6 class="m-0 font-weight-bold text-primary">User Information</h6>
+                <h6 class="m-0 font-weight-bold">User Information</h6>
             </div>
             <div class="card-body">
                 <form action="{{ route('cms.users.store') }}" method="POST" id="userForm">
@@ -97,35 +97,128 @@
                         </div>
 
                         <div class="row">
-                            <div class="col-md-4">
+                            <div class="col-md-3">
                                 <div class="form-group">
-                                    <label for="height_cm">Height (cm) *</label>
-                                    <input type="number" step="0.1" class="form-control @error('height_cm') is-invalid @enderror"
-                                           id="height_cm" name="height_cm" value="{{ old('height_cm') }}"
+                                    <label for="measurements_height_cm">Height (cm) *</label>
+                                    <input type="number" step="0.1" class="form-control @error('measurements.height_cm') is-invalid @enderror"
+                                           id="measurements_height_cm" name="measurements[height_cm]" value="{{ old('measurements.height_cm') }}"
                                            placeholder="e.g., 175.5" min="100" max="250">
-                                    @error('height_cm')
+                                    @error('measurements.height_cm')
                                         <div class="invalid-feedback">{{ $message }}</div>
                                     @enderror
                                 </div>
                             </div>
-                            <div class="col-md-4">
+                            <div class="col-md-3">
                                 <div class="form-group">
-                                    <label for="weight_kg">Weight (kg) *</label>
-                                    <input type="number" step="0.1" class="form-control @error('weight_kg') is-invalid @enderror"
-                                           id="weight_kg" name="weight_kg" value="{{ old('weight_kg') }}"
+                                    <label for="measurements_weight_kg">Weight (kg) *</label>
+                                    <input type="number" step="0.1" class="form-control @error('measurements.weight_kg') is-invalid @enderror"
+                                           id="measurements_weight_kg" name="measurements[weight_kg]" value="{{ old('measurements.weight_kg') }}"
                                            placeholder="e.g., 70.5" min="30" max="200">
-                                    @error('weight_kg')
+                                    @error('measurements.weight_kg')
                                         <div class="invalid-feedback">{{ $message }}</div>
                                     @enderror
                                 </div>
                             </div>
-                            <div class="col-md-4">
+                            <div class="col-md-3">
                                 <div class="form-group">
-                                    <label for="shoe_size">Shoe Size *</label>
-                                    <input type="number" step="0.5" class="form-control @error('shoe_size') is-invalid @enderror"
-                                           id="shoe_size" name="shoe_size" value="{{ old('shoe_size') }}"
-                                           placeholder="e.g., 40.5" min="30" max="50">
-                                    @error('shoe_size')
+                                    <label for="measurements_bust_cm">Bust (cm)</label>
+                                    <input type="number" step="0.1" class="form-control @error('measurements.bust_cm') is-invalid @enderror"
+                                           id="measurements_bust_cm" name="measurements[bust_cm]" value="{{ old('measurements.bust_cm') }}"
+                                           placeholder="e.g., 95.5" min="50" max="150">
+                                    @error('measurements.bust_cm')
+                                        <div class="invalid-feedback">{{ $message }}</div>
+                                    @enderror
+                                </div>
+                            </div>
+                            <div class="col-md-3">
+                                <div class="form-group">
+                                    <label for="measurements_waist_cm">Waist (cm)</label>
+                                    <input type="number" step="0.1" class="form-control @error('measurements.waist_cm') is-invalid @enderror"
+                                           id="measurements_waist_cm" name="measurements[waist_cm]" value="{{ old('measurements.waist_cm') }}"
+                                           placeholder="e.g., 75.5" min="40" max="150">
+                                    @error('measurements.waist_cm')
+                                        <div class="invalid-feedback">{{ $message }}</div>
+                                    @enderror
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="row">
+                            <div class="col-md-3">
+                                <div class="form-group">
+                                    <label for="measurements_hips_cm">Hips (cm)</label>
+                                    <input type="number" step="0.1" class="form-control @error('measurements.hips_cm') is-invalid @enderror"
+                                           id="measurements_hips_cm" name="measurements[hips_cm]" value="{{ old('measurements.hips_cm') }}"
+                                           placeholder="e.g., 105.5" min="50" max="200">
+                                    @error('measurements.hips_cm')
+                                        <div class="invalid-feedback">{{ $message }}</div>
+                                    @enderror
+                                </div>
+                            </div>
+                            <div class="col-md-3">
+                                <div class="form-group">
+                                    <label for="measurements_shoulder_width_cm">Shoulder Width (cm)</label>
+                                    <input type="number" step="0.1" class="form-control @error('measurements.shoulder_width_cm') is-invalid @enderror"
+                                           id="measurements_shoulder_width_cm" name="measurements[shoulder_width_cm]" value="{{ old('measurements.shoulder_width_cm') }}"
+                                           placeholder="e.g., 45.5" min="30" max="70">
+                                    @error('measurements.shoulder_width_cm')
+                                        <div class="invalid-feedback">{{ $message }}</div>
+                                    @enderror
+                                </div>
+                            </div>
+                            <div class="col-md-3">
+                                <div class="form-group">
+                                    <label for="measurements_arm_length_cm">Arm Length (cm)</label>
+                                    <input type="number" step="0.1" class="form-control @error('measurements.arm_length_cm') is-invalid @enderror"
+                                           id="measurements_arm_length_cm" name="measurements[arm_length_cm]" value="{{ old('measurements.arm_length_cm') }}"
+                                           placeholder="e.g., 60.5" min="40" max="80">
+                                    @error('measurements.arm_length_cm')
+                                        <div class="invalid-feedback">{{ $message }}</div>
+                                    @enderror
+                                </div>
+                            </div>
+                            <div class="col-md-3">
+                                <div class="form-group">
+                                    <label for="measurements_inseam_cm">Inseam (cm)</label>
+                                    <input type="number" step="0.1" class="form-control @error('measurements.inseam_cm') is-invalid @enderror"
+                                           id="measurements_inseam_cm" name="measurements[inseam_cm]" value="{{ old('measurements.inseam_cm') }}"
+                                           placeholder="e.g., 80.5" min="50" max="100">
+                                    @error('measurements.inseam_cm')
+                                        <div class="invalid-feedback">{{ $message }}</div>
+                                    @enderror
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="row">
+                            <div class="col-md-6">
+                                <div class="form-group">
+                                    <label for="measurements_body_shape">Body Shape</label>
+                                    <select class="form-control @error('measurements.body_shape') is-invalid @enderror"
+                                            id="measurements_body_shape" name="measurements[body_shape]">
+                                        <option value="">Select Body Shape</option>
+                                        <option value="hourglass" {{ old('measurements.body_shape') == 'hourglass' ? 'selected' : '' }}>Hourglass</option>
+                                        <option value="pear" {{ old('measurements.body_shape') == 'pear' ? 'selected' : '' }}>Pear</option>
+                                        <option value="apple" {{ old('measurements.body_shape') == 'apple' ? 'selected' : '' }}>Apple</option>
+                                        <option value="rectangle" {{ old('measurements.body_shape') == 'rectangle' ? 'selected' : '' }}>Rectangle</option>
+                                        <option value="inverted triangle" {{ old('measurements.body_shape') == 'inverted triangle' ? 'selected' : '' }}>Inverted Triangle</option>
+                                    </select>
+                                    @error('measurements.body_shape')
+                                        <div class="invalid-feedback">{{ $message }}</div>
+                                    @enderror
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="form-group">
+                                    <label for="measurements_fit_preference">Fit Preference</label>
+                                    <select class="form-control @error('measurements.fit_preference') is-invalid @enderror"
+                                            id="measurements_fit_preference" name="measurements[fit_preference]">
+                                        <option value="">Select Fit Preference</option>
+                                        <option value="tight" {{ old('measurements.fit_preference') == 'tight' ? 'selected' : '' }}>Tight</option>
+                                        <option value="regular" {{ old('measurements.fit_preference') == 'regular' ? 'selected' : '' }}>Regular</option>
+                                        <option value="loose" {{ old('measurements.fit_preference') == 'loose' ? 'selected' : '' }}>Loose</option>
+                                    </select>
+                                    @error('measurements.fit_preference')
                                         <div class="invalid-feedback">{{ $message }}</div>
                                     @enderror
                                 </div>
@@ -146,7 +239,7 @@
                                     <label for="address">Primary Address *</label>
                                     <textarea class="form-control @error('address') is-invalid @enderror"
                                               id="address" name="address" rows="3"
-                                              placeholder="Enter your primary address" required>{{ old('address') }}</textarea>
+                                              placeholder="Enter your primary address">{{ old('address') }}</textarea>
                                     @error('address')
                                         <div class="invalid-feedback">{{ $message }}</div>
                                     @enderror
@@ -157,7 +250,7 @@
                         <div class="row">
                             <div class="col-md-6">
                                 <div class="form-group">
-                                    <label for="shipping_address">Shipping Address *</label>
+                                    <label for="shipping_address">Shipping Address</label>
                                     <textarea class="form-control @error('shipping_address') is-invalid @enderror"
                                               id="shipping_address" name="shipping_address" rows="3"
                                               placeholder="Enter shipping address (if different from primary)">{{ old('shipping_address') }}</textarea>
@@ -169,7 +262,7 @@
                             </div>
                             <div class="col-md-6">
                                 <div class="form-group">
-                                    <label for="billing_address">Billing Address *</label>
+                                    <label for="billing_address">Billing Address</label>
                                     <textarea class="form-control @error('billing_address') is-invalid @enderror"
                                               id="billing_address" name="billing_address" rows="3"
                                               placeholder="Enter billing address (if different from primary)">{{ old('billing_address') }}</textarea>
@@ -213,16 +306,20 @@ function toggleUserFields() {
     if (isUserRole) {
         userFieldsSection.style.display = 'block';
         // Make user fields required
-        document.getElementById('height_cm').required = true;
-        document.getElementById('weight_kg').required = true;
-        document.getElementById('shoe_size').required = true;
+        document.getElementById('measurements_height_cm').required = true;
+        document.getElementById('measurements_weight_kg').required = true;
         document.getElementById('address').required = true;
     } else {
         userFieldsSection.style.display = 'none';
         // Remove required attribute for non-user roles
-        document.getElementById('height_cm').required = false;
-        document.getElementById('weight_kg').required = false;
-        document.getElementById('shoe_size').required = false;
+        document.getElementById('measurements_height_cm').required = false;
+        document.getElementById('measurements_weight_kg').required = false;
+        document.getElementById('measurements_bust_cm').required = false;
+        document.getElementById('measurements_waist_cm').required = false;
+        document.getElementById('measurements_hips_cm').required = false;
+        document.getElementById('measurements_shoulder_width_cm').required = false;
+        document.getElementById('measurements_arm_length_cm').required = false;
+        document.getElementById('measurements_inseam_cm').required = false;
         document.getElementById('address').required = false;
         document.getElementById('shipping_address').required = false;
         document.getElementById('billing_address').required = false;

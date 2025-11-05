@@ -15,7 +15,7 @@ class DeliveryController extends Controller
     {
         $deliveries = Delivery::with(['order.user', 'order.store'])
             ->latest()
-            ->paginate(10);
+            ->get();
 
         $stats = [
             'total_deliveries' => Delivery::count(),
@@ -174,7 +174,7 @@ class DeliveryController extends Controller
                   ->whereNotIn('status', ['delivered', 'failed']);
         }
 
-        $deliveries = $query->latest()->paginate(10);
+        $deliveries = $query->latest()->get();
 
         $stats = [
             'total_deliveries' => $deliveries->total(),

@@ -10,7 +10,7 @@ class FAQController extends Controller
 {
     public function index()
     {
-        $faqs = FAQ::orderBy('created_at', 'desc')->paginate(10);
+        $faqs = FAQ::orderBy('created_at', 'desc')->get();
         return view('cms.pages.faqs.index', compact('faqs'));
     }
 

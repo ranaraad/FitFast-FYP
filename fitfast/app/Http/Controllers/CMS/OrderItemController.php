@@ -17,7 +17,7 @@ class OrderItemController extends Controller
     {
         $orderItems = OrderItem::with(['order', 'item'])
             ->latest()
-            ->paginate(10);
+            ->get();
 
         return view('cms.pages.order-items.index', compact('orderItems'));
     }
@@ -27,7 +27,7 @@ class OrderItemController extends Controller
      */
     public function index(Order $order)
     {
-        $orderItems = $order->orderItems()->with('item')->paginate(10);
+        $orderItems = $order->orderItems()->with('item')->get();
         return view('cms.pages.order-items.index', compact('orderItems', 'order'));
     }
 
@@ -57,7 +57,7 @@ class OrderItemController extends Controller
         $item = Item::findOrFail($validated['item_id']);
 
         // Check if item is in stock for the selected size
-        if (!$item->isSizeInStock($validated['selected_size']) || 
+        if (!$item->isSizeInStock($validated['selected_size']) ||
             !$item->isColorInStock($validated['selected_color'], $validated['quantity'])) {
             return redirect()->back()
                 ->with('error', 'Selected item is not available in the requested quantity, size, or color.')
@@ -116,7 +116,7 @@ class OrderItemController extends Controller
         $quantityChange = $validated['quantity'] - $orderItem->quantity;
 
         if ($quantityChange > 0) {
-            if (!$item->isSizeInStock($validated['selected_size']) || 
+            if (!$item->isSizeInStock($validated['selected_size']) ||
                 !$item->isColorInStock($validated['selected_color'], $quantityChange)) {
                 return redirect()->back()
                     ->with('error', 'Insufficient stock for the requested quantity, size, or color.')

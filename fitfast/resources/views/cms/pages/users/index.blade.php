@@ -22,7 +22,7 @@
     <div class="col-12">
         <div class="card shadow mb-4">
             <div class="card-header py-3">
-                <h6 class="m-0 font-weight-bold text-primary">All Users</h6>
+                <h6 class="m-0 font-weight-bold">All Users</h6>
             </div>
             <div class="card-body">
                 @if(session('success'))
@@ -92,6 +92,25 @@
     </div>
 </div>
 @endsection
+
+@push('styles')
+<style>
+    .dataTables_paginate .paginate_button {
+        padding: 0.5rem 0.75rem;
+        margin-left: 2px;
+        border: 1px solid #dee2e6;
+        background-color: white;
+    }
+    .dataTables_paginate .paginate_button.current {
+        background-color: #007bff;
+        color: white !important;
+        border-color: #007bff;
+    }
+    .dataTables_paginate .paginate_button:hover {
+        background-color: #e9ecef;
+    }
+</style>
+@endpush
 
 @push('scripts')
 <script>

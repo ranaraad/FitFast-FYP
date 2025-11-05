@@ -15,7 +15,7 @@ class CartController extends Controller
     {
         $carts = Cart::with(['user', 'cartItems.item'])
             ->latest()
-            ->paginate(10);
+            ->get();
 
         return view('cms.pages.carts.index', compact('carts'));
     }
@@ -231,18 +231,18 @@ class CartController extends Controller
 public function getUserCarts(User $user, Request $request)
 {
     $storeId = $request->get('store_id');
-    
+
     $query = Cart::with(['cartItems.item.store'])
         ->where('user_id', $user->id)
         ->whereHas('cartItems');
-    
+
     // Filter by store if provided
     if ($storeId) {
         $query->whereHas('cartItems.item', function($q) use ($storeId) {
             $q->where('store_id', $storeId);
         });
     }
-    
+
     $carts = $query->get()->map(function ($cart) {
         return [
             'id' => $cart->id,

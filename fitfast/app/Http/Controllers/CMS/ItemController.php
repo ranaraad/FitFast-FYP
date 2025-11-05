@@ -13,7 +13,7 @@ class ItemController extends Controller
 {
     public function index()
     {
-        $items = Item::with(['store', 'category', 'users'])->paginate(10);
+        $items = Item::with(['store', 'category', 'users'])->get();
         return view('cms.pages.items.index', compact('items'));
     }
 

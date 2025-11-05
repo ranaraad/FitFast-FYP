@@ -14,7 +14,7 @@ class ReviewController extends Controller
     {
         $reviews = Review::with(['user', 'item'])
             ->latest()
-            ->paginate(10);
+            ->get();
 
         return view('cms.pages.reviews.index', compact('reviews'));
     }
@@ -41,7 +41,7 @@ class ReviewController extends Controller
         $reviews = $item->reviews()
             ->with('user')
             ->latest()
-            ->paginate(10);
+            ->get();
 
         return view('cms.pages.reviews.item-reviews', compact('item', 'reviews'));
     }
@@ -54,7 +54,7 @@ class ReviewController extends Controller
         $reviews = $user->reviews()
             ->with('item')
             ->latest()
-            ->paginate(10);
+            ->get();
 
         return view('cms.pages.reviews.user-reviews', compact('user', 'reviews'));
     }

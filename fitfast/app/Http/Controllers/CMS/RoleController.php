@@ -10,7 +10,7 @@ class RoleController extends Controller
 {
     public function index()
     {
-        $roles = Role::withCount('users')->latest()->paginate(10);
+        $roles = Role::withCount('users')->latest()->get();
         return view('cms.roles.index', compact('roles'));
     }
 

@@ -31,41 +31,39 @@ class UserController extends Controller
     /**
      * Store a newly created resource in storage.
      */
-    public function store(Request $request)
-    {
-        $validated = $request->validate([
-            'name' => 'required|string|max:255',
-            'email' => 'required|email|unique:users,email',
-            'password' => 'required|string|min:8|confirmed',
-            'role_id' => 'required|exists:roles,id',
-            'phone' => 'nullable|string|max:20',
-            'height_cm' => $this->getMeasurementValidation($request->role_id, 'height_cm'),
-            'weight_kg' => $this->getMeasurementValidation($request->role_id, 'weight_kg'),
-            'shoe_size' => $this->getMeasurementValidation($request->role_id, 'shoe_size'),
-            'address' => $this->getAddressValidation($request->role_id, 'address'),
-            'shipping_address' => $this->getAddressValidation($request->role_id, 'shipping_address'),
-            'billing_address' => $this->getAddressValidation($request->role_id, 'billing_address'),
-        ]);
+public function store(Request $request)
+{
+    $validated = $request->validate([
+        'name' => 'required|string|max:255',
+        'email' => 'required|email|unique:users,email',
+        'password' => 'required|string|min:8|confirmed',
+        'role_id' => 'required|exists:roles,id',
 
-        // Build measurements array if user role
-        if ($this->isUserRole($request->role_id)) {
-            $validated['measurements'] = [
-                'height_cm' => $validated['height_cm'],
-                'weight_kg' => $validated['weight_kg'],
-                'shoe_size' => $validated['shoe_size'],
-            ];
-        }
+        // Measurements as JSON
+        'measurements' => 'nullable|array',
+        'measurements.height_cm' => 'nullable|numeric|min:100|max:250',
+        'measurements.weight_kg' => 'nullable|numeric|min:30|max:200',
+        'measurements.bust_cm' => 'nullable|numeric|min:50|max:150',
+        'measurements.waist_cm' => 'nullable|numeric|min:40|max:150',
+        'measurements.hips_cm' => 'nullable|numeric|min:50|max:200',
+        'measurements.shoulder_width_cm' => 'nullable|numeric|min:30|max:70',
+        'measurements.arm_length_cm' => 'nullable|numeric|min:40|max:80',
+        'measurements.inseam_cm' => 'nullable|numeric|min:50|max:100',
+        'measurements.body_shape' => 'nullable|string|max:50',
+        'measurements.fit_preference' => 'nullable|string|max:50',
 
-        // Remove individual measurement fields
-        unset($validated['height_cm'], $validated['weight_kg'], $validated['shoe_size']);
+        'address' => 'nullable|string|max:500',
+        'shipping_address' => 'nullable|string|max:500',
+        'billing_address' => 'nullable|string|max:500',
+    ]);
 
-        $validated['password'] = Hash::make($validated['password']);
+    $validated['password'] = Hash::make($validated['password']);
 
-        User::create($validated);
+    User::create($validated);
 
-        return redirect()->route('cms.users.index')
-            ->with('success', 'User created successfully.');
-    }
+    return redirect()->route('cms.users.index')
+        ->with('success', 'User created successfully with measurements.');
+}
 
     /**
      * Display the specified resource.
@@ -88,48 +86,44 @@ class UserController extends Controller
     /**
      * Update the specified resource in storage.
      */
-    public function update(Request $request, User $user)
-    {
-        $validated = $request->validate([
-            'name' => 'required|string|max:255',
-            'email' => 'required|email|unique:users,email,' . $user->id,
-            'password' => 'nullable|string|min:8|confirmed',
-            'role_id' => 'required|exists:roles,id',
-            'phone' => 'nullable|string|max:20',
-            'height_cm' => $this->getMeasurementValidation($request->role_id, 'height_cm'),
-            'weight_kg' => $this->getMeasurementValidation($request->role_id, 'weight_kg'),
-            'shoe_size' => $this->getMeasurementValidation($request->role_id, 'shoe_size'),
-            'address' => $this->getAddressValidation($request->role_id, 'address'),
-            'shipping_address' => $this->getAddressValidation($request->role_id, 'shipping_address'),
-            'billing_address' => $this->getAddressValidation($request->role_id, 'billing_address'),
-        ]);
+ public function update(Request $request, User $user)
+{
+    $validated = $request->validate([
+        'name' => 'required|string|max:255',
+        'email' => 'required|email|unique:users,email,' . $user->id,
+        'password' => 'nullable|string|min:8|confirmed',
+        'role_id' => 'required|exists:roles,id',
 
-        // Build measurements array if user role
-        if ($this->isUserRole($request->role_id)) {
-            $validated['measurements'] = [
-                'height_cm' => $validated['height_cm'],
-                'weight_kg' => $validated['weight_kg'],
-                'shoe_size' => $validated['shoe_size'],
-            ];
-        } else {
-            // Clear measurements for non-user roles
-            $validated['measurements'] = null;
-        }
+        // Measurements as JSON
+        'measurements' => 'nullable|array',
+        'measurements.height_cm' => 'nullable|numeric|min:100|max:250',
+        'measurements.weight_kg' => 'nullable|numeric|min:30|max:200',
+        'measurements.bust_cm' => 'nullable|numeric|min:50|max:150',
+        'measurements.waist_cm' => 'nullable|numeric|min:40|max:150',
+        'measurements.hips_cm' => 'nullable|numeric|min:50|max:200',
+        'measurements.shoulder_width_cm' => 'nullable|numeric|min:30|max:70',
+        'measurements.arm_length_cm' => 'nullable|numeric|min:40|max:80',
+        'measurements.inseam_cm' => 'nullable|numeric|min:50|max:100',
+        'measurements.body_shape' => 'nullable|string|max:50',
+        'measurements.fit_preference' => 'nullable|string|max:50',
 
-        // Remove individual measurement fields
-        unset($validated['height_cm'], $validated['weight_kg'], $validated['shoe_size']);
+        'address' => 'nullable|string|max:500',
+        'shipping_address' => 'nullable|string|max:500',
+        'billing_address' => 'nullable|string|max:500',
+    ]);
 
-        if ($request->filled('password')) {
-            $validated['password'] = Hash::make($validated['password']);
-        } else {
-            unset($validated['password']);
-        }
-
-        $user->update($validated);
-
-        return redirect()->route('cms.users.index')
-            ->with('success', 'User updated successfully.');
+    if ($request->filled('password')) {
+        $validated['password'] = Hash::make($validated['password']);
+    } else {
+        unset($validated['password']);
     }
+
+    $user->update($validated);
+
+    return redirect()->route('cms.users.index')
+        ->with('success', 'User updated successfully with measurements.');
+}
+
 
     /**
      * Remove the specified resource from storage.

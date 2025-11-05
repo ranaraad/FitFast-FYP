@@ -25,7 +25,7 @@ export default function RegisterPage() {
       localStorage.setItem("auth_token", res.data.token);
       localStorage.setItem("auth_user", JSON.stringify(res.data.user));
       setMessage("Welcome to FitFast, " + res.data.user.name + "!");
-      setTimeout(() => (window.location.href = "/profile"), 1200);
+      setTimeout(() => (window.location.href = "/measurements"), 1200);
     } catch {
       setError("Registration failed. Please check your details.");
     }

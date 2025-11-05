@@ -1,0 +1,52 @@
+<?php
+
+namespace App\Http\Controllers\Client;
+
+use App\Http\Controllers\Controller;
+use Illuminate\Http\Request;
+
+class UserController extends Controller
+{
+    /**
+     * Return authenticated user info.
+     */
+    public function show(Request $request)
+    {
+        return response()->json($request->user());
+    }
+
+    /**
+     * Update authenticated user's measurements or basic info.
+     */
+    public function update(Request $request)
+    {
+        $user = $request->user();
+
+        $validated = $request->validate([
+            'name' => 'sometimes|string|max:255',
+            'email' => 'sometimes|email|unique:users,email,' . $user->id,
+            'measurements' => 'nullable|array',
+            'measurements.height_cm' => 'nullable|numeric|min:100|max:250',
+            'measurements.weight_kg' => 'nullable|numeric|min:30|max:200',
+            'measurements.bust_cm' => 'nullable|numeric|min:50|max:150',
+            'measurements.waist_cm' => 'nullable|numeric|min:40|max:150',
+            'measurements.hips_cm' => 'nullable|numeric|min:50|max:200',
+            'measurements.shoulder_width_cm' => 'nullable|numeric|min:30|max:70',
+            'measurements.arm_length_cm' => 'nullable|numeric|min:40|max:80',
+            'measurements.inseam_cm' => 'nullable|numeric|min:50|max:100',
+            'measurements.body_shape' => 'nullable|string|max:50',
+            'measurements.fit_preference' => 'nullable|string|max:50',
+        ]);
+
+        $user->update([
+            'name' => $validated['name'] ?? $user->name,
+            'email' => $validated['email'] ?? $user->email,
+            'measurements' => $validated['measurements'] ?? $user->measurements,
+        ]);
+
+        return response()->json([
+            'message' => 'User profile updated successfully',
+            'user' => $user,
+        ]);
+    }
+}

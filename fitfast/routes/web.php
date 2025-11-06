@@ -15,6 +15,9 @@ use App\Http\Controllers\CMS\PaymentController;
 use App\Http\Controllers\CMS\PaymentMethodController;
 use App\Http\Controllers\CMS\RoleController;
 use App\Http\Controllers\CMS\ExportController;
+use App\Http\Controllers\CMS\Auth\LoginController;
+use App\Http\Controllers\CMS\Auth\RegisterController;
+use App\Http\Controllers\CMS\Auth\EmailVerificationController;
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\StoreAdmin\DashboardController as StoreAdminDashboardController;
 use App\Http\Controllers\StoreAdmin\StoreController as StoreAdminStoreController;
@@ -23,13 +26,37 @@ use App\Http\Controllers\StoreAdmin\OrderController as StoreAdminOrderController
 use App\Http\Controllers\StoreAdmin\DeliveryController as StoreAdminDeliveryController;
 
 
-// Public routes (if any)
+// Redirect root to CMS login
 Route::get('/', function () {
-    return view('welcome');
+    return redirect()->route('cms.login');
 });
+
+// Public CMS Auth Routes (accessible without authentication)
+Route::prefix('cms')->name('cms.')->group(function () {
+    Route::get('/login', [LoginController::class, 'showLoginForm'])->name('login');
+    Route::post('/login', [LoginController::class, 'login'])->name('login');
+    Route::get('/register', [RegisterController::class, 'showRegistrationForm'])->name('register');
+    Route::post('/register', [RegisterController::class, 'register'])->name('register');
+
+});
+
+// Email Verification Routes
+Route::get('/cms/email/verify', [EmailVerificationController::class, 'notice'])
+    ->middleware('auth')
+    ->name('verification.notice');
+
+Route::get('/cms/email/verify/{id}/{hash}', [EmailVerificationController::class, 'verify'])
+    ->middleware(['auth', 'signed'])
+    ->name('verification.verify');
+
+Route::post('/cms/email/verification-notification', [EmailVerificationController::class, 'send'])
+    ->middleware(['auth', 'throttle:6,1'])
+    ->name('verification.send');
 
 // CMS Routes (Admin Panel)
 Route::prefix('cms')->name('cms.')->group(function () {
+
+    Route::post('/logout', [LoginController::class, 'logout'])->name('logout');
 
     Route::get('/dashboard', [DashboardController::class, 'index'])->name('dashboard');
 
@@ -110,8 +137,6 @@ Route::prefix('cms')->name('cms.')->group(function () {
     Route::post('chat-support/{chatSupport}/take', [ChatSupportController::class, 'takeChat'])->name('chat-support.take');
     Route::post('chat-support/{chatSupport}/resolve', [ChatSupportController::class, 'resolve'])->name('chat-support.resolve');
     Route::get('chat-support/status/{status}', [ChatSupportController::class, 'byStatus'])->name('chat-support.by-status');
-
-
 
 });
 

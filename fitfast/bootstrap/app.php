@@ -11,16 +11,21 @@ return Application::configure(basePath: dirname(__DIR__))
         commands: __DIR__ . '/../routes/console.php',
         health: '/up',
     )
-->withMiddleware(function (Middleware $middleware) {
-    $middleware->statefulApi()
-        ->validateCsrfTokens(except: [
-            'api/*',
+    ->withMiddleware(function (Middleware $middleware) {
+        $middleware->statefulApi()
+            ->validateCsrfTokens(except: [
+                'api/*',
+            ]);
+
+        $middleware->append(\Illuminate\Http\Middleware\HandleCors::class);
+
+        // Register your custom middleware
+        $middleware->alias([
+            'cms.access' => \App\Http\Middleware\CheckCMSAccess::class,
+            'storeadmin.access' => \App\Http\Middleware\CheckStoreAdminAccess::class,
         ]);
 
-    $middleware->append(\Illuminate\Http\Middleware\HandleCors::class);
-})
-
-
+    })
     ->withExceptions(function (Exceptions $exceptions): void {
         //
     })->create();

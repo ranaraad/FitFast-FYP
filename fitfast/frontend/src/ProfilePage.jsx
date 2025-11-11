@@ -181,7 +181,7 @@ export default function ProfilePage() {
 
       {/* Logout Button */}
       <button onClick={handleLogout} className="logout-btn">
-        🚪 Logout
+        Logout
       </button>
 
       <style jsx>{`
@@ -211,12 +211,7 @@ export default function ProfilePage() {
           box-shadow: 0 4px 16px rgba(100, 27, 46, 0.25);
         }
 
-        .profile-email {
-          color: #888;
-          font-size: 0.9rem;
-          margin-top: 0.3rem;
-        }
-
+      
         .measurements-section {
           margin-top: 1.5rem;
         }

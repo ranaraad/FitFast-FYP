@@ -33,7 +33,7 @@ export default function MeasurementsPage() {
       console.log("Sending measurements:", measurements);
       await api.put("/user", { measurements });
       setMessage("Measurements saved successfully!");
-      setTimeout(() => (window.location.href = "/profile"), 1500);
+      setTimeout(() => (window.location.href = "/"), 1500);
     } catch (err) {
       console.error(err);
       setError("Failed to save measurements. Please try again.");
@@ -43,7 +43,7 @@ export default function MeasurementsPage() {
   };
 
   const handleSkip = () => {
-    window.location.href = "/profile";
+    window.location.href = "/";
   };
 
   return (

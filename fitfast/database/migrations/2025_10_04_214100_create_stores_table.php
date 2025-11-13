@@ -22,10 +22,8 @@ return new class extends Migration
             $table->string('status')->default('active');
             $table->timestamps();
 
-            // Make sure user_id is properly defined
             $table->foreignId('user_id')->nullable()->constrained('users')->onDelete('set null');
 
-            // Add indexes
             $table->index('user_id');
             $table->index('status');
             $table->index('created_at');

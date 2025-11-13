@@ -18,7 +18,6 @@ return new class extends Migration
             $table->timestamps();
         });
 
-        // Insert default roles including Store Admin
         DB::table('roles')->insert([
             ['name' => 'Admin'],
             ['name' => 'Store Admin'],

@@ -15,6 +15,9 @@ use App\Http\Controllers\CMS\PaymentController;
 use App\Http\Controllers\CMS\PaymentMethodController;
 use App\Http\Controllers\CMS\RoleController;
 use App\Http\Controllers\CMS\ExportController;
+use App\Http\Controllers\CMS\Auth\LoginController;
+use App\Http\Controllers\CMS\Auth\RegisterController;
+use App\Http\Controllers\CMS\Auth\EmailVerificationController;
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\StoreAdmin\DashboardController as StoreAdminDashboardController;
 use App\Http\Controllers\StoreAdmin\StoreController as StoreAdminStoreController;
@@ -22,15 +25,35 @@ use App\Http\Controllers\StoreAdmin\ItemController as StoreAdminItemController;
 use App\Http\Controllers\StoreAdmin\OrderController as StoreAdminOrderController;
 use App\Http\Controllers\StoreAdmin\DeliveryController as StoreAdminDeliveryController;
 
-
-// Public routes (if any)
+// Redirect root to CMS login
 Route::get('/', function () {
-    return view('welcome');
+    return redirect()->route('cms.login');
 });
 
-// CMS Routes (Admin Panel)
+// Public CMS Auth Routes (accessible without authentication)
 Route::prefix('cms')->name('cms.')->group(function () {
+    Route::get('/login', [LoginController::class, 'showLoginForm'])->name('login');
+    Route::post('/login', [LoginController::class, 'login'])->name('login');
+    Route::get('/register', [RegisterController::class, 'showRegistrationForm'])->name('register');
+    Route::post('/register', [RegisterController::class, 'register'])->name('register');
+});
 
+// Email Verification Routes
+Route::get('/cms/email/verify', [EmailVerificationController::class, 'notice'])
+    ->middleware('auth')
+    ->name('verification.notice');
+
+Route::get('/cms/email/verify/{id}/{hash}', [EmailVerificationController::class, 'verify'])
+    ->middleware(['auth', 'signed'])
+    ->name('verification.verify');
+
+Route::post('/cms/email/verification-notification', [EmailVerificationController::class, 'send'])
+    ->middleware(['auth', 'throttle:6,1'])
+    ->name('verification.send');
+
+// Protected CMS Routes (Super Admin only - requires auth, verified email, and admin role)
+Route::prefix('cms')->name('cms.')->middleware(['auth', 'verified', 'cms.access'])->group(function () {
+    Route::post('/logout', [LoginController::class, 'logout'])->name('logout');
     Route::get('/dashboard', [DashboardController::class, 'index'])->name('dashboard');
 
     // Exports
@@ -77,7 +100,7 @@ Route::prefix('cms')->name('cms.')->group(function () {
     Route::get('reviews/user/{user}', [ReviewController::class, 'userReviews'])->name('reviews.user');
 
     // Carts
-    Route::resource('carts', CartController::class); // Now includes all methods
+    Route::resource('carts', CartController::class);
     Route::post('carts/{cart}/clear', [CartController::class, 'clearCart'])->name('carts.clear');
     Route::get('carts/user/{user}', [CartController::class, 'getUserCarts'])->name('carts.user-carts');
 
@@ -110,13 +133,10 @@ Route::prefix('cms')->name('cms.')->group(function () {
     Route::post('chat-support/{chatSupport}/take', [ChatSupportController::class, 'takeChat'])->name('chat-support.take');
     Route::post('chat-support/{chatSupport}/resolve', [ChatSupportController::class, 'resolve'])->name('chat-support.resolve');
     Route::get('chat-support/status/{status}', [ChatSupportController::class, 'byStatus'])->name('chat-support.by-status');
-
-
-
 });
 
-Route::prefix('store-admin')->name('store-admin.')->group(function () {
-
+// Protected Store Admin Routes (requires auth, verified email, and store admin role)
+Route::prefix('store-admin')->name('store-admin.')->middleware(['auth', 'verified', 'storeadmin.access'])->group(function () {
     // Dashboard
     Route::get('/dashboard', [StoreAdminDashboardController::class, 'index'])->name('dashboard');
 
@@ -144,8 +164,4 @@ Route::prefix('store-admin')->name('store-admin.')->group(function () {
     Route::post('deliveries/{delivery}/add-tracking', [StoreAdminDeliveryController::class, 'addTracking'])->name('deliveries.add-tracking');
     Route::post('deliveries/{delivery}/update-tracking', [StoreAdminDeliveryController::class, 'updateTracking'])->name('deliveries.update-tracking');
     Route::post('deliveries/{delivery}/mark-delivered', [StoreAdminDeliveryController::class, 'markAsDelivered'])->name('deliveries.mark-delivered');
-
-
-
 });
-

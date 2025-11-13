@@ -88,7 +88,7 @@
                     </span>
                     @endif
                     <span class="badge badge-info">
-                        <i class="fas fa-store"></i> {{ $stores->total() }} Total Stores
+                        <i class="fas fa-store"></i> {{ $stores->count() }} Total Stores
                     </span>
                 </div>
             </div>

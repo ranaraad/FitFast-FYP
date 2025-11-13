@@ -24,7 +24,7 @@ class StoreController extends Controller
                     $query->where('stock_quantity', 0);
                 }
             ])
-            ->p->get();
+            ->get();
 
         return view('cms.pages.stores.index', compact('stores'));
     }

@@ -4,6 +4,7 @@ import RegisterPage from "./RegisterPage.jsx";
 import LoginPage from "./LoginPage.jsx";
 import ProfilePage from "./ProfilePage.jsx";
 import MeasurementsPage from "./MeasurementsPage.jsx";
+import HomePage from "./HomePage.jsx"
 
 export default function App() {
   const location = useLocation();
@@ -18,7 +19,7 @@ export default function App() {
 
       <div style={{ marginTop: shouldHideNavbar ? "0" : "5rem" }}>
         <Routes>
-          <Route path="/" element={<LoginPage />} />
+          <Route path="/" element={<HomePage />} />
           <Route path="/register" element={<RegisterPage />} />
           <Route path="/login" element={<LoginPage />} />
           <Route path="/profile" element={<ProfilePage />} />

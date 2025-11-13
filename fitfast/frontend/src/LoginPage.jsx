@@ -18,7 +18,7 @@ export default function LoginPage() {
       localStorage.setItem("auth_token", res.data.token);
       localStorage.setItem("auth_user", JSON.stringify(res.data.user));
       setMessage("Welcome back to FitFast!");
-      setTimeout(() => (window.location.href = "/profile"), 1200);
+      setTimeout(() => (window.location.href = "/"), 1200);
     } catch {
       setError("Invalid credentials. Please try again.");
     }

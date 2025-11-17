@@ -166,16 +166,6 @@
                                 <i class="fas fa-user-plus me-2"></i>Create Account
                             </button>
                         </div>
-
-                        @if($errors->any())
-                            <div class="alert alert-danger">
-                                <ul class="mb-0">
-                                    @foreach($errors->all() as $error)
-                                        <li>{{ $error }}</li>
-                                    @endforeach
-                                </ul>
-                            </div>
-                        @endif
                     </form>
                 </div>
                 <div class="card-footer text-center py-3">

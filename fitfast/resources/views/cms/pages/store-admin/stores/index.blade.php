@@ -77,7 +77,8 @@
                         <table class="table table-bordered table-hover" id="storesTable" width="100%" cellspacing="0">
                             <thead class="thead-light">
                                 <tr>
-                                    <th>Store</th>
+                                    <th>Store Logo</th>
+                                    <th>Store Info</th>
                                     <th>Status</th>
                                     <th>Inventory Health</th>
                                     <th>Orders</th>
@@ -98,11 +99,28 @@
                                     $lastOrder = $store->orders->first();
                                 @endphp
                                 <tr class="{{ $hasCritical ? 'table-warning' : ($hasLowStock ? 'table-light-warning' : '') }}">
-                                    <td>
-                                        <div class="d-flex align-items-center">
-                                            <div class="flex-shrink-0">
-                                                <i class="fas fa-store fa-lg text-primary mr-3"></i>
+                                    <td class="text-center">
+                                        @if($store->logo)
+                                            <img src="{{ asset('storage/' . $store->logo) }}"
+                                                 alt="{{ $store->name }} Logo"
+                                                 class="store-logo img-thumbnail rounded-circle"
+                                                 style="width: 50px; height: 50px; object-fit: cover; border: 2px solid #e3f2fd;"
+                                                 onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';">
                                             </div>
+                                        @else
+                                            <div class="store-logo-placeholder bg-light rounded-circle d-flex align-items-center justify-content-center"
+                                                 style="width: 50px; height: 50px; border: 1px dashed #dee2e6;">
+                                                <i class="fas fa-store text-muted"></i>
+                                            </div>
+                                        @endif
+                                        @if($store->banner_image)
+                                        <small class="text-success d-block mt-1">
+                                            <i class="fas fa-image fa-xs"></i> Has banner
+                                        </small>
+                                        @endif
+                                    </td>
+                                    <td>
+                                        <div class="d-flex align-items-start">
                                             <div class="flex-grow-1">
                                                 <strong class="text-gray-800">{{ $store->name }}</strong>
                                                 @if($store->description)
@@ -112,6 +130,11 @@
                                                 <small class="text-muted">
                                                     <i class="fas fa-map-marker-alt fa-xs mr-1"></i>
                                                     {{ Str::limit($store->address, 40) ?: 'No address' }}
+                                                </small>
+                                                <br>
+                                                <small class="text-info">
+                                                    <i class="fas fa-boxes fa-xs mr-1"></i>
+                                                    {{ $store->items_count }} items
                                                 </small>
                                             </div>
                                         </div>
@@ -129,8 +152,7 @@
                                     </td>
                                     <td>
                                         <div class="d-flex flex-column">
-                                            <span class="badge badge-info mb-1">{{ $store->items_count }} items</span>
-                                            <div class="progress mb-1" style="height: 6px;">
+                                            <div class="progress mb-1" style="height: 8px;">
                                                 @php
                                                     $healthyItems = $store->items_count - $store->low_stock_items_count - $store->out_of_stock_items_count;
                                                     $healthyPercent = $store->items_count > 0 ? ($healthyItems / $store->items_count * 100) : 0;
@@ -143,6 +165,18 @@
                                             <small class="text-muted text-center">
                                                 {{ number_format($healthyPercent, 1) }}% healthy
                                             </small>
+                                            <div class="d-flex justify-content-center mt-1">
+                                                @if($hasCritical)
+                                                    <span class="badge badge-danger badge-sm mx-1" title="Critical stock">
+                                                        <i class="fas fa-exclamation-circle"></i> {{ $store->critical_stock_items_count }}
+                                                    </span>
+                                                @endif
+                                                @if($hasLowStock)
+                                                    <span class="badge badge-warning badge-sm mx-1" title="Low stock">
+                                                        <i class="fas fa-exclamation-triangle"></i> {{ $store->low_stock_items_count }}
+                                                    </span>
+                                                @endif
+                                            </div>
                                         </div>
                                     </td>
                                     <td>
@@ -353,6 +387,28 @@
 .badge-pill {
     border-radius: 50rem;
 }
+
+.store-logo {
+    transition: transform 0.2s ease;
+}
+
+.store-logo:hover {
+    transform: scale(1.1);
+}
+
+.store-logo-placeholder {
+    transition: all 0.3s ease;
+}
+
+.store-logo-placeholder:hover {
+    background-color: #f8f9fa !important;
+    border-color: #007bff !important;
+}
+
+.badge-sm {
+    font-size: 0.65em;
+    padding: 0.25em 0.4em;
+}
 </style>
 @endpush
 
@@ -361,9 +417,9 @@
     $(document).ready(function() {
         $('#storesTable').DataTable({
             "pageLength": 25,
-            "order": [[0, 'asc']],
+            "order": [[1, 'asc']], // Sort by store name
             "columnDefs": [
-                { "orderable": false, "targets": [4, 7] } // Disable sorting for alerts and actions
+                { "orderable": false, "targets": [0, 5, 8] } // Disable sorting for logo, alerts and actions
             ],
             "language": {
                 "emptyTable": "No stores found"
@@ -379,6 +435,12 @@
                 $(this).removeClass('shadow-sm');
             }
         );
+
+        // Handle image loading errors
+        $('.store-logo').on('error', function() {
+            $(this).hide();
+            $(this).next('.store-logo-placeholder').show();
+        });
     });
 </script>
 @endpush

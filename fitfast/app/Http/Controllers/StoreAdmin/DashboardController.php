@@ -8,14 +8,14 @@ use App\Models\Store;
 use App\Models\Order;
 use App\Models\Item;
 use App\Models\Delivery;
+use Illuminate\Support\Facades\Auth;
 
 class DashboardController extends Controller
 {
     public function index()
     {
-        // For now, we'll hardcode a user ID until authentication is set up
-        // Replace this with auth()->user()->id later
-        $userId = 1; // Temporary - this should be the logged-in store admin user ID
+        $user = Auth::user();
+        $userId = $user->id;
 
         // Get stores managed by this user
         $stores = Store::where('user_id', $userId)

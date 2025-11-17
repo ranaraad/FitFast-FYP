@@ -16,9 +16,7 @@ class CheckStoreAdminAccess
         // Check if user is Store Admin
         if (!$user->role || $user->role->name !== 'Store Admin') {
             Auth::logout();
-            return redirect()->route('cms.login')->withErrors([
-                'email' => 'You do not have access to the Store Admin panel.'
-            ]);
+            return redirect()->route('cms.login');
         }
 
         return $next($request);

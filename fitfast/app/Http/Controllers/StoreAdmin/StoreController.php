@@ -7,13 +7,14 @@ use Illuminate\Http\Request;
 use App\Models\Store;
 use App\Models\Order;
 use App\Models\Item;
+use Illuminate\Support\Facades\Auth;
 
 class StoreController extends Controller
 {
     public function index()
     {
-        // For now, we'll hardcode a user ID until authentication is set up
-        $userId = 1; // Temporary - this should be the logged-in store admin user ID
+        $user = Auth::user();
+        $userId = $user->id;
 
         $stores = Store::where('user_id', $userId)
             ->with(['user', 'items'])
@@ -47,7 +48,7 @@ class StoreController extends Controller
             ->latest()
             ->get();
 
-        // Get summary statistics (matching your CMS pattern but with store admin scope)
+        // Get summary statistics
         $summary = [
             'total_stores' => $stores->count(),
             'total_items' => $stores->sum('items_count'),
@@ -62,17 +63,17 @@ class StoreController extends Controller
 
     public function show(Store $store)
     {
-        // Check if the store belongs to the current store admin
-        // For now, we'll skip this check until authentication is implemented
-        // $userId = 1; // Temporary
-        // if ($store->user_id !== $userId) {
-        //     abort(403, 'Unauthorized access to this store.');
-        // }
+        $user = Auth::user();
 
-        // Load store with relationships (matching your CMS pattern but with store-specific data)
+        // Check if the store belongs to the current store admin
+        if ($store->user_id !== $user->id) {
+            abort(403, 'Unauthorized access to this store.');
+        }
+
+        // Load store with relationships
         $store->load(['user', 'items.category', 'orders.user']);
 
-        // Get additional data using separate queries instead of dynamic relationships
+        // Get additional data using separate queries
         $lowStockItems = $store->items()
             ->where('stock_quantity', '<', 10)
             ->where('stock_quantity', '>', 0)
@@ -88,7 +89,7 @@ class StoreController extends Controller
             ->limit(10)
             ->get();
 
-        // Get store statistics specific to store admin view
+        // Get store statistics
         $storeStats = [
             'total_revenue' => $store->orders()->where('status', 'completed')->sum('total_amount'),
             'avg_order_value' => $store->orders()->where('status', 'completed')->avg('total_amount'),

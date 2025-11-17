@@ -20,6 +20,8 @@ class Store extends Model
         'user_id',
         'name',
         'description',
+        'logo',
+        'banner_image',
         'contact_info',
         'address',
         'status',

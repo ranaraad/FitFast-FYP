@@ -13,12 +13,14 @@ use App\Models\Delivery;
 use App\Models\Payment;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Auth;
 
 class OrderController extends Controller
 {
     public function index(Request $request)
     {
-        $userId = 1; // Temporary - this should be the logged-in store admin user ID
+        $user = Auth::user();
+        $userId = $user->id;
         $managedStoreIds = Store::where('user_id', $userId)->pluck('id');
 
         $orders = Order::whereIn('store_id', $managedStoreIds)
@@ -65,11 +67,10 @@ class OrderController extends Controller
         return view('cms.pages.store-admin.orders.index', compact('orders', 'stores', 'statuses', 'summary'));
     }
 
-
     public function show(Order $order)
     {
-        // Check if order belongs to user's managed stores
-        $userId = 1; // Temporary
+        $user = Auth::user();
+        $userId = $user->id;
         $managedStoreIds = Store::where('user_id', $userId)->pluck('id');
 
         if (!$managedStoreIds->contains($order->store_id)) {
@@ -82,8 +83,8 @@ class OrderController extends Controller
 
     public function edit(Order $order)
     {
-        // Check if order belongs to user's managed stores
-        $userId = 1; // Temporary
+        $user = Auth::user();
+        $userId = $user->id;
         $managedStoreIds = Store::where('user_id', $userId)->pluck('id');
 
         if (!$managedStoreIds->contains($order->store_id)) {
@@ -100,8 +101,8 @@ class OrderController extends Controller
 
     public function update(Request $request, Order $order)
     {
-        // Check if order belongs to user's managed stores
-        $userId = 1; // Temporary
+        $user = Auth::user();
+        $userId = $user->id;
         $managedStoreIds = Store::where('user_id', $userId)->pluck('id');
 
         if (!$managedStoreIds->contains($order->store_id)) {
@@ -138,17 +139,14 @@ class OrderController extends Controller
             ]);
         }
 
-        // Remove payment method update since it's disabled in the form
-        // Store admins shouldn't be able to change payment methods for existing orders
-
         return redirect()->route('store-admin.orders.show', $order)
             ->with('success', 'Order updated successfully.');
     }
 
     public function destroy(Order $order)
     {
-        // Check if order belongs to user's managed stores
-        $userId = 1; // Temporary
+        $user = Auth::user();
+        $userId = $user->id;
         $managedStoreIds = Store::where('user_id', $userId)->pluck('id');
 
         if (!$managedStoreIds->contains($order->store_id)) {
@@ -178,8 +176,8 @@ class OrderController extends Controller
 
     public function updateStatus(Request $request, Order $order)
     {
-        // Check if order belongs to user's managed stores
-        $userId = 1; // Temporary
+        $user = Auth::user();
+        $userId = $user->id;
         $managedStoreIds = Store::where('user_id', $userId)->pluck('id');
 
         if (!$managedStoreIds->contains($order->store_id)) {
@@ -209,7 +207,8 @@ class OrderController extends Controller
      */
     public function getCartItems(Cart $cart)
     {
-        $userId = 1; // Temporary
+        $user = Auth::user();
+        $userId = $user->id;
         $managedStoreIds = Store::where('user_id', $userId)->pluck('id');
 
         try {
@@ -239,7 +238,8 @@ class OrderController extends Controller
 
     public function export(Request $request)
     {
-        $userId = 1; // Temporary
+        $user = Auth::user();
+        $userId = $user->id;
         $managedStoreIds = Store::where('user_id', $userId)->pluck('id');
 
         $orders = Order::whereIn('store_id', $managedStoreIds)
@@ -332,7 +332,8 @@ class OrderController extends Controller
      */
     public function exportAdvanced(Request $request)
     {
-        $userId = 1; // Temporary
+        $user = Auth::user();
+        $userId = $user->id;
         $managedStoreIds = Store::where('user_id', $userId)->pluck('id');
 
         $request->validate([

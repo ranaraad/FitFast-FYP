@@ -9,14 +9,14 @@ use App\Models\Store;
 use App\Models\Category;
 use Illuminate\Support\Str;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Facades\Auth;
 
 class ItemController extends Controller
 {
     public function index(Request $request)
     {
-        // For now, we'll hardcode a user ID until authentication is set up
-        $userId = 1; // Temporary - this should be the logged-in store admin user ID
-
+        $user = Auth::user();
+        $userId = $user->id;
         $managedStoreIds = Store::where('user_id', $userId)->pluck('id');
 
         $items = Item::whereIn('store_id', $managedStoreIds)
@@ -61,7 +61,8 @@ class ItemController extends Controller
 
     public function create()
     {
-        $userId = 1; // Temporary
+        $user = Auth::user();
+        $userId = $user->id;
         $stores = Store::where('user_id', $userId)->where('status', 'active')->get();
         $categories = Category::active()->ordered()->get();
 
@@ -85,7 +86,8 @@ class ItemController extends Controller
 
     public function store(Request $request)
     {
-        $userId = 1; // Temporary
+        $user = Auth::user();
+        $userId = $user->id;
 
         // Validate that the store belongs to the user
         $store = Store::where('id', $request->store_id)
@@ -157,8 +159,8 @@ class ItemController extends Controller
 
     public function show(Item $item)
     {
-        // Check if item belongs to user's managed stores
-        $userId = 1; // Temporary
+        $user = Auth::user();
+        $userId = $user->id;
         $managedStoreIds = Store::where('user_id', $userId)->pluck('id');
 
         if (!$managedStoreIds->contains($item->store_id)) {
@@ -172,8 +174,8 @@ class ItemController extends Controller
 
     public function edit(Item $item)
     {
-        // Check if item belongs to user's managed stores
-        $userId = 1; // Temporary
+        $user = Auth::user();
+        $userId = $user->id;
         $managedStoreIds = Store::where('user_id', $userId)->pluck('id');
 
         if (!$managedStoreIds->contains($item->store_id)) {
@@ -204,8 +206,8 @@ class ItemController extends Controller
 
     public function update(Request $request, Item $item)
     {
-        // Check if item belongs to user's managed stores
-        $userId = 1; // Temporary
+        $user = Auth::user();
+        $userId = $user->id;
         $managedStoreIds = Store::where('user_id', $userId)->pluck('id');
 
         if (!$managedStoreIds->contains($item->store_id)) {
@@ -271,8 +273,8 @@ class ItemController extends Controller
 
     public function destroy(Item $item)
     {
-        // Check if item belongs to user's managed stores
-        $userId = 1; // Temporary
+        $user = Auth::user();
+        $userId = $user->id;
         $managedStoreIds = Store::where('user_id', $userId)->pluck('id');
 
         if (!$managedStoreIds->contains($item->store_id)) {
@@ -298,8 +300,8 @@ class ItemController extends Controller
 
     public function updateStock(Request $request, Item $item)
     {
-        // Check if item belongs to user's managed stores
-        $userId = 1; // Temporary
+        $user = Auth::user();
+        $userId = $user->id;
         $managedStoreIds = Store::where('user_id', $userId)->pluck('id');
 
         if (!$managedStoreIds->contains($item->store_id)) {
@@ -336,7 +338,8 @@ class ItemController extends Controller
 
     public function export(Request $request)
     {
-        $userId = 1; // Temporary
+        $user = Auth::user();
+        $userId = $user->id;
         $managedStoreIds = Store::where('user_id', $userId)->pluck('id');
 
         $items = Item::whereIn('store_id', $managedStoreIds)
@@ -414,7 +417,8 @@ class ItemController extends Controller
 
     public function exportLowStock(Request $request)
     {
-        $userId = 1; // Temporary
+        $user = Auth::user();
+        $userId = $user->id;
         $managedStoreIds = Store::where('user_id', $userId)->pluck('id');
 
         $lowStockItems = Item::whereIn('store_id', $managedStoreIds)
@@ -474,6 +478,7 @@ class ItemController extends Controller
 
         return response()->stream($callback, 200, $headers);
     }
+
     /**
      * Build standardized sizing data structure (matching CMS controller)
      */
@@ -556,5 +561,4 @@ class ItemController extends Controller
 
         return response()->json($garmentTypes);
     }
-
 }

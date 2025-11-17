@@ -27,8 +27,67 @@
 
 <!-- Content Row -->
 <div class="row">
-    <!-- Left Column - Store Info & Quick Stats -->
+    <!-- Left Column - Store Visuals & Basic Info -->
     <div class="col-xl-4 col-lg-5">
+        <!-- Store Visuals Card -->
+        <div class="card shadow mb-4">
+            <div class="card-header py-3 bg-primary text-white">
+                <h6 class="m-0 font-weight-bold">Store Visuals</h6>
+            </div>
+            <div class="card-body">
+                <!-- Banner Image -->
+                <div class="mb-4">
+                    <label class="font-weight-bold text-dark mb-2 d-block">Banner Image</label>
+                    @if($store->banner_image)
+                        <div class="banner-container mb-3">
+                            <img src="{{ asset('storage/' . $store->banner_image) }}"
+                                 alt="{{ $store->name }} Banner"
+                                 class="img-fluid rounded store-banner"
+                                 style="max-height: 200px; width: 100%; object-fit: cover;">
+                        </div>
+                    @else
+                        <div class="banner-placeholder bg-light rounded d-flex align-items-center justify-content-center p-5 text-center"
+                             style="height: 150px;">
+                            <div>
+                                <i class="fas fa-image fa-2x text-muted mb-2"></i>
+                                <p class="text-muted mb-0">No banner image</p>
+                            </div>
+                        </div>
+                    @endif
+                </div>
+
+                <!-- Logo -->
+                <div>
+                    <label class="font-weight-bold text-dark mb-2 d-block">Store Logo</label>
+                    <div class="d-flex align-items-center">
+                        @if($store->logo)
+                            <div class="logo-container mr-3">
+                                <img src="{{ asset('storage/' . $store->logo) }}"
+                                     alt="{{ $store->name }} Logo"
+                                     class="store-logo rounded-circle"
+                                     style="width: 80px; height: 80px; object-fit: cover; border: 3px solid #e3f2fd;">
+                            </div>
+                            <div class="logo-info">
+                                <p class="mb-1 text-success">
+                                    <i class="fas fa-check-circle"></i> Logo uploaded
+                                </p>
+                                <small class="text-muted">Store branding</small>
+                            </div>
+                        @else
+                            <div class="logo-placeholder bg-light rounded-circle d-flex align-items-center justify-content-center mr-3"
+                                 style="width: 80px; height: 80px; border: 2px dashed #dee2e6;">
+                                <i class="fas fa-store text-muted fa-lg"></i>
+                            </div>
+                            <div class="logo-info">
+                                <p class="mb-1 text-muted">No logo uploaded</p>
+                                <small class="text-muted">Contact admin to add logo</small>
+                            </div>
+                        @endif
+                    </div>
+                </div>
+            </div>
+        </div>
+
         <!-- Store Information Card -->
         <div class="card shadow mb-4">
             <div class="card-header py-3 bg-primary text-white">
@@ -99,103 +158,13 @@
                             {{ $store->contact_info ?: 'No contact information provided' }}
                         </span>
                     </div>
-
-                    <div class="info-item">
-                        <div class="info-label-container">
-                            <i class="fas fa-calendar-plus text-primary"></i>
-                            <span class="info-label font-weight-bold">Created At</span>
-                        </div>
-                        <span class="info-value text-muted">
-                            <div class="d-flex flex-column">
-                                <span class="font-weight-semibold">{{ $store->created_at->format('M d, Y') }}</span>
-                                <small class="text-muted">{{ $store->created_at->format('H:i A') }}</small>
-                            </div>
-                        </span>
-                    </div>
-
-                    <div class="info-item">
-                        <div class="info-label-container">
-                            <i class="fas fa-calendar-check text-primary"></i>
-                            <span class="info-label font-weight-bold">Updated At</span>
-                        </div>
-                        <span class="info-value text-muted">
-                            <div class="d-flex flex-column">
-                                <span class="font-weight-semibold">{{ $store->updated_at->format('M d, Y') }}</span>
-                                <small class="text-muted">{{ $store->updated_at->format('H:i A') }}</small>
-                            </div>
-                        </span>
-                    </div>
                 </div>
             </div>
         </div>
+    </div>
 
-        <!-- Statistics Cards in Grid -->
-        <div class="row">
-            <!-- Total Items -->
-            <div class="col-md-6 mb-4">
-                <div class="card border-left-primary shadow h-100 py-2">
-                    <div class="card-body">
-                        <div class="row no-gutters align-items-center">
-                            <div class="col mr-2">
-                                <div class="text-xs font-weight-bold text-primary text-uppercase mb-1">
-                                    Total Items
-                                </div>
-                                <div class="h5 mb-0 font-weight-bold text-gray-800">{{ $store->items->count() }}</div>
-                            </div>
-                            <div class="col-auto">
-                                <i class="fas fa-boxes fa-2x text-gray-300"></i>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Total Orders -->
-            <div class="col-md-6 mb-4">
-                <div class="card border-left-success shadow h-100 py-2">
-                    <div class="card-body">
-                        <div class="row no-gutters align-items-center">
-                            <div class="col mr-2">
-                                <div class="text-xs font-weight-bold text-success text-uppercase mb-1">
-                                    Total Orders
-                                </div>
-                                <div class="h5 mb-0 font-weight-bold text-gray-800">{{ $store->orders->count() }}</div>
-                            </div>
-                            <div class="col-auto">
-                                <i class="fas fa-shopping-cart fa-2x text-gray-300"></i>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
-
-        <!-- Revenue Statistics -->
-        <div class="card shadow mb-4">
-            <div class="card-header py-3 bg-success text-white">
-                <h6 class="m-0 font-weight-bold">Revenue Overview</h6>
-            </div>
-            <div class="card-body">
-                <div class="text-center">
-                    <h4 class="text-success font-weight-bold mb-1">${{ number_format($storeStats['total_revenue'], 2) }}</h4>
-                    <p class="text-muted small mb-3">Total Revenue</p>
-
-                    <div class="row text-center">
-                        <div class="col-6">
-                            <div class="border-right">
-                                <h6 class="text-primary font-weight-bold mb-1">${{ number_format($storeStats['avg_order_value'] ?? 0, 2) }}</h6>
-                                <small class="text-muted">Avg Order Value</small>
-                            </div>
-                        </div>
-                        <div class="col-6">
-                            <h6 class="text-info font-weight-bold mb-1">{{ $storeStats['total_customers'] }}</h6>
-                            <small class="text-muted">Unique Customers</small>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
-
+    <!-- Middle Column - Stock Overview & Quick Actions -->
+    <div class="col-xl-4 col-lg-7">
         <!-- Stock Summary -->
         @php
             $lowStockCount = $store->low_stock_items->count();
@@ -284,12 +253,12 @@
         </div>
 
         <!-- Quick Actions -->
-        <div class="card shadow">
+        <div class="card shadow mb-4">
             <div class="card-header py-3 bg-warning text-dark">
                 <h6 class="m-0 font-weight-bold">Quick Actions</h6>
             </div>
             <div class="card-body">
-                <div class="d-grid gap-3">
+                <div class="d-grid gap-2">
                     <a href="{{ route('store-admin.items.create') }}?store_id={{ $store->id }}" class="btn btn-success btn-block py-2">
                         <i class="fas fa-plus mr-2"></i> Add New Item
                     </a>
@@ -305,12 +274,205 @@
                 </div>
             </div>
         </div>
+
+        <!-- Store Timeline -->
+        <div class="card shadow">
+            <div class="card-header py-3 bg-secondary text-white">
+                <h6 class="m-0 font-weight-bold">Store Timeline</h6>
+            </div>
+            <div class="card-body">
+                <div class="timeline-item">
+                    <i class="fas fa-calendar-plus text-primary mr-2"></i>
+                    <strong>Created:</strong>
+                    <div class="text-muted small">
+                        {{ $store->created_at->format('M d, Y') }}<br>
+                        {{ $store->created_at->format('H:i A') }}
+                    </div>
+                </div>
+                <hr>
+                <div class="timeline-item">
+                    <i class="fas fa-calendar-check text-primary mr-2"></i>
+                    <strong>Updated:</strong>
+                    <div class="text-muted small">
+                        {{ $store->updated_at->format('M d, Y') }}<br>
+                        {{ $store->updated_at->format('H:i A') }}
+                    </div>
+                </div>
+            </div>
+        </div>
     </div>
 
-    <!-- Right Column - Items & Analytics -->
-    <div class="col-xl-8 col-lg-7">
-        <!-- Recent Items Table Card -->
+    <!-- Right Column - Statistics & Analytics -->
+    <div class="col-xl-4 col-lg-12">
+        <!-- Statistics Cards -->
+        <div class="row">
+            <!-- Total Items -->
+            <div class="col-md-6 mb-4">
+                <div class="card border-left-primary shadow h-100 py-2">
+                    <div class="card-body">
+                        <div class="row no-gutters align-items-center">
+                            <div class="col mr-2">
+                                <div class="text-xs font-weight-bold text-primary text-uppercase mb-1">
+                                    Total Items
+                                </div>
+                                <div class="h5 mb-0 font-weight-bold text-gray-800">{{ $store->items->count() }}</div>
+                            </div>
+                            <div class="col-auto">
+                                <i class="fas fa-boxes fa-2x text-gray-300"></i>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Total Orders -->
+            <div class="col-md-6 mb-4">
+                <div class="card border-left-success shadow h-100 py-2">
+                    <div class="card-body">
+                        <div class="row no-gutters align-items-center">
+                            <div class="col mr-2">
+                                <div class="text-xs font-weight-bold text-success text-uppercase mb-1">
+                                    Total Orders
+                                </div>
+                                <div class="h5 mb-0 font-weight-bold text-gray-800">{{ $store->orders->count() }}</div>
+                            </div>
+                            <div class="col-auto">
+                                <i class="fas fa-shopping-cart fa-2x text-gray-300"></i>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Revenue Statistics -->
         <div class="card shadow mb-4">
+            <div class="card-header py-3 bg-success text-white">
+                <h6 class="m-0 font-weight-bold">Revenue Overview</h6>
+            </div>
+            <div class="card-body">
+                <div class="text-center">
+                    <h4 class="text-success font-weight-bold mb-1">${{ number_format($storeStats['total_revenue'], 2) }}</h4>
+                    <p class="text-muted small mb-3">Total Revenue</p>
+
+                    <div class="row text-center">
+                        <div class="col-6">
+                            <div class="border-right">
+                                <h6 class="text-primary font-weight-bold mb-1">${{ number_format($storeStats['avg_order_value'] ?? 0, 2) }}</h6>
+                                <small class="text-muted">Avg Order Value</small>
+                            </div>
+                        </div>
+                        <div class="col-6">
+                            <h6 class="text-info font-weight-bold mb-1">{{ $storeStats['total_customers'] }}</h6>
+                            <small class="text-muted">Unique Customers</small>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Analytics Cards -->
+        @if($store->items->count() > 0)
+        <!-- Top Items by Stock -->
+        <div class="card shadow mb-4">
+            <div class="card-header py-3 bg-success text-white">
+                <h6 class="m-0 font-weight-bold">Top Stock Items</h6>
+            </div>
+            <div class="card-body">
+                @foreach($store->items->sortByDesc('stock_quantity')->take(3) as $item)
+                    <div class="d-flex justify-content-between align-items-center mb-3 p-2 rounded {{ $item->stock_quantity == 0 ? 'bg-light' : '' }}">
+                        <div class="flex-grow-1">
+                            <h6 class="mb-1 text-sm">{{ Str::limit($item->name, 20) }}</h6>
+                            <small class="text-muted">Stock: {{ $item->stock_quantity }}</small>
+                        </div>
+                        <div class="text-right">
+                            <span class="badge badge-{{ $item->stock_quantity == 0 ? 'danger' : ($item->stock_quantity < 10 ? 'warning' : 'success') }}">
+                                ${{ number_format($item->price, 2) }}
+                            </span>
+                        </div>
+                    </div>
+                    @if(!$loop->last)<hr class="my-2">@endif
+                @endforeach
+            </div>
+        </div>
+
+        <!-- Low Stock Alert -->
+        <div class="card shadow mb-4">
+            <div class="card-header py-3 bg-danger text-white">
+                <h6 class="m-0 font-weight-bold">Low Stock Alerts</h6>
+            </div>
+            <div class="card-body">
+                @php
+                    $lowStockItems = $store->items->where('stock_quantity', '<', 10)->sortBy('stock_quantity')->take(3);
+                @endphp
+
+                @if($lowStockItems->count() > 0)
+                    @foreach($lowStockItems as $item)
+                        <div class="d-flex justify-content-between align-items-center mb-3 p-2 rounded bg-light">
+                            <div class="flex-grow-1">
+                                <h6 class="mb-1 text-sm text-danger">{{ Str::limit($item->name, 20) }}</h6>
+                                <small class="text-muted">Only {{ $item->stock_quantity }} left</small>
+                            </div>
+                            <div class="text-right">
+                                <a href="{{ route('store-admin.items.edit', $item) }}" class="btn btn-sm btn-outline-danger">
+                                    <i class="fas fa-edit"></i>
+                                </a>
+                            </div>
+                        </div>
+                        @if(!$loop->last)<hr class="my-2">@endif
+                    @endforeach
+                @else
+                    <div class="text-center py-3">
+                        <i class="fas fa-check-circle fa-2x text-success mb-2"></i>
+                        <p class="text-muted mb-0">No low stock items</p>
+                    </div>
+                @endif
+            </div>
+        </div>
+        @endif
+
+        <!-- Order Status Summary -->
+        <div class="card shadow">
+            <div class="card-header py-3 bg-primary text-white">
+                <h6 class="m-0 font-weight-bold">Order Status</h6>
+            </div>
+            <div class="card-body">
+                <div class="text-center">
+                    <div class="row mb-3">
+                        <div class="col-6">
+                            <div class="border-right">
+                                <h5 class="text-warning font-weight-bold">{{ $storeStats['pending_orders_count'] }}</h5>
+                                <small class="text-muted">Pending</small>
+                            </div>
+                        </div>
+                        <div class="col-6">
+                            <h5 class="text-info font-weight-bold">{{ $storeStats['processing_orders_count'] }}</h5>
+                            <small class="text-muted">Processing</small>
+                        </div>
+                    </div>
+                    <div class="row">
+                        <div class="col-6">
+                            <div class="border-right">
+                                <h5 class="text-success font-weight-bold">{{ $storeStats['completed_orders_count'] }}</h5>
+                                <small class="text-muted">Completed</small>
+                            </div>
+                        </div>
+                        <div class="col-6">
+                            <h5 class="text-danger font-weight-bold">{{ $store->orders()->where('status', 'cancelled')->count() }}</h5>
+                            <small class="text-muted">Cancelled</small>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Recent Activity - Full Width Below -->
+<div class="row mt-4">
+    <!-- Recent Items Table Card -->
+    <div class="col-xl-6 mb-4">
+        <div class="card shadow">
             <div class="card-header py-3 d-flex justify-content-between align-items-center bg-white">
                 <h6 class="m-0 font-weight-bold text-primary">Recent Items ({{ $store->items->count() }})</h6>
                 <div class="stock-indicators">
@@ -336,16 +498,14 @@
                             <thead class="thead-light">
                                 <tr>
                                     <th>Item Name</th>
-                                    <th>Category</th>
                                     <th>Price</th>
                                     <th>Stock</th>
                                     <th>Status</th>
-                                    <th>Created</th>
                                     <th>Actions</th>
                                 </tr>
                             </thead>
                             <tbody>
-                                @foreach($store->items->take(10) as $item)
+                                @foreach($store->items->take(5) as $item)
                                 <tr class="{{ $item->stock_quantity == 0 ? 'table-danger' : ($item->stock_quantity < 10 ? 'table-warning' : '') }}">
                                     <td>
                                         <div class="d-flex align-items-center">
@@ -354,18 +514,11 @@
                                             </div>
                                             <div class="flex-grow-1">
                                                 <strong>{{ $item->name }}</strong>
-                                                @if($item->description)
-                                                    <br><small class="text-muted">{{ Str::limit($item->description, 50) }}</small>
+                                                @if($item->category)
+                                                    <br><small class="text-muted">{{ $item->category->name }}</small>
                                                 @endif
                                             </div>
                                         </div>
-                                    </td>
-                                    <td>
-                                        @if($item->category)
-                                            <span class="badge badge-info">{{ $item->category->name }}</span>
-                                        @else
-                                            <span class="badge badge-secondary">No Category</span>
-                                        @endif
                                     </td>
                                     <td>
                                         @if($item->price)
@@ -402,9 +555,6 @@
                                         @endif
                                     </td>
                                     <td>
-                                        <small class="text-muted">{{ $item->created_at->format('M d, Y') }}</small>
-                                    </td>
-                                    <td>
                                         <div class="btn-group btn-group-sm" role="group">
                                             <a href="{{ route('store-admin.items.show', $item) }}" class="btn btn-info" title="View">
                                                 <i class="fas fa-eye"></i>
@@ -419,7 +569,7 @@
                             </tbody>
                         </table>
                     </div>
-                    @if($store->items->count() > 10)
+                    @if($store->items->count() > 5)
                     <div class="text-center mt-3">
                         <a href="{{ route('store-admin.items.index') }}?store_id={{ $store->id }}" class="btn btn-outline-primary btn-sm">
                             View All {{ $store->items->count() }} Items
@@ -427,20 +577,19 @@
                     </div>
                     @endif
                 @else
-                    <div class="text-center py-5">
-                        <i class="fas fa-box-open fa-4x text-muted mb-3"></i>
-                        <h5 class="text-muted">No Items Found</h5>
-                        <p class="text-muted mb-4">This store doesn't have any items yet.</p>
-                        <a href="{{ route('store-admin.items.create') }}?store_id={{ $store->id }}" class="btn btn-primary btn-lg">
-                            <i class="fas fa-plus"></i> Add First Item
-                        </a>
+                    <div class="text-center py-4">
+                        <i class="fas fa-box-open fa-3x text-muted mb-3"></i>
+                        <h6 class="text-muted mb-2">No Items Found</h6>
+                        <p class="text-muted small">Add items to start managing your store.</p>
                     </div>
                 @endif
             </div>
         </div>
+    </div>
 
-        <!-- Recent Orders Card -->
-        <div class="card shadow mb-4">
+    <!-- Recent Orders Card -->
+    <div class="col-xl-6 mb-4">
+        <div class="card shadow">
             <div class="card-header py-3 d-flex justify-content-between align-items-center bg-white">
                 <h6 class="m-0 font-weight-bold text-primary">Recent Orders</h6>
                 <a href="{{ route('store-admin.orders.index') }}?store_id={{ $store->id }}" class="btn btn-sm btn-outline-primary">
@@ -454,7 +603,6 @@
                             <thead class="thead-light">
                                 <tr>
                                     <th>Order ID</th>
-                                    <th>Customer</th>
                                     <th>Amount</th>
                                     <th>Status</th>
                                     <th>Date</th>
@@ -462,21 +610,10 @@
                                 </tr>
                             </thead>
                             <tbody>
-                                @foreach($store->orders->take(10) as $order)
+                                @foreach($store->orders->take(5) as $order)
                                 <tr>
                                     <td>
                                         <strong>#{{ $order->id }}</strong>
-                                    </td>
-                                    <td>
-                                        @if($order->user)
-                                            <div>
-                                                <strong>{{ $order->user->name }}</strong>
-                                                <br>
-                                                <small class="text-muted">{{ $order->user->email }}</small>
-                                            </div>
-                                        @else
-                                            <span class="text-muted">Guest</span>
-                                        @endif
                                     </td>
                                     <td>
                                         <strong class="text-success">${{ number_format($order->total_amount, 2) }}</strong>
@@ -494,8 +631,6 @@
                                     </td>
                                     <td>
                                         <small class="text-muted">{{ $order->created_at->format('M d, Y') }}</small>
-                                        <br>
-                                        <small class="text-muted">{{ $order->created_at->format('H:i A') }}</small>
                                     </td>
                                     <td>
                                         <a href="{{ route('store-admin.orders.show', $order) }}" class="btn btn-sm btn-info" title="View">
@@ -516,71 +651,6 @@
                 @endif
             </div>
         </div>
-
-        <!-- Analytics Cards Row -->
-        <div class="row">
-            <!-- Top Items by Stock -->
-            <div class="col-md-6 mb-4">
-                <div class="card shadow h-100">
-                    <div class="card-header py-3 bg-success text-white">
-                        <h6 class="m-0 font-weight-bold">Top Items by Stock</h6>
-                    </div>
-                    <div class="card-body">
-                        @foreach($store->items->sortByDesc('stock_quantity')->take(5) as $item)
-                            <div class="d-flex justify-content-between align-items-center mb-3 p-2 rounded {{ $item->stock_quantity == 0 ? 'bg-light' : '' }}">
-                                <div class="flex-grow-1">
-                                    <h6 class="mb-1 text-sm">{{ Str::limit($item->name, 25) }}</h6>
-                                    <small class="text-muted">Stock: {{ $item->stock_quantity }}</small>
-                                </div>
-                                <div class="text-right">
-                                    <span class="badge badge-{{ $item->stock_quantity == 0 ? 'danger' : ($item->stock_quantity < 10 ? 'warning' : 'success') }}">
-                                        ${{ number_format($item->price, 2) }}
-                                    </span>
-                                </div>
-                            </div>
-                            @if(!$loop->last)<hr class="my-2">@endif
-                        @endforeach
-                    </div>
-                </div>
-            </div>
-
-            <!-- Low Stock Alert -->
-            <div class="col-md-6 mb-4">
-                <div class="card shadow h-100">
-                    <div class="card-header py-3 bg-danger text-white">
-                        <h6 class="m-0 font-weight-bold">Low Stock Alerts</h6>
-                    </div>
-                    <div class="card-body">
-                        @php
-                            $lowStockItems = $store->items->where('stock_quantity', '<', 10)->sortBy('stock_quantity')->take(5);
-                        @endphp
-
-                        @if($lowStockItems->count() > 0)
-                            @foreach($lowStockItems as $item)
-                                <div class="d-flex justify-content-between align-items-center mb-3 p-2 rounded bg-light">
-                                    <div class="flex-grow-1">
-                                        <h6 class="mb-1 text-sm text-danger">{{ Str::limit($item->name, 25) }}</h6>
-                                        <small class="text-muted">Only {{ $item->stock_quantity }} left</small>
-                                    </div>
-                                    <div class="text-right">
-                                        <a href="{{ route('store-admin.items.edit', $item) }}" class="btn btn-sm btn-outline-danger">
-                                            <i class="fas fa-edit"></i> Restock
-                                        </a>
-                                    </div>
-                                </div>
-                                @if(!$loop->last)<hr class="my-2">@endif
-                            @endforeach
-                        @else
-                            <div class="text-center py-4">
-                                <i class="fas fa-check-circle fa-2x text-success mb-2"></i>
-                                <p class="text-muted mb-0">No low stock items</p>
-                                <small class="text-muted">All items are well stocked</small>
-                            </div>
-                        @endif
-                    </div>
-                </div>
-            </div>
-        </div>
     </div>
 </div>
 @endsection
@@ -590,7 +660,7 @@
 <style>
 .store-info-grid {
     display: grid;
-    gap: 1.5rem;
+    gap: 1rem;
 }
 
 .info-item {
@@ -608,12 +678,12 @@
 .info-label-container {
     display: flex;
     align-items: center;
-    flex: 0 0 140px;
+    flex: 0 0 120px;
 }
 
 .info-label-container .fas {
     width: 16px;
-    margin-right: 0.75rem;
+    margin-right: 0.5rem;
     font-size: 0.875rem;
 }
 
@@ -635,7 +705,7 @@
 
 .chart-pie {
     position: relative;
-    height: 200px;
+    height: 160px;
     width: 100%;
 }
 
@@ -658,11 +728,42 @@
     border-radius: 50rem;
 }
 
+/* Store Visuals Styles */
+.store-banner {
+    transition: transform 0.3s ease;
+}
+
+.store-banner:hover {
+    transform: scale(1.02);
+}
+
+.store-logo {
+    transition: transform 0.3s ease;
+}
+
+.store-logo:hover {
+    transform: scale(1.1);
+}
+
+.banner-placeholder, .logo-placeholder {
+    transition: all 0.3s ease;
+}
+
+.banner-placeholder:hover, .logo-placeholder:hover {
+    background-color: #f8f9fa !important;
+    border-color: #007bff !important;
+}
+
+/* Timeline */
+.timeline-item {
+    margin-bottom: 0.5rem;
+}
+
 /* Hover effects */
 .info-item:hover {
     background-color: #f8f9fa;
-    margin: 0 -1rem;
-    padding: 0.75rem 1rem;
+    margin: 0 -0.5rem;
+    padding: 0.75rem 0.5rem;
     border-radius: 0.35rem;
     border-bottom: none;
 }
@@ -693,6 +794,13 @@
 .border-right {
     border-right: 1px solid #e3e6f0 !important;
 }
+
+/* Responsive adjustments */
+@media (max-width: 1200px) {
+    .info-label-container {
+        flex: 0 0 100px;
+    }
+}
 </style>
 @endpush
 
@@ -705,7 +813,7 @@ $(document).ready(function() {
     // Initialize DataTables
     $('#itemsTable').DataTable({
         "pageLength": 5,
-        "order": [[3, 'desc']],
+        "order": [[2, 'desc']],
         "searching": false,
         "info": false,
         "paging": false
@@ -713,7 +821,7 @@ $(document).ready(function() {
 
     $('#ordersTable').DataTable({
         "pageLength": 5,
-        "order": [[4, 'desc']],
+        "order": [[3, 'desc']],
         "searching": false,
         "info": false,
         "paging": false
@@ -741,15 +849,15 @@ $(document).ready(function() {
                     bodyFontColor: "#858796",
                     borderColor: '#dddfeb',
                     borderWidth: 1,
-                    xPadding: 15,
-                    yPadding: 15,
+                    xPadding: 10,
+                    yPadding: 10,
                     displayColors: false,
                     caretPadding: 10,
                 },
                 legend: {
                     display: false
                 },
-                cutoutPercentage: 70,
+                cutoutPercentage: 65,
             },
         });
     }

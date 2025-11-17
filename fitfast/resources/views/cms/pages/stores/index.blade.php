@@ -115,7 +115,7 @@
                     <table class="table table-bordered" id="storesTable" width="100%" cellspacing="0">
                         <thead>
                             <tr>
-                                <th>ID</th>
+                                <th>Logo</th>
                                 <th>Name</th>
                                 <th>Store Admin</th>
                                 <th>Status</th>
@@ -133,12 +133,36 @@
                                 $hasOutOfStock = $store->out_of_stock_items_count > 0;
                             @endphp
                             <tr class="{{ $hasCritical ? 'table-warning' : ($hasLowStock ? 'table-light-warning' : '') }}">
-                                <td>{{ $store->id }}</td>
-                                <td>
-                                    <strong>{{ $store->name }}</strong>
-                                    @if($store->description)
-                                    <br><small class="text-muted">{{ Str::limit($store->description, 50) }}</small>
+                                <td class="text-center">
+                                    @if($store->logo)
+                                        <img src="{{ asset('storage/' . $store->logo) }}"
+                                            alt="{{ $store->name }} Logo"
+                                            class="store-logo img-thumbnail"
+                                            style="width:75px; height: 75px; object-fit: cover; border-radius: 8px;"
+                                            onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';">
+                                        </div>
+                                    @else
+                                        <div class="store-logo-placeholder bg-light rounded d-flex align-items-center justify-content-center"
+                                            style="width: 50px; height: 50px; border: 1px dashed #dee2e6;">
+                                            <i class="fas fa-store text-muted"></i>
+                                        </div>
                                     @endif
+                                </td>
+                                <td>
+                                    <div class="d-flex align-items-start">
+                                        <div>
+                                            <strong>{{ $store->name }}</strong>
+                                            @if($store->description)
+                                            <br><small class="text-muted">{{ Str::limit($store->description, 50) }}</small>
+                                            @endif
+                                            @if($store->banner_image)
+                                            <br>
+                                            <small class="text-success">
+                                                <i class="fas fa-image"></i> Has banner image
+                                            </small>
+                                            @endif
+                                        </div>
+                                    </div>
                                 </td>
                                 <td>
                                     @if($store->user)
@@ -200,13 +224,13 @@
                                 <td>{{ $store->created_at->format('M d, Y') }}</td>
                                 <td>
                                     <div class="btn-group btn-group-sm" role="group">
-                                        <a href="{{ route('cms.stores.show', $store) }}" class="btn btn-info">
+                                        <a href="{{ route('cms.stores.show', $store) }}" class="btn btn-info" title="View Details">
                                             <i class="fas fa-eye"></i>
                                         </a>
-                                        <a href="{{ route('cms.stores.edit', $store) }}" class="btn btn-primary">
+                                        <a href="{{ route('cms.stores.edit', $store) }}" class="btn btn-primary" title="Edit Store">
                                             <i class="fas fa-edit"></i>
                                         </a>
-                                        <button type="button" class="btn btn-danger" onclick="confirmDelete({{ $store->id }})">
+                                        <button type="button" class="btn btn-danger" onclick="confirmDelete({{ $store->id }})" title="Delete Store">
                                             <i class="fas fa-trash"></i>
                                         </button>
                                     </div>
@@ -237,6 +261,15 @@
 .alert-warning {
     border-left: 4px solid #f6c23e;
 }
+.store-logo {
+    transition: transform 0.2s ease;
+}
+.store-logo:hover {
+    transform: scale(1.1);
+}
+.store-logo-placeholder {
+    font-size: 1.2rem;
+}
 </style>
 @endpush
 
@@ -245,22 +278,31 @@
     $(document).ready(function() {
         $('#storesTable').DataTable({
             "pageLength": 25,
-            "order": [[0, 'desc']],
+            "order": [[6, 'desc']], // Sort by Created At by default
             "columnDefs": [
-                { "orderable": false, "targets": [3, 4, 7] } // Disable sorting for inventory and actions columns
-            ]
+                { "orderable": false, "targets": [0, 4, 7] }, // Disable sorting for logo, inventory, and actions columns
+                { "searchable": false, "targets": [0, 4, 7] } // Disable searching for logo, inventory, and actions columns
+            ],
+            "language": {
+                "emptyTable": "No stores found",
+                "info": "Showing _START_ to _END_ of _TOTAL_ stores",
+                "infoEmpty": "Showing 0 to 0 of 0 stores",
+                "infoFiltered": "(filtered from _MAX_ total stores)",
+                "search": "Search stores:"
+            }
         });
     });
 
     function confirmDelete(storeId) {
         Swal.fire({
             title: 'Are you sure?',
-            text: "You won't be able to revert this!",
+            text: "You won't be able to revert this! This will also delete the store's logo and banner images.",
             icon: 'warning',
             showCancelButton: true,
             confirmButtonColor: '#d33',
             cancelButtonColor: '#3085d6',
-            confirmButtonText: 'Yes, delete it!'
+            confirmButtonText: 'Yes, delete it!',
+            cancelButtonText: 'Cancel'
         }).then((result) => {
             if (result.isConfirmed) {
                 document.getElementById('delete-form-' + storeId).submit();

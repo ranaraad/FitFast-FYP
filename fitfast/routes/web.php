@@ -30,7 +30,7 @@ Route::get('/', function () {
     return redirect()->route('cms.login');
 });
 
-// Public CMS Auth Routes (accessible without authentication)
+// Public CMS Auth Routes
 Route::prefix('cms')->name('cms.')->group(function () {
     Route::get('/login', [LoginController::class, 'showLoginForm'])->name('login');
     Route::post('/login', [LoginController::class, 'login'])->name('login');
@@ -137,6 +137,9 @@ Route::prefix('cms')->name('cms.')->middleware(['auth', 'verified', 'cms.access'
 
 // Protected Store Admin Routes (requires auth, verified email, and store admin role)
 Route::prefix('store-admin')->name('store-admin.')->middleware(['auth', 'verified', 'storeadmin.access'])->group(function () {
+    // Add logout route
+    Route::post('/logout', [LoginController::class, 'logout'])->name('logout');
+
     // Dashboard
     Route::get('/dashboard', [StoreAdminDashboardController::class, 'index'])->name('dashboard');
 

@@ -8,12 +8,14 @@ use App\Models\Order;
 use App\Models\Store;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Auth;
 
 class DeliveryController extends Controller
 {
     public function index(Request $request)
     {
-        $userId = 1; // Temporary - this should be the logged-in store admin user ID
+        $user = Auth::user();
+        $userId = $user->id;
         $managedStoreIds = Store::where('user_id', $userId)->pluck('id');
 
         $deliveries = Delivery::whereHas('order', function($query) use ($managedStoreIds) {
@@ -66,7 +68,8 @@ class DeliveryController extends Controller
 
     public function create()
     {
-        $userId = 1; // Temporary
+        $user = Auth::user();
+        $userId = $user->id;
         $managedStoreIds = Store::where('user_id', $userId)->pluck('id');
 
         // Only show orders from managed stores that don't have deliveries yet
@@ -83,7 +86,8 @@ class DeliveryController extends Controller
 
     public function store(Request $request)
     {
-        $userId = 1; // Temporary
+        $user = Auth::user();
+        $userId = $user->id;
         $managedStoreIds = Store::where('user_id', $userId)->pluck('id');
 
         $validated = $request->validate([
@@ -121,8 +125,8 @@ class DeliveryController extends Controller
 
     public function show(Delivery $delivery)
     {
-        // Check if delivery belongs to user's managed stores
-        $userId = 1; // Temporary
+        $user = Auth::user();
+        $userId = $user->id;
         $managedStoreIds = Store::where('user_id', $userId)->pluck('id');
 
         if (!$managedStoreIds->contains($delivery->order->store_id)) {
@@ -136,8 +140,8 @@ class DeliveryController extends Controller
 
     public function edit(Delivery $delivery)
     {
-        // Check if delivery belongs to user's managed stores
-        $userId = 1; // Temporary
+        $user = Auth::user();
+        $userId = $user->id;
         $managedStoreIds = Store::where('user_id', $userId)->pluck('id');
 
         if (!$managedStoreIds->contains($delivery->order->store_id)) {
@@ -159,8 +163,8 @@ class DeliveryController extends Controller
 
     public function update(Request $request, Delivery $delivery)
     {
-        // Check if delivery belongs to user's managed stores
-        $userId = 1; // Temporary
+        $user = Auth::user();
+        $userId = $user->id;
         $managedStoreIds = Store::where('user_id', $userId)->pluck('id');
 
         if (!$managedStoreIds->contains($delivery->order->store_id)) {
@@ -199,8 +203,8 @@ class DeliveryController extends Controller
 
     public function destroy(Delivery $delivery)
     {
-        // Check if delivery belongs to user's managed stores
-        $userId = 1; // Temporary
+        $user = Auth::user();
+        $userId = $user->id;
         $managedStoreIds = Store::where('user_id', $userId)->pluck('id');
 
         if (!$managedStoreIds->contains($delivery->order->store_id)) {
@@ -221,7 +225,8 @@ class DeliveryController extends Controller
 
     public function search(Request $request)
     {
-        $userId = 1; // Temporary
+        $user = Auth::user();
+        $userId = $user->id;
         $managedStoreIds = Store::where('user_id', $userId)->pluck('id');
 
         $query = Delivery::whereHas('order', function($query) use ($managedStoreIds) {
@@ -263,8 +268,8 @@ class DeliveryController extends Controller
 
     public function markAsDelivered(Delivery $delivery)
     {
-        // Check if delivery belongs to user's managed stores
-        $userId = 1; // Temporary
+        $user = Auth::user();
+        $userId = $user->id;
         $managedStoreIds = Store::where('user_id', $userId)->pluck('id');
 
         if (!$managedStoreIds->contains($delivery->order->store_id)) {
@@ -289,8 +294,8 @@ class DeliveryController extends Controller
 
     public function updateTracking(Request $request, Delivery $delivery)
     {
-        // Check if delivery belongs to user's managed stores
-        $userId = 1; // Temporary
+        $user = Auth::user();
+        $userId = $user->id;
         $managedStoreIds = Store::where('user_id', $userId)->pluck('id');
 
         if (!$managedStoreIds->contains($delivery->order->store_id)) {
@@ -311,8 +316,8 @@ class DeliveryController extends Controller
 
     public function addTracking(Request $request, Delivery $delivery)
     {
-        // Check if delivery belongs to user's managed stores
-        $userId = 1; // Temporary
+        $user = Auth::user();
+        $userId = $user->id;
         $managedStoreIds = Store::where('user_id', $userId)->pluck('id');
 
         if (!$managedStoreIds->contains($delivery->order->store_id)) {
@@ -345,8 +350,8 @@ class DeliveryController extends Controller
 
     public function updateStatus(Request $request, Delivery $delivery)
     {
-        // Check if delivery belongs to user's managed stores
-        $userId = 1; // Temporary
+        $user = Auth::user();
+        $userId = $user->id;
         $managedStoreIds = Store::where('user_id', $userId)->pluck('id');
 
         if (!$managedStoreIds->contains($delivery->order->store_id)) {
@@ -408,7 +413,8 @@ class DeliveryController extends Controller
 
     public function export(Request $request)
     {
-        $userId = 1; // Temporary
+        $user = Auth::user();
+        $userId = $user->id;
         $managedStoreIds = Store::where('user_id', $userId)->pluck('id');
 
         $deliveries = Delivery::whereHas('order', function($query) use ($managedStoreIds) {

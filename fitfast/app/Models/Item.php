@@ -242,6 +242,174 @@ class Item extends Model
     public const STANDARD_SIZES = ['XS', 'S', 'M', 'L', 'XL', 'XXL'];
 
     /**
+     * RELATIONSHIPS
+     */
+
+    /**
+     * The users that have this item (many-to-many relationship)
+     */
+    public function users(): BelongsToMany
+    {
+        return $this->belongsToMany(User::class, 'item_user')
+                    ->using(ItemUser::class)
+                    ->withTimestamps();
+    }
+
+    /**
+     * Get the store that owns the item.
+     */
+    public function store(): BelongsTo
+    {
+        return $this->belongsTo(Store::class);
+    }
+
+    /**
+     * Get the category that owns the item.
+     */
+    public function category(): BelongsTo
+    {
+        return $this->belongsTo(Category::class);
+    }
+
+    /**
+     * Get the order items for the item.
+     */
+    public function orderItems(): HasMany
+    {
+        return $this->hasMany(OrderItem::class);
+    }
+
+    /**
+     * Get the reviews for the item.
+     */
+    public function reviews(): HasMany
+    {
+        return $this->hasMany(Review::class);
+    }
+
+    /**
+     * Get the cart items for the item.
+     */
+    public function cartItems(): HasMany
+    {
+        return $this->hasMany(CartItem::class);
+    }
+
+    /**
+     * Get the images for the item.
+     */
+    public function images(): HasMany
+    {
+        return $this->hasMany(ItemImage::class)->orderBy('order');
+    }
+
+    /**
+     * IMAGE MANAGEMENT METHODS
+     */
+
+    /**
+     * Accessor for primary image
+     */
+    public function getPrimaryImageAttribute()
+    {
+        return $this->images->where('is_primary', true)->first()
+            ?? $this->images->first();
+    }
+
+    /**
+     * Method to set primary image
+     */
+    public function setPrimaryImage(ItemImage $image): void
+    {
+        // Verify the image belongs to this item
+        if ($image->item_id !== $this->id) {
+            throw new \InvalidArgumentException('Image does not belong to this item');
+        }
+
+        // Remove primary status from all other images
+        $this->images()->update(['is_primary' => false]);
+
+        // Set this image as primary
+        $image->update(['is_primary' => true]);
+    }
+
+    /**
+     * Method to add an image
+     */
+    public function addImage(string $imagePath, bool $isPrimary = false, int $order = 0): ItemImage
+    {
+        // If this is set as primary, remove primary status from others
+        if ($isPrimary) {
+            $this->images()->update(['is_primary' => false]);
+        }
+
+        // If no images exist and this isn't explicitly set as primary, make it primary
+        if ($this->images()->count() === 0 && !$isPrimary) {
+            $isPrimary = true;
+        }
+
+        return $this->images()->create([
+            'image_path' => $imagePath,
+            'order' => $order,
+            'is_primary' => $isPrimary,
+        ]);
+    }
+
+    /**
+     * Method to add multiple images
+     */
+    public function addImages(array $images): void
+    {
+        $hasPrimary = false;
+
+        foreach ($images as $index => $imageData) {
+            $isPrimary = $imageData['is_primary'] ?? ($index === 0 && !$hasPrimary);
+
+            if ($isPrimary) {
+                $hasPrimary = true;
+            }
+
+            $this->addImage(
+                $imageData['image_path'],
+                $isPrimary,
+                $imageData['order'] ?? $index
+            );
+        }
+    }
+
+    /**
+     * Method to reorder images
+     */
+    public function reorderImages(array $imageIds): void
+    {
+        foreach ($imageIds as $order => $imageId) {
+            $this->images()
+                ->where('id', $imageId)
+                ->update(['order' => $order]);
+        }
+    }
+
+    /**
+     * Check if item has images
+     */
+    public function hasImages(): bool
+    {
+        return $this->images()->exists();
+    }
+
+    /**
+     * Get image count
+     */
+    public function getImageCountAttribute(): int
+    {
+        return $this->images()->count();
+    }
+
+    /**
+     * STOCK MANAGEMENT METHODS
+     */
+
+    /**
      * Get stock quantity for a specific size
      */
     public function getSizeStock($size)
@@ -309,6 +477,118 @@ class Item extends Model
         $currentStock = $this->getSizeStock($size);
         $this->setSizeStock($size, $currentStock + $quantity);
     }
+
+    /**
+     * Get available colors with stock information
+     */
+    public function getAvailableColorsAttribute()
+    {
+        $colors = $this->color_variants ?? [];
+        $availableColors = [];
+
+        foreach ($colors as $color => $colorData) {
+            if ($this->getColorStock($color) > 0) {
+                $availableColors[$color] = $colorData['name'] ?? $color;
+            }
+        }
+
+        return $availableColors;
+    }
+
+    /**
+     * Get stock for a specific color
+     */
+    public function getColorStock($color)
+    {
+        $colorVariants = $this->color_variants ?? [];
+        return $colorVariants[$color]['stock'] ?? 0;
+    }
+
+    /**
+     * Set stock for a specific color
+     */
+    public function setColorStock($color, $quantity)
+    {
+        $colorVariants = $this->color_variants ?? [];
+
+        if (!isset($colorVariants[$color])) {
+            $colorVariants[$color] = ['name' => $color, 'stock' => 0];
+        }
+
+        $colorVariants[$color]['stock'] = max(0, $quantity);
+        $this->color_variants = $colorVariants;
+
+        // Update total stock quantity
+        $this->stock_quantity = $this->calculateTotalStock();
+    }
+
+    /**
+     * Get stock for a specific color and size combination
+     */
+    public function getVariantStock($color, $size = null)
+    {
+        // For now, we'll use color stock. In a real system, you might want
+        // to track stock per color-size combination
+        return $this->getColorStock($color);
+    }
+
+    /**
+     * Check if a color is available
+     */
+    public function isColorInStock($color, $quantity = 1)
+    {
+        return $this->getColorStock($color) >= $quantity;
+    }
+
+    /**
+     * Get default color (first available color)
+     */
+    public function getDefaultColorAttribute()
+    {
+        $availableColors = $this->available_colors;
+        return !empty($availableColors) ? array_key_first($availableColors) : null;
+    }
+
+    /**
+     * Calculate total stock from all color variants
+     */
+    public function calculateTotalStock()
+    {
+        $colorVariants = $this->color_variants ?? [];
+        $total = 0;
+
+        foreach ($colorVariants as $colorData) {
+            $total += $colorData['stock'] ?? 0;
+        }
+
+        return $total;
+    }
+
+    /**
+     * Decrease stock for a specific color
+     */
+    public function decreaseColorStock($color, $quantity = 1)
+    {
+        $currentStock = $this->getColorStock($color);
+        if ($currentStock >= $quantity) {
+            $this->setColorStock($color, $currentStock - $quantity);
+            return true;
+        }
+        return false;
+    }
+
+    /**
+     * Increase stock for a specific color
+     */
+    public function increaseColorStock($color, $quantity = 1)
+    {
+        $currentStock = $this->getColorStock($color);
+        $this->setColorStock($color, $currentStock + $quantity);
+    }
+
+    /**
+     * GARMENT TYPE METHODS
+     */
 
     /**
      * Get available garment types for a specific category slug
@@ -420,6 +700,10 @@ class Item extends Model
     }
 
     /**
+     * SCOPES
+     */
+
+    /**
      * Scope a query to filter by garment type
      */
     public function scopeByGarmentType($query, $garmentType)
@@ -447,38 +731,50 @@ class Item extends Model
     }
 
     /**
-     * The users that have this item (many-to-many relationship)
+     * Scope a query to only include items in stock.
      */
-    public function users(): BelongsToMany
+    public function scopeInStock($query)
     {
-        return $this->belongsToMany(User::class, 'item_user')
-                    ->using(ItemUser::class)
-                    ->withTimestamps();
+        return $query->where('stock_quantity', '>', 0);
     }
 
     /**
-     * Get the store that owns the item.
+     * Scope a query to filter by category.
      */
-    public function store(): BelongsTo
+    public function scopeByCategory($query, $categoryId)
     {
-        return $this->belongsTo(Store::class);
+        return $query->where('category_id', $categoryId);
     }
 
     /**
-     * Get the category that owns the item.
+     * Scope a query to filter by category type.
      */
-    public function category(): BelongsTo
+    public function scopeByCategoryType($query, $type)
     {
-        return $this->belongsTo(Category::class);
+        return $query->whereHas('category', function ($q) use ($type) {
+            $q->where('type', $type);
+        });
     }
 
     /**
-     * Get the order items for the item.
+     * Scope a query to include items with images
      */
-    public function orderItems(): HasMany
+    public function scopeWithImages($query)
     {
-        return $this->hasMany(OrderItem::class);
+        return $query->whereHas('images');
     }
+
+    /**
+     * Scope a query to include items without images
+     */
+    public function scopeWithoutImages($query)
+    {
+        return $query->whereDoesntHave('images');
+    }
+
+    /**
+     * OTHER METHODS
+     */
 
     /**
      * Check if item is in stock (any size)
@@ -486,14 +782,6 @@ class Item extends Model
     public function isInStock(): bool
     {
         return $this->calculateTotalStock() > 0;
-    }
-
-    /**
-     * Scope a query to only include items in stock.
-     */
-    public function scopeInStock($query)
-    {
-        return $query->where('stock_quantity', '>', 0);
     }
 
     /**
@@ -517,14 +805,6 @@ class Item extends Model
     }
 
     /**
-     * Get the reviews for the item.
-     */
-    public function reviews(): HasMany
-    {
-        return $this->hasMany(Review::class);
-    }
-
-    /**
      * Calculate the average rating for the item.
      */
     public function averageRating(): float
@@ -541,32 +821,6 @@ class Item extends Model
     }
 
     /**
-     * Get the cart items for the item.
-     */
-    public function cartItems(): HasMany
-    {
-        return $this->hasMany(CartItem::class);
-    }
-
-    /**
-     * Scope a query to filter by category.
-     */
-    public function scopeByCategory($query, $categoryId)
-    {
-        return $query->where('category_id', $categoryId);
-    }
-
-    /**
-     * Scope a query to filter by category type.
-     */
-    public function scopeByCategoryType($query, $type)
-    {
-        return $query->whereHas('category', function ($q) use ($type) {
-            $q->where('type', $type);
-        });
-    }
-
-    /**
      * Get stock status for a size
      */
     public function getSizeStockStatus($size): string
@@ -580,114 +834,6 @@ class Item extends Model
         } else {
             return 'out_of_stock';
         }
-    }
-
-    /**
-     * Get available colors with stock information
-     */
-    public function getAvailableColorsAttribute()
-    {
-        $colors = $this->color_variants ?? [];
-        $availableColors = [];
-
-        foreach ($colors as $color => $colorData) {
-            if ($this->getColorStock($color) > 0) {
-                $availableColors[$color] = $colorData['name'] ?? $color;
-            }
-        }
-
-        return $availableColors;
-    }
-
-    /**
-     * Get stock for a specific color
-     */
-    public function getColorStock($color)
-    {
-        $colorVariants = $this->color_variants ?? [];
-        return $colorVariants[$color]['stock'] ?? 0;
-    }
-
-    /**
-     * Set stock for a specific color
-     */
-    public function setColorStock($color, $quantity)
-    {
-        $colorVariants = $this->color_variants ?? [];
-
-        if (!isset($colorVariants[$color])) {
-            $colorVariants[$color] = ['name' => $color, 'stock' => 0];
-        }
-
-        $colorVariants[$color]['stock'] = max(0, $quantity);
-        $this->color_variants = $colorVariants;
-
-        // Update total stock quantity
-        $this->stock_quantity = $this->calculateTotalStock();
-    }
-
-    /**
-     * Get stock for a specific color and size combination
-     */
-    public function getVariantStock($color, $size = null)
-    {
-        // For now, we'll use color stock. In a real system, you might want
-        // to track stock per color-size combination
-        return $this->getColorStock($color);
-    }
-
-    /**
-     * Check if a color is available
-     */
-    public function isColorInStock($color, $quantity = 1)
-    {
-        return $this->getColorStock($color) >= $quantity;
-    }
-
-    /**
-     * Get default color (first available color)
-     */
-    public function getDefaultColorAttribute()
-    {
-        $availableColors = $this->available_colors;
-        return !empty($availableColors) ? array_key_first($availableColors) : null;
-    }
-
-    /**
-     * Calculate total stock from all color variants
-     */
-    public function calculateTotalStock()
-    {
-        $colorVariants = $this->color_variants ?? [];
-        $total = 0;
-
-        foreach ($colorVariants as $colorData) {
-            $total += $colorData['stock'] ?? 0;
-        }
-
-        return $total;
-    }
-
-    /**
-     * Decrease stock for a specific color
-     */
-    public function decreaseColorStock($color, $quantity = 1)
-    {
-        $currentStock = $this->getColorStock($color);
-        if ($currentStock >= $quantity) {
-            $this->setColorStock($color, $currentStock - $quantity);
-            return true;
-        }
-        return false;
-    }
-
-    /**
-     * Increase stock for a specific color
-     */
-    public function increaseColorStock($color, $quantity = 1)
-    {
-        $currentStock = $this->getColorStock($color);
-        $this->setColorStock($color, $currentStock + $quantity);
     }
 
     /**

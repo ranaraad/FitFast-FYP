@@ -84,6 +84,12 @@ Route::prefix('cms')->name('cms.')->middleware(['auth', 'verified', 'cms.access'
     // Items
     Route::resource('items', ItemController::class);
 
+    // Item Images Management
+    Route::post('items/{item}/images', [ItemController::class, 'addImages'])->name('items.images.store');
+    Route::post('items/{item}/images/{image}/set-primary', [ItemController::class, 'setPrimaryImage'])->name('items.images.set-primary');
+    Route::post('items/{item}/images/reorder', [ItemController::class, 'reorderImages'])->name('items.images.reorder');
+    Route::delete('items/{item}/images/{image}', [ItemController::class, 'deleteImage'])->name('items.images.destroy');
+
     // Stores
     Route::resource('stores', StoreController::class);
 
@@ -155,6 +161,12 @@ Route::prefix('store-admin')->name('store-admin.')->middleware(['auth', 'verifie
 
     // Items - Resource routes with custom methods
     Route::resource('items', StoreAdminItemController::class);
+
+    // Store Admin Item Images Management
+    Route::post('items/{item}/images', [StoreAdminItemController::class, 'addImages'])->name('items.images.store');
+    Route::post('items/{item}/images/{image}/set-primary', [StoreAdminItemController::class, 'setPrimaryImage'])->name('items.images.set-primary');
+    Route::post('items/{item}/images/reorder', [StoreAdminItemController::class, 'reorderImages'])->name('items.images.reorder');
+    Route::delete('items/{item}/images/{image}', [StoreAdminItemController::class, 'deleteImage'])->name('items.images.destroy');
 
     // Orders - Resource routes with custom status update
     Route::resource('orders', StoreAdminOrderController::class)->only(['index', 'show', 'edit', 'update', 'destroy']);

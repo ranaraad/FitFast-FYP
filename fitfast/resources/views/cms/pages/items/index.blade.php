@@ -79,6 +79,7 @@
                     <table class="table table-bordered" id="itemsTable" width="100%" cellspacing="0">
                         <thead>
                             <tr>
+                                <th>Image</th>
                                 <th>ID</th>
                                 <th>Name</th>
                                 <th>Store</th>
@@ -94,6 +95,32 @@
                         <tbody>
                             @foreach($items as $item)
                             <tr class="{{ $item->stock_quantity == 0 ? 'table-danger' : ($item->stock_quantity < 10 ? 'table-warning' : '') }}">
+                                <td class="text-center">
+                                    @if($item->primary_image)
+                                        <img src="{{ asset('storage/' . $item->primary_image->image_path) }}"
+                                             alt="{{ $item->name }}"
+                                             class="img-thumbnail"
+                                             style="width: 60px; height: 60px; object-fit: cover;"
+                                             data-toggle="tooltip"
+                                             data-placement="top"
+                                             title="Click to view larger image"
+                                             onclick="showImageModal('{{ asset('storage/' . $item->primary_image->image_path) }}', '{{ $item->name }}')">
+                                        @if($item->images->count() > 1)
+                                            <small class="text-muted d-block mt-1">
+                                                +{{ $item->images->count() - 1 }} more
+                                            </small>
+                                        @endif
+                                    @else
+                                        <div class="bg-light d-flex align-items-center justify-content-center rounded"
+                                             style="width: 60px; height: 60px;"
+                                             data-toggle="tooltip"
+                                             data-placement="top"
+                                             title="No image available">
+                                            <i class="fas fa-image text-muted"></i>
+                                        </div>
+                                        <small class="text-muted d-block mt-1">No image</small>
+                                    @endif
+                                </td>
                                 <td>{{ $item->id }}</td>
                                 <td>
                                     <strong>{{ $item->name }}</strong>
@@ -163,13 +190,13 @@
                                 </td>
                                 <td>
                                     <div class="btn-group btn-group-sm" role="group">
-                                        <a href="{{ route('cms.items.show', $item) }}" class="btn btn-info">
+                                        <a href="{{ route('cms.items.show', $item) }}" class="btn btn-info" data-toggle="tooltip" title="View">
                                             <i class="fas fa-eye"></i>
                                         </a>
-                                        <a href="{{ route('cms.items.edit', $item) }}" class="btn btn-primary">
+                                        <a href="{{ route('cms.items.edit', $item) }}" class="btn btn-primary" data-toggle="tooltip" title="Edit">
                                             <i class="fas fa-edit"></i>
                                         </a>
-                                        <button type="button" class="btn btn-danger" onclick="confirmDelete({{ $item->id }})">
+                                        <button type="button" class="btn btn-danger" onclick="confirmDelete({{ $item->id }})" data-toggle="tooltip" title="Delete">
                                             <i class="fas fa-trash"></i>
                                         </button>
                                     </div>
@@ -183,6 +210,26 @@
                         </tbody>
                     </table>
                 </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Image Modal -->
+<div class="modal fade" id="imageModal" tabindex="-1" role="dialog" aria-labelledby="imageModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg" role="document">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="imageModalLabel">Item Image</h5>
+                <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                    <span aria-hidden="true">&times;</span>
+                </button>
+            </div>
+            <div class="modal-body text-center">
+                <img id="modalImage" src="" alt="" class="img-fluid" style="max-height: 70vh; object-fit: contain;">
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-dismiss="modal">Close</button>
             </div>
         </div>
     </div>
@@ -204,6 +251,14 @@
 .table-danger {
     background-color: #f8d7da !important;
 }
+.img-thumbnail {
+    cursor: pointer;
+    transition: transform 0.2s ease-in-out;
+}
+.img-thumbnail:hover {
+    transform: scale(1.05);
+    box-shadow: 0 0 10px rgba(0,0,0,0.2);
+}
 </style>
 @endpush
 
@@ -212,11 +267,14 @@
     $(document).ready(function() {
         $('#itemsTable').DataTable({
             "pageLength": 25,
-            "order": [[0, 'desc']],
+            "order": [[1, 'desc']], // Order by ID column (now column index 1)
             "columnDefs": [
-                { "orderable": false, "targets": [6, 8, 9] } // Disable sorting for colors, users and actions columns
+                { "orderable": false, "targets": [0, 7, 9, 10] } // Disable sorting for image, colors, users and actions columns
             ]
         });
+
+        // Initialize tooltips
+        $('[data-toggle="tooltip"]').tooltip();
     });
 
     function confirmDelete(itemId) {
@@ -233,6 +291,13 @@
                 document.getElementById('delete-form-' + itemId).submit();
             }
         });
+    }
+
+    function showImageModal(imageSrc, itemName) {
+        $('#modalImage').attr('src', imageSrc);
+        $('#modalImage').attr('alt', itemName);
+        $('#imageModalLabel').text(itemName);
+        $('#imageModal').modal('show');
     }
 </script>
 @endpush

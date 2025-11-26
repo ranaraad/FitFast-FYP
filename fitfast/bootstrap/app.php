@@ -21,7 +21,7 @@ return Application::configure(basePath: dirname(__DIR__))
 
         // Register your custom middleware
         $middleware->alias([
-            'auth' => \App\Http\Middleware\Authenticate::class, // Add this line
+            'auth' => \App\Http\Middleware\Authenticate::class, 
             'cms.access' => \App\Http\Middleware\CheckCMSAccess::class,
             'storeadmin.access' => \App\Http\Middleware\CheckStoreAdminAccess::class,
         ]);

@@ -20,6 +20,107 @@
 <!-- Content Row -->
 <div class="row">
     <div class="col-lg-8">
+        <!-- Item Images Card -->
+        @if($item->images->count() > 0)
+        <div class="card shadow mb-4">
+            <div class="card-header py-3">
+                <h6 class="m-0 font-weight-bold text-primary">Item Images</h6>
+                <small class="text-muted">{{ $item->images->count() }} image(s) available</small>
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    <!-- Primary Image (Larger) -->
+                    @if($item->primary_image)
+                    <div class="col-md-6 mb-4">
+                        <div class="text-center">
+                            <h6 class="text-primary mb-3">
+                                <i class="fas fa-star text-warning"></i> Primary Image
+                            </h6>
+                            <div class="image-container position-relative">
+                                <img src="{{ asset('storage/' . $item->primary_image->image_path) }}"
+                                     alt="{{ $item->name }}"
+                                     class="img-fluid rounded shadow-sm cursor-pointer"
+                                     style="max-height: 300px; object-fit: contain;"
+                                     onclick="showImageModal('{{ asset('storage/' . $item->primary_image->image_path) }}', '{{ $item->name }} - Primary Image')">
+                                <div class="position-absolute top-0 start-0 m-2">
+                                    <span class="badge bg-warning text-dark">Primary</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    @endif
+
+                    <!-- Additional Images -->
+                    @if($item->images->count() > 1)
+                    <div class="{{ $item->primary_image ? 'col-md-6' : 'col-12' }}">
+                        <h6 class="text-muted mb-3">Additional Images</h6>
+                        <div class="row">
+                            @foreach($item->images as $image)
+                                @if(!$image->is_primary)
+                                <div class="col-6 col-sm-4 col-md-6 col-lg-4 mb-3">
+                                    <div class="image-container position-relative">
+                                        <img src="{{ asset('storage/' . $image->image_path) }}"
+                                             alt="{{ $item->name }}"
+                                             class="img-thumbnail cursor-pointer w-100"
+                                             style="height: 120px; object-fit: cover;"
+                                             onclick="showImageModal('{{ asset('storage/' . $image->image_path) }}', '{{ $item->name }} - Image {{ $loop->iteration }}')">
+                                        <div class="position-absolute top-0 end-0 m-1">
+                                            <small class="badge bg-secondary">#{{ $image->order + 1 }}</small>
+                                        </div>
+                                    </div>
+                                </div>
+                                @endif
+                            @endforeach
+                        </div>
+                    </div>
+                    @endif
+                </div>
+
+                <!-- Image Gallery Grid -->
+                @if($item->images->count() > 1)
+                <div class="mt-4">
+                    <h6 class="text-muted mb-3">All Images</h6>
+                    <div class="row">
+                        @foreach($item->images as $image)
+                        <div class="col-4 col-sm-3 col-md-2 mb-3">
+                            <div class="image-container position-relative">
+                                <img src="{{ asset('storage/' . $image->image_path) }}"
+                                     alt="{{ $item->name }}"
+                                     class="img-thumbnail cursor-pointer w-100"
+                                     style="height: 100px; object-fit: cover;"
+                                     onclick="showImageModal('{{ asset('storage/' . $image->image_path) }}', '{{ $item->name }} - Image {{ $loop->iteration }}')">
+                                @if($image->is_primary)
+                                    <div class="position-absolute top-0 start-0 m-1">
+                                        <i class="fas fa-star text-warning" title="Primary Image"></i>
+                                    </div>
+                                @endif
+                                <div class="position-absolute bottom-0 start-0 end-0 bg-dark bg-opacity-50 text-white text-center py-1">
+                                    <small>#{{ $image->order + 1 }}</small>
+                                </div>
+                            </div>
+                        </div>
+                        @endforeach
+                    </div>
+                </div>
+                @endif
+            </div>
+        </div>
+        @else
+        <div class="card shadow mb-4">
+            <div class="card-header py-3">
+                <h6 class="m-0 font-weight-bold text-warning">Item Images</h6>
+            </div>
+            <div class="card-body text-center py-5">
+                <i class="fas fa-image fa-3x text-muted mb-3"></i>
+                <h5 class="text-muted">No Images Available</h5>
+                <p class="text-muted">This item doesn't have any images yet.</p>
+                <a href="{{ route('cms.items.edit', $item) }}" class="btn btn-primary btn-sm">
+                    <i class="fas fa-plus"></i> Add Images
+                </a>
+            </div>
+        </div>
+        @endif
+
         <!-- Item Information Card -->
         <div class="card shadow mb-4">
             <div class="card-header py-3">
@@ -417,6 +518,12 @@
                     </div>
                     <hr>
                     <div class="mb-4">
+                        <i class="fas fa-image fa-2x text-success mb-2"></i>
+                        <h4>{{ $item->images->count() }}</h4>
+                        <p class="text-muted">Total Images</p>
+                    </div>
+                    <hr>
+                    <div class="mb-4">
                         @php
                             $hasMeasurements = !empty($item->sizing_data) &&
                                             isset($item->sizing_data['measurements_cm']) &&
@@ -548,24 +655,73 @@
         @endif
     </div>
 </div>
+
+<!-- Image Modal -->
+<div class="modal fade" id="imageModal" tabindex="-1" role="dialog" aria-labelledby="imageModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg modal-dialog-centered" role="document">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="imageModalLabel">Item Image</h5>
+                <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                    <span aria-hidden="true">&times;</span>
+                </button>
+            </div>
+            <div class="modal-body text-center">
+                <img id="modalImage" src="" alt="" class="img-fluid rounded" style="max-height: 70vh; object-fit: contain;">
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-dismiss="modal">Close</button>
+            </div>
+        </div>
+    </div>
+</div>
 @endsection
+
+@push('styles')
+<style>
+.cursor-pointer {
+    cursor: pointer;
+    transition: transform 0.2s ease-in-out;
+}
+
+.cursor-pointer:hover {
+    transform: scale(1.02);
+}
+
+.image-container {
+    border-radius: 8px;
+    overflow: hidden;
+}
+
+.badge {
+    font-size: 0.75em;
+}
+</style>
+@endpush
 
 @push('scripts')
 <script>
-    function confirmDelete() {
-        Swal.fire({
-            title: 'Are you sure?',
-            text: "You won't be able to revert this! All associated data will be affected!",
-            icon: 'warning',
-            showCancelButton: true,
-            confirmButtonColor: '#d33',
-            cancelButtonColor: '#3085d6',
-            confirmButtonText: 'Yes, delete it!'
-        }).then((result) => {
-            if (result.isConfirmed) {
-                document.getElementById('delete-form').submit();
-            }
-        });
-    }
+function confirmDelete() {
+    Swal.fire({
+        title: 'Are you sure?',
+        text: "You won't be able to revert this! All associated data will be affected!",
+        icon: 'warning',
+        showCancelButton: true,
+        confirmButtonColor: '#d33',
+        cancelButtonColor: '#3085d6',
+        confirmButtonText: 'Yes, delete it!'
+    }).then((result) => {
+        if (result.isConfirmed) {
+            document.getElementById('delete-form').submit();
+        }
+    });
+}
+
+function showImageModal(imageSrc, title) {
+    $('#modalImage').attr('src', imageSrc);
+    $('#modalImage').attr('alt', title);
+    $('#imageModalLabel').text(title);
+    $('#imageModal').modal('show');
+}
 </script>
 @endpush

@@ -133,6 +133,7 @@
                 <table class="table table-bordered table-hover" id="itemsTable" width="100%" cellspacing="0">
                     <thead class="thead-light">
                         <tr>
+                            <th>Image</th>
                             <th>Item</th>
                             <th>Store</th>
                             <th>Category</th>
@@ -163,30 +164,52 @@
                             ];
                         @endphp
                         <tr class="table-{{ $stockStatus == 'out_of_stock' ? 'danger' : ($stockStatus == 'critical' ? 'danger' : ($stockStatus == 'low_stock' ? 'warning' : '')) }}">
+                            <td class="text-center">
+                                @if($item->primary_image)
+                                    <img src="{{ asset('storage/' . $item->primary_image->image_path) }}"
+                                         alt="{{ $item->name }}"
+                                         class="img-thumbnail"
+                                         style="width: 60px; height: 60px; object-fit: cover;"
+                                         data-toggle="tooltip"
+                                         data-placement="top"
+                                         title="Click to view larger image"
+                                         onclick="showImageModal('{{ asset('storage/' . $item->primary_image->image_path) }}', '{{ $item->name }}')">
+                                    @if($item->images->count() > 1)
+                                        <small class="text-muted d-block mt-1">
+                                            +{{ $item->images->count() - 1 }} more
+                                        </small>
+                                    @endif
+                                @else
+                                    <div class="bg-light d-flex align-items-center justify-content-center rounded"
+                                         style="width: 60px; height: 60px;"
+                                         data-toggle="tooltip"
+                                         data-placement="top"
+                                         title="No image available">
+                                        <i class="fas fa-image text-muted"></i>
+                                    </div>
+                                    <small class="text-muted d-block mt-1">No image</small>
+                                @endif
+                            </td>
                             <td>
                                 <div class="d-flex align-items-center">
-                                    @if($item->image)
-                                    <div class="flex-shrink-0 mr-3">
-                                        <img src="{{ Storage::disk('public')->url($item->image) }}"
-                                             alt="{{ $item->name }}"
-                                             class="rounded"
-                                             style="width: 50px; height: 50px; object-fit: cover;">
-                                    </div>
-                                    @else
-                                    <div class="flex-shrink-0 mr-3">
-                                        <div class="bg-light rounded d-flex align-items-center justify-content-center"
-                                             style="width: 50px; height: 50px;">
-                                            <i class="fas fa-cube text-muted"></i>
-                                        </div>
-                                    </div>
-                                    @endif
                                     <div class="flex-grow-1">
                                         <strong class="text-gray-800">{{ $item->name }}</strong>
                                         @if($item->description)
                                         <br><small class="text-muted">{{ Str::limit($item->description, 50) }}</small>
                                         @endif
-                                        @if($item->color)
-                                        <br><small class="text-muted"><i class="fas fa-palette"></i> {{ $item->color }}</small>
+                                        @if($item->color_variants && count($item->color_variants) > 0)
+                                        <br>
+                                        <div class="d-flex flex-wrap gap-1 mt-1">
+                                            @foreach($item->color_variants as $colorCode => $colorData)
+                                                @php
+                                                    $colorName = $colorData['name'] ?? $colorCode;
+                                                    $colorHash = '#' . substr(md5($colorName), 0, 6);
+                                                @endphp
+                                                <span class="badge" style="background-color: {{ $colorHash }}; color: white; font-size: 8px; padding: 2px 4px;">
+                                                    {{ $colorName }}
+                                                </span>
+                                            @endforeach
+                                        </div>
                                         @endif
                                     </div>
                                 </div>
@@ -231,15 +254,15 @@
                             </td>
                             <td>
                                 <div class="btn-group btn-group-sm" role="group">
-                                    <a href="{{ route('store-admin.items.show', $item) }}" class="btn btn-info" title="View">
+                                    <a href="{{ route('store-admin.items.show', $item) }}" class="btn btn-info" data-toggle="tooltip" title="View">
                                         <i class="fas fa-eye"></i>
                                     </a>
-                                    <a href="{{ route('store-admin.items.edit', $item) }}" class="btn btn-primary" title="Edit">
+                                    <a href="{{ route('store-admin.items.edit', $item) }}" class="btn btn-primary" data-toggle="tooltip" title="Edit">
                                         <i class="fas fa-edit"></i>
                                     </a>
                                     <button type="button" class="btn btn-danger"
                                             onclick="confirmDelete({{ $item->id }}, '{{ $item->name }}')"
-                                            title="Delete">
+                                            data-toggle="tooltip" title="Delete">
                                         <i class="fas fa-trash"></i>
                                     </button>
                                 </div>
@@ -315,6 +338,26 @@
         </div>
     </div>
 </div>
+
+<!-- Image Modal -->
+<div class="modal fade" id="imageModal" tabindex="-1" role="dialog" aria-labelledby="imageModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg" role="document">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="imageModalLabel">Item Image</h5>
+                <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                    <span aria-hidden="true">&times;</span>
+                </button>
+            </div>
+            <div class="modal-body text-center">
+                <img id="modalImage" src="" alt="" class="img-fluid" style="max-height: 70vh; object-fit: contain;">
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-dismiss="modal">Close</button>
+            </div>
+        </div>
+    </div>
+</div>
 @endsection
 
 @push('styles')
@@ -329,6 +372,21 @@
     transform: translateY(-1px);
     transition: all 0.2s ease;
 }
+.img-thumbnail {
+    cursor: pointer;
+    transition: transform 0.2s ease-in-out;
+}
+.img-thumbnail:hover {
+    transform: scale(1.05);
+    box-shadow: 0 0 10px rgba(0,0,0,0.2);
+}
+.badge {
+    font-size: 0.75em;
+    margin: 1px;
+}
+.gap-1 {
+    gap: 0.25rem;
+}
 </style>
 @endpush
 
@@ -340,11 +398,14 @@
             "searching": false,
             "info": false,
             "ordering": true,
-            "order": [[4, 'asc']],
+            "order": [[5, 'asc']], // Order by stock column (now index 5)
             "columnDefs": [
-                { "orderable": false, "targets": [7] }
+                { "orderable": false, "targets": [0, 8] } // Disable sorting for image and actions columns
             ]
         });
+
+        // Initialize tooltips
+        $('[data-toggle="tooltip"]').tooltip();
     });
 
     function updateStock(itemId, currentStock) {
@@ -464,6 +525,13 @@
             window.location.href = '{{ route("store-admin.items.export-low-stock") }}' + queryString;
             Swal.close();
         }, 1000);
+    }
+
+    function showImageModal(imageSrc, itemName) {
+        $('#modalImage').attr('src', imageSrc);
+        $('#modalImage').attr('alt', itemName);
+        $('#imageModalLabel').text(itemName);
+        $('#imageModal').modal('show');
     }
 
     // Show loading state when exporting

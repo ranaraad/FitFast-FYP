@@ -20,21 +20,38 @@ export default function Navbar() {
       localStorage.removeItem("auth_token");
       localStorage.removeItem("auth_user");
       navigate("/login");
-      window.location.reload(); // ensures UI updates immediately
+      window.location.reload();
     }
   };
 
   return (
     <nav className="navbar">
+      {/* Logo */}
       <div className="logo">
         Fit<span>Fast</span>
       </div>
 
+      {/* Links only if logged in */}
       {isLoggedIn && (
         <ul className="nav-links">
           <li>
-            <Link to="/profile">Profile</Link>
+            <Link to="/home">Browse</Link>
           </li>
+
+          <li>
+            <Link to="/support">Support and help</Link>
+          </li>
+
+          <li>
+            <Link to="/profile">Account</Link>
+          </li>
+
+          <li>
+            <Link to="/cart" className="cart-icon">
+              🛒
+            </Link>
+          </li>
+
           <li>
             <button onClick={handleLogout} className="logout-btn">
               Logout

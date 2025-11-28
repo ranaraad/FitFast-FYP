@@ -5,8 +5,16 @@ export default function HomePage() {
   const [stores, setStores] = useState([]);
   const [filteredStores, setFilteredStores] = useState([]);
   const [search, setSearch] = useState("");
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState("");
+  const [ setLoading] = useState(true);
+  const [ setError] = useState("");
+
+  function scrollCarousel(amount) {
+  const carousel = document.getElementById("storeCarousel");
+  if (carousel) {
+    carousel.scrollBy({ left: amount, behavior: "smooth" });
+  }
+}
+
 
   useEffect(() => {
     async function fetchStores() {
@@ -45,18 +53,22 @@ export default function HomePage() {
 
   return (
     <div className="home-page">
+      {/* ================= HERO BANNER ================= */}
+<div className="hero-banner">
+  <div className="hero-left">
+    <h1>
+      Perfect Fit,<br />
+      <span>Faster Delivery</span>
+    </h1>
+    <button>Browse Now</button>
+  </div>
+</div>
+
       {/* Hero / header section */}
       <section className="home-header">
         <div>
-          <h1>
-            Discover your <span>perfect fit</span>,
-            <br />
-            from curated multi-brand stores.
-          </h1>
-          <p>
-            Browse hand-picked clothing stores, compare fits, and let FitFast
-            help you shop smarter based on your style and measurements.
-          </p>
+
+    
 
           <div className="home-search-row">
             <input
@@ -105,97 +117,77 @@ export default function HomePage() {
       </section>
 
       {/* Stores section */}
-      <section className="home-stores-section">
-        <div className="home-stores-header">
-          <h2>Stores</h2>
-          <span>
-            {filteredStores.length} store{filteredStores.length !== 1 && "s"}{" "}
-            available
-          </span>
-        </div>
+<section className="home-stores-section">
+  <div className="home-stores-header">
+    <h2>Your Next Favorite Pieces!</h2>
+    <button className="browse-all-btn">Browse all →</button>
+  </div>
 
-        {loading && <p className="home-muted">Loading stores...</p>}
-        {error && <p className="error">{error}</p>}
+  {/* Carousel container with arrows */}
+  <div className="carousel-wrapper">
+    {/* LEFT ARROW */}
+    <button className="carousel-arrow left" onClick={() => scrollCarousel(-300)}>
+      ❮
+    </button>
 
-        {!loading && !error && filteredStores.length === 0 && (
-          <p className="home-muted">
-            No stores match your search. Try a different keyword.
-          </p>
-        )}
+    {/* CARDS */}
+    <div className="store-carousel" id="storeCarousel">
+      {filteredStores.map((store) => (
+        <article key={store.id} className="store-card">
+          <div className="store-banner">
+            <img src={store.banner_url || "/placeholder-banner.png"} alt={store.name} />
 
-        <div className="store-grid">
-          {filteredStores.map((store) => (
-            <article key={store.id} className="store-card">
-              <div className="store-banner">
-                {store.banner_url ? (
-                  <img src={store.banner_url} alt={store.name} />
-                ) : (
-                  <div className="store-banner-placeholder" />
+            <div className="store-logo-circle">
+              {store.logo_url ? (
+                <img src={store.logo_url} alt="logo" />
+              ) : (
+                <span>{store.name?.[0]?.toUpperCase()}</span>
+              )}
+            </div>
+          </div>
+
+          <div className="store-info">
+            <h3>{store.name}</h3>
+
+            {store.description && (
+              <p className="store-description">{store.description}</p>
+            )}
+
+            <div className="store-meta">
+              {store.rating && <span className="store-tag">⭐ {store.rating}</span>}
+              {store.eta_minutes && <span className="store-tag">{store.eta_minutes} min</span>}
+              {store.delivery_fee !== null && (
+                <span className="store-tag">
+                  {store.delivery_fee === 0 ? "Free Delivery" : `${store.delivery_fee}$ Delivery`}
+                </span>
+              )}
+            </div>
+
+            {store.categories && (
+              <div className="store-categories">
+                {store.categories.slice(0, 2).map((cat) => (
+                  <span key={cat} className="category-chip">{cat}</span>
+                ))}
+                {store.categories.length > 2 && (
+                  <span className="category-chip more">+{store.categories.length - 2}</span>
                 )}
-                <div className="store-logo-circle">
-                  {store.logo_url ? (
-                    <img src={store.logo_url} alt={`${store.name} logo`} />
-                  ) : (
-                    <span className="store-logo-letter">
-                      {store.name?.[0]?.toUpperCase() || "F"}
-                    </span>
-                  )}
-                </div>
               </div>
+            )}
 
-              <div className="store-content">
-                <h3>{store.name}</h3>
-                {store.description && (
-                  <p className="store-description">{store.description}</p>
-                )}
+            <button className="shop-btn">Shop Now</button>
+          </div>
+        </article>
+      ))}
+    </div>
 
-                <div className="store-meta-row">
-                  {store.rating && (
-                    <span className="store-pill">
-                      ⭐ {store.rating.toFixed ? store.rating.toFixed(1) : store.rating}
-                    </span>
-                  )}
-                  {store.eta_minutes && (
-                    <span className="store-pill">{store.eta_minutes} min</span>
-                  )}
-                  {store.delivery_fee !== null &&
-                    store.delivery_fee !== undefined && (
-                      <span className="store-pill">
-                        {store.delivery_fee === 0
-                          ? "Free delivery"
-                          : `${store.delivery_fee}$ delivery`}
-                      </span>
-                    )}
-                </div>
+    {/* RIGHT ARROW */}
+    <button className="carousel-arrow right" onClick={() => scrollCarousel(300)}>
+      ❯
+    </button>
+  </div>
+</section>
 
-                {store.categories && store.categories.length > 0 && (
-                  <div className="store-categories">
-                    {store.categories.slice(0, 3).map((cat) => (
-                      <span key={cat} className="store-category-chip">
-                        {cat}
-                      </span>
-                    ))}
-                    {store.categories.length > 3 && (
-                      <span className="store-category-chip more">
-                        +{store.categories.length - 3} more
-                      </span>
-                    )}
-                  </div>
-                )}
 
-                <button
-                  type="button"
-                  className="store-cta"
-                  // later this will go to /stores/:id
-                  onClick={() => alert("Open store details coming soon ✨")}
-                >
-                  View store
-                </button>
-              </div>
-            </article>
-          ))}
-        </div>
-      </section>
     </div>
   );
 }

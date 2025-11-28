@@ -9,6 +9,7 @@ use App\Http\Controllers\Client\StoreController;
 
 Route::post('/register', [AuthController::class, 'register']);
 Route::post('/login', [AuthController::class, 'login']);
+    Route::get('/stores', [StoreController::class, 'index']);
 
 Route::middleware('auth:sanctum')->group(function () {
     Route::post('/logout', [AuthController::class, 'logout']);
@@ -17,5 +18,4 @@ Route::middleware('auth:sanctum')->group(function () {
 
     Route::put('/user', [UserController::class, 'update']);
 
-    Route::get('/stores', [StoreController::class, 'index']);
 });

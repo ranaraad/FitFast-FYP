@@ -22,7 +22,7 @@ class CartController extends Controller
 
     public function create()
     {
-        $users = User::all();
+        $users = User::where('role_id', '3')->get();
         $items = Item::with('store')->get();
         return view('cms.pages.carts.create', compact('users', 'items'));
     }

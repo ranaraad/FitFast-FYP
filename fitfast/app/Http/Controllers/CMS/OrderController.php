@@ -21,13 +21,13 @@ class OrderController extends Controller
         $orders = Order::with(['user', 'store', 'orderItems.item'])
             ->latest()
             ->get();
-            
+
         return view('cms.pages.orders.index', compact('orders'));
     }
 
     public function create()
     {
-        $users = User::all();
+        $users = User::where('role_id', '3')->get();
         $stores = Store::where('status', 'active')->get();
         $carts = Cart::with(['user', 'cartItems.item'])
             ->whereHas('cartItems')
@@ -182,32 +182,32 @@ class OrderController extends Controller
         });
     }
 
-/**
- * Handle stock adjustments when order status changes
- */
-private function handleStockAdjustments(Order $order, string $newStatus)
-{
-    $oldStatus = $order->getOriginal('status');
+    /**
+     * Handle stock adjustments when order status changes
+     */
+    private function handleStockAdjustments(Order $order, string $newStatus)
+    {
+        $oldStatus = $order->getOriginal('status');
 
-    // If order was cancelled and is now being reactivated, decrease stock
-    if (($oldStatus === Order::STATUS_CANCELLED) &&
-        in_array($newStatus, [Order::STATUS_PENDING, Order::STATUS_CONFIRMED, Order::STATUS_PROCESSING])) {
+        // If order was cancelled and is now being reactivated, decrease stock
+        if (($oldStatus === Order::STATUS_CANCELLED) &&
+            in_array($newStatus, [Order::STATUS_PENDING, Order::STATUS_CONFIRMED, Order::STATUS_PROCESSING])) {
 
-        foreach ($order->orderItems as $orderItem) {
-            $item = $orderItem->item;
-            $item->safeDecreaseStock($orderItem->quantity, $orderItem->selected_color);
+            foreach ($order->orderItems as $orderItem) {
+                $item = $orderItem->item;
+                $item->safeDecreaseStock($orderItem->quantity, $orderItem->selected_color);
+            }
+        }
+        // If order is being cancelled or refunded, restore stock
+        elseif (in_array($newStatus, [Order::STATUS_CANCELLED]) &&
+                !in_array($oldStatus, [Order::STATUS_CANCELLED])) {
+
+            foreach ($order->orderItems as $orderItem) {
+                $item = $orderItem->item;
+                $item->safeIncreaseStock($orderItem->quantity, $orderItem->selected_color);
+            }
         }
     }
-    // If order is being cancelled or refunded, restore stock
-    elseif (in_array($newStatus, [Order::STATUS_CANCELLED]) &&
-             !in_array($oldStatus, [Order::STATUS_CANCELLED])) {
-
-        foreach ($order->orderItems as $orderItem) {
-            $item = $orderItem->item;
-            $item->safeIncreaseStock($orderItem->quantity, $orderItem->selected_color);
-        }
-    }
-}
 
     public function destroy(Order $order)
     {

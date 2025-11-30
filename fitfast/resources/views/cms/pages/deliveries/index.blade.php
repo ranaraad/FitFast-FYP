@@ -1,6 +1,6 @@
 @extends('cms.layouts.app')
 
-@section('page-title', 'Delivery Managements')
+@section('page-title', 'Delivery Management')
 @section('page-subtitle', 'Manage and schedule user deliveries')
 
 @section('content')
@@ -149,7 +149,7 @@
 <div class="card shadow mb-4">
     <div class="card-header py-3 d-flex justify-content-between align-items-center">
         <h6 class="m-0 font-weight-bold text-primary">All Deliveries</h6>
-        <span class="badge badge-primary">Showing {{ $deliveries->count() }} of {{ $deliveries->total() }} deliveries</span>
+        <span class="badge badge-primary">Total {{ $deliveries->count() }} deliveries</span>
     </div>
     <div class="card-body">
         @if($deliveries->isEmpty())
@@ -405,12 +405,11 @@
             </table>
         </div>
 
-        <!-- Pagination -->
+        <!-- Results Count (without pagination) -->
         <div class="d-flex justify-content-between align-items-center mt-4">
             <div class="text-muted">
-                Showing {{ $deliveries->firstItem() ?? 0 }} to {{ $deliveries->lastItem() ?? 0 }} of {{ $deliveries->total() }} entries
+                Showing all {{ $deliveries->count() }} deliveries
             </div>
-            {{ $deliveries->links() }}
         </div>
         @endif
     </div>

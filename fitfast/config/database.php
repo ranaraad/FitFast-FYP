@@ -57,8 +57,17 @@ return [
             'prefix_indexes' => true,
             'strict' => true,
             'engine' => null,
+            'sticky' => true,
+             'pool' => [
+                'min' => 2,
+                'max' => 10, 
+                'idle_timeout' => 60,
+            ],
             'options' => extension_loaded('pdo_mysql') ? array_filter([
                 PDO::MYSQL_ATTR_SSL_CA => env('MYSQL_ATTR_SSL_CA'),
+                PDO::ATTR_PERSISTENT => false,
+                PDO::ATTR_TIMEOUT => 5,
+                PDO::ATTR_STRINGIFY_FETCHES => false,
             ]) : [],
         ],
 

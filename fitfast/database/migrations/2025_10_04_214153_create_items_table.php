@@ -21,7 +21,18 @@ return new class extends Migration
             $table->json('size_stock')->nullable();
             $table->string('garment_type')->nullable();
             $table->timestamps();
+
+            $table->index('store_id');
+            $table->index('category_id');
+            $table->index('price');
+            $table->index('stock_quantity');
+            $table->index(['category_id', 'price']);
+            $table->index(['store_id', 'created_at']);
+            $table->fulltext('name');
+            $table->fulltext('description');
         });
+
+
     }
 
     public function down()

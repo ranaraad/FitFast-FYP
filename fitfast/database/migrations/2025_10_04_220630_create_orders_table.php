@@ -15,6 +15,13 @@ return new class extends Migration
             $table->decimal('total_amount', 10, 2);
             $table->string('status')->default('pending'); // pending, confirmed, shipped, delivered, cancelled
             $table->timestamps();
+
+            $table->index('user_id');
+            $table->index('store_id');
+            $table->index('status');
+            $table->index('total_amount');
+            $table->index(['user_id', 'created_at']);
+            $table->index(['store_id', 'status', 'created_at']);
         });
     }
 

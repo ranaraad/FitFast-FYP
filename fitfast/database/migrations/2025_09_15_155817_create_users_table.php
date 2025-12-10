@@ -17,7 +17,7 @@ return new class extends Migration
             $table->string('email')->unique();
             $table->timestamp('email_verified_at')->nullable();
             $table->string('password');
-            $table->foreignId('role_id')->constrained('roles')->onDelete('cascade');
+            $table->foreignId('role_id')->constrained('roles')->onDelete('cascade')->index();
             $table->json('measurements')->nullable();
             $table->text('address')->nullable();
             $table->text('shipping_address')->nullable();
@@ -26,7 +26,7 @@ return new class extends Migration
             $table->timestamps();
 
             // Helpful indexes
-            $table->index('role_id');
+            $table->index(['role_id', 'created_at']);
             $table->index('created_at');
             $table->index(['email_verified_at', 'created_at']);
         });

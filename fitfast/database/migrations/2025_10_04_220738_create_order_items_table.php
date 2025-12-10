@@ -18,6 +18,12 @@ return new class extends Migration
             $table->string('selected_brand')->nullable();
             $table->decimal('unit_price', 10, 2);
             $table->timestamps();
+
+            $table->index('order_id');
+            $table->index('item_id');
+            $table->index(['order_id', 'item_id']);
+            $table->index('selected_size');
+            $table->index('selected_color');
         });
     }
 

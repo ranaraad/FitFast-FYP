@@ -204,7 +204,7 @@
             @if(request()->hasAny(['transaction_id', 'status']))
             <span class="badge badge-warning mr-2">Filtered Results</span>
             @endif
-            <span class="badge badge-primary">Showing {{ $payments->count() }} of {{ $payments->total() }} payments</span>
+            <span class="badge badge-primary">Total {{ $payments->count() }} payments</span>
         </div>
     </div>
     <div class="card-body">
@@ -303,8 +303,9 @@
                                 @if($payment->isCompleted())
                                 <form action="{{ route('cms.payments.refund', $payment) }}" method="POST" class="d-inline">
                                     @csrf
-                                    <button type="submit" class="btn btn-warning btn-sm"
-                                            onclick="return confirm('Process refund for ${{ number_format($payment->amount, 2) }}?')"
+                                    <button type="submit" class="btn btn-warning btn-sm refund-payment-btn"
+                                            data-payment-id="{{ $payment->id }}"
+                                            data-amount="{{ $payment->amount }}"
                                             title="Refund Payment">
                                         <i class="fas fa-undo"></i>
                                     </button>
@@ -318,12 +319,11 @@
             </table>
         </div>
 
-        <!-- Pagination -->
+        <!-- Results Count (without pagination) -->
         <div class="d-flex justify-content-between align-items-center mt-4">
             <div class="text-muted">
-                Showing {{ $payments->firstItem() ?? 0 }} to {{ $payments->lastItem() ?? 0 }} of {{ $payments->total() }} entries
+                Showing all {{ $payments->count() }} payments
             </div>
-            {{ $payments->links() }}
         </div>
         @endif
     </div>
@@ -343,4 +343,64 @@
     background-color: rgba(0, 0, 0, 0.075);
 }
 </style>
+@endpush
+
+@push('scripts')
+<script>
+// SweetAlert for refund confirmation
+document.querySelectorAll('.refund-payment-btn').forEach(button => {
+    button.addEventListener('click', function(e) {
+        e.preventDefault();
+        const form = this.closest('form');
+        const paymentId = this.getAttribute('data-payment-id');
+        const amount = this.getAttribute('data-amount');
+
+        Swal.fire({
+            title: 'Process Refund?',
+            html: `Are you sure you want to refund <strong>$${amount}</strong> for payment #${paymentId}?`,
+            icon: 'warning',
+            showCancelButton: true,
+            confirmButtonColor: '#f39c12',
+            cancelButtonColor: '#6c757d',
+            confirmButtonText: 'Yes, process refund!',
+            cancelButtonText: 'Cancel'
+        }).then((result) => {
+            if (result.isConfirmed) {
+                form.submit();
+            }
+        });
+    });
+});
+
+// Show success/error messages with SweetAlert
+@if(session('success'))
+    Swal.fire({
+        icon: 'success',
+        title: 'Success!',
+        text: '{{ session('success') }}',
+        timer: 3000,
+        showConfirmButton: false
+    });
+@endif
+
+@if(session('error'))
+    Swal.fire({
+        icon: 'error',
+        title: 'Error!',
+        text: '{{ session('error') }}',
+        timer: 4000,
+        showConfirmButton: true
+    });
+@endif
+
+@if(session('export_success'))
+    Swal.fire({
+        icon: 'success',
+        title: 'Export Successful!',
+        text: '{{ session('export_success') }}',
+        timer: 3000,
+        showConfirmButton: false
+    });
+@endif
+</script>
 @endpush

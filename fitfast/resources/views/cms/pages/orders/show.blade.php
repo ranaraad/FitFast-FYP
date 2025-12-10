@@ -8,10 +8,10 @@
 <div class="d-sm-flex align-items-center justify-content-between mb-4">
     <h1 class="h3 mb-0 text-gray-800">Order Details - #{{ $order->id }}</h1>
     <div>
-        <a href="{{ route('store-admin.orders.edit', $order) }}" class="d-none d-sm-inline-block btn btn-sm btn-primary shadow-sm">
+        <a href="{{ route('cms.orders.edit', $order) }}" class="d-none d-sm-inline-block btn btn-sm btn-primary shadow-sm">
             <i class="fas fa-edit fa-sm text-white-50"></i> Edit Order
         </a>
-        <a href="{{ route('store-admin.orders.index') }}" class="d-none d-sm-inline-block btn btn-sm btn-secondary shadow-sm">
+        <a href="{{ route('cms.orders.index') }}" class="d-none d-sm-inline-block btn btn-sm btn-secondary shadow-sm">
             <i class="fas fa-arrow-left fa-sm text-white-50"></i> Back to Orders
         </a>
     </div>
@@ -326,7 +326,7 @@
             </div>
             <div class="card-body">
                 <div class="d-grid gap-2">
-                    <a href="{{ route('store-admin.orders.edit', $order) }}" class="btn btn-primary btn-block">
+                    <a href="{{ route('cms.orders.edit', $order) }}" class="btn btn-primary btn-block">
                         <i class="fas fa-edit"></i> Edit Order
                     </a>
 
@@ -352,11 +352,11 @@
                     </button>
                     @endif
                 </div>
-                <form id="delete-form" action="{{ route('store-admin.orders.destroy', $order) }}" method="POST" class="d-none">
+                <form id="delete-form" action="{{ route('cms.orders.destroy', $order) }}" method="POST" class="d-none">
                     @csrf
                     @method('DELETE')
                 </form>
-                <form id="status-form" action="{{ route('store-admin.orders.update-status', $order) }}" method="POST" class="d-none">
+                <form id="status-form" action="{{ route('cms.orders.update-status', $order) }}" method="POST" class="d-none">
                     @csrf
                     <input type="hidden" name="status" id="status-input">
                 </form>
@@ -376,7 +376,7 @@
                     <span aria-hidden="true">&times;</span>
                 </button>
             </div>
-            <form action="{{ route('store-admin.deliveries.update-tracking', $order->delivery) }}" method="POST">
+            <form action="{{ route('cms.deliveries.update-tracking', $order->delivery) }}" method="POST">
                 @csrf
                 <div class="modal-body">
                     <div class="form-group">
@@ -567,34 +567,25 @@ function updateDeliveryStatus(status) {
         cancelButtonText: 'Cancel'
     }).then((result) => {
         if (result.isConfirmed) {
-            // You'll need to implement this endpoint in your DeliveryController
-            fetch(`/store-admin/deliveries/${@json($order->delivery->id)}/update-status`, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'X-CSRF-TOKEN': '{{ csrf_token() }}'
-                },
-                body: JSON.stringify({ status: status })
-            })
-            .then(response => response.json())
-            .then(data => {
-                if (data.success) {
-                    Swal.fire({
-                        title: 'Success!',
-                        text: `Delivery marked as ${statusText}`,
-                        icon: 'success',
-                        timer: 2000,
-                        showConfirmButton: false
-                    }).then(() => {
-                        location.reload();
-                    });
-                } else {
-                    Swal.fire('Error!', data.message || 'Failed to update status', 'error');
-                }
-            })
-            .catch(error => {
-                Swal.fire('Error!', 'Failed to update delivery status', 'error');
-            });
+            // Create a hidden form and submit it
+            const form = document.createElement('form');
+            form.method = 'POST';
+            form.action = `/cms/deliveries/{{ $order->delivery->id }}/update-status`;
+
+            const csrfToken = document.createElement('input');
+            csrfToken.type = 'hidden';
+            csrfToken.name = '_token';
+            csrfToken.value = '{{ csrf_token() }}';
+
+            const statusInput = document.createElement('input');
+            statusInput.type = 'hidden';
+            statusInput.name = 'status';
+            statusInput.value = status;
+
+            form.appendChild(csrfToken);
+            form.appendChild(statusInput);
+            document.body.appendChild(form);
+            form.submit();
         }
     });
 }

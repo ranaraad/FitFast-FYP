@@ -24,6 +24,9 @@ use App\Http\Controllers\StoreAdmin\StoreController as StoreAdminStoreController
 use App\Http\Controllers\StoreAdmin\ItemController as StoreAdminItemController;
 use App\Http\Controllers\StoreAdmin\OrderController as StoreAdminOrderController;
 use App\Http\Controllers\StoreAdmin\DeliveryController as StoreAdminDeliveryController;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\File;
+use Illuminate\Support\Facades\Cache;
 
 // Redirect root to CMS login
 Route::get('/', function () {
@@ -180,3 +183,4 @@ Route::prefix('store-admin')->name('store-admin.')->middleware(['auth', 'verifie
     Route::post('deliveries/{delivery}/update-tracking', [StoreAdminDeliveryController::class, 'updateTracking'])->name('deliveries.update-tracking');
     Route::post('deliveries/{delivery}/mark-delivered', [StoreAdminDeliveryController::class, 'markAsDelivered'])->name('deliveries.mark-delivered');
 });
+

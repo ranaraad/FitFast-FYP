@@ -19,10 +19,11 @@ class DeliveryController extends Controller
 
         $stats = [
             'total_deliveries' => Delivery::count(),
-            'pending_deliveries' => Delivery::pending()->count(),
-            'active_deliveries' => Delivery::active()->count(),
-            'delivered_deliveries' => Delivery::delivered()->count(),
-            'overdue_deliveries' => Delivery::overdue()->count(),
+            'pending_deliveries' => Delivery::where('status', 'pending')->count(),
+            'active_deliveries' => Delivery::whereIn('status', ['shipped', 'in_transit', 'out_for_delivery'])->count(),
+            'delivered_deliveries' => Delivery::where('status', 'delivered')->count(),
+            'overdue_deliveries' => Delivery::where('estimated_delivery', '<', now())
+                ->whereNotIn('status', ['delivered', 'failed'])->count(),
         ];
 
         return view('cms.pages.deliveries.index', compact('deliveries', 'stats'));
@@ -171,13 +172,14 @@ class DeliveryController extends Controller
 
         if ($request->filled('overdue')) {
             $query->where('estimated_delivery', '<', now())
-                  ->whereNotIn('status', ['delivered', 'failed']);
+                ->whereNotIn('status', ['delivered', 'failed']);
         }
 
         $deliveries = $query->latest()->get();
 
+        // Fix the stats calculation for search results
         $stats = [
-            'total_deliveries' => $deliveries->total(),
+            'total_deliveries' => $deliveries->count(), // Changed from ->total()
             'pending_deliveries' => $deliveries->where('status', 'pending')->count(),
             'active_deliveries' => $deliveries->whereIn('status', ['shipped', 'in_transit', 'out_for_delivery'])->count(),
             'delivered_deliveries' => $deliveries->where('status', 'delivered')->count(),
@@ -256,17 +258,21 @@ class DeliveryController extends Controller
 
         // Use transaction for safety
         return DB::transaction(function () use ($delivery, $validated, $oldStatus, $request) {
-            // Update delivery
+            // Update delivery - only status is required
             $updateData = ['status' => $validated['status']];
 
-            // Only update tracking if provided
-            if ($validated['tracking_id']) {
+            // Only update tracking if provided and not empty
+            if (isset($validated['tracking_id']) && !empty($validated['tracking_id'])) {
                 $updateData['tracking_id'] = $validated['tracking_id'];
             }
-            if ($validated['carrier']) {
+
+            // Only update carrier if provided and not empty
+            if (isset($validated['carrier']) && !empty($validated['carrier'])) {
                 $updateData['carrier'] = $validated['carrier'];
             }
-            if ($validated['estimated_delivery']) {
+
+            // Only update estimated delivery if provided and not empty
+            if (isset($validated['estimated_delivery']) && !empty($validated['estimated_delivery'])) {
                 $updateData['estimated_delivery'] = $validated['estimated_delivery'];
             }
 

@@ -25,7 +25,7 @@ class AppServiceProvider extends ServiceProvider
     {
         // Register Order Observer
         Order::observe(OrderObserver::class);
-        
+
         // Using class-based view composer
         View::composer('cms.layouts.app', TopbarStatsComposer::class);
     }

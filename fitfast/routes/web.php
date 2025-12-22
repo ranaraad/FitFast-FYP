@@ -183,4 +183,3 @@ Route::prefix('store-admin')->name('store-admin.')->middleware(['auth', 'verifie
     Route::post('deliveries/{delivery}/update-tracking', [StoreAdminDeliveryController::class, 'updateTracking'])->name('deliveries.update-tracking');
     Route::post('deliveries/{delivery}/mark-delivered', [StoreAdminDeliveryController::class, 'markAsDelivered'])->name('deliveries.mark-delivered');
 });
-

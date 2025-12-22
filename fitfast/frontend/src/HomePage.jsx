@@ -5,8 +5,8 @@ export default function HomePage() {
   const [stores, setStores] = useState([]);
   const [filteredStores, setFilteredStores] = useState([]);
   const [search, setSearch] = useState("");
-  const [ setLoading] = useState(true);
-  const [ setError] = useState("");
+  const [, setLoading] = useState(true);
+  const [, setError] = useState("");
 
   function scrollCarousel(amount) {
   const carousel = document.getElementById("storeCarousel");

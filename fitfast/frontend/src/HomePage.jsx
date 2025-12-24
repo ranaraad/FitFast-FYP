@@ -120,7 +120,8 @@ export default function HomePage() {
 <section className="home-stores-section">
   <div className="home-stores-header">
     <h2>Your Next Favorite Pieces!</h2>
-    <button className="browse-all-btn">Browse all →</button>
+    <button className="shop-btn browse-all-btn">Browse all →</button>
+
   </div>
 
   {/* Carousel container with arrows */}

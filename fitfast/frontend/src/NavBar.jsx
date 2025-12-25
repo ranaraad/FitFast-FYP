@@ -35,7 +35,7 @@ export default function Navbar() {
       {isLoggedIn && (
         <ul className="nav-links">
           <li>
-            <Link to="/home">Browse</Link>
+            <Link to="/">Browse</Link>
           </li>
 
           <li>

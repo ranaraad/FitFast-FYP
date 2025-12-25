@@ -1,11 +1,29 @@
 import { useState, useEffect } from "react";
 import api from "./api";
 
+/**
+ * Use the SAME schema as MeasurementsPage
+ * so values show correctly everywhere.
+ */
+const DEFAULT_MEASUREMENTS = {
+  height_cm: "",
+  weight_kg: "",
+  bust_cm: "",
+  waist_cm: "",
+  hips_cm: "",
+  shoulder_width_cm: "",
+  arm_length_cm: "",
+  inseam_cm: "",
+  body_shape: "",
+  fit_preference: "",
+};
+
 export default function ProfilePage() {
   const [user, setUser] = useState(null);
   const [editing, setEditing] = useState(false);
-  const [measurements, setMeasurements] = useState({});
+  const [measurements, setMeasurements] = useState(DEFAULT_MEASUREMENTS);
   const [message, setMessage] = useState("");
+  const [messageType, setMessageType] = useState("success"); // "success" | "error"
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -13,9 +31,14 @@ export default function ProfilePage() {
       try {
         const res = await api.get("/user");
         setUser(res.data);
-        setMeasurements(res.data.measurements || {});
+        setMeasurements({
+          ...DEFAULT_MEASUREMENTS,
+          ...(res.data?.measurements || {}),
+        });
       } catch (error) {
-        console.error("Failed to fetch user:", error);
+        console.error(error);
+        setMessageType("error");
+        setMessage("Failed to load profile ❌");
       } finally {
         setLoading(false);
       }
@@ -30,159 +53,178 @@ export default function ProfilePage() {
 
   const handleSave = async () => {
     try {
+      // Match MeasurementsPage update style
       await api.put("/user", { measurements });
-      setMessage("Measurements updated successfully!");
+      setMessageType("success");
+      setMessage("Measurements saved successfully ✅");
       setEditing(false);
-      setTimeout(() => setMessage(""), 3000);
-    } catch {
-      setMessage("Failed to update measurements. Please try again.");
+    } catch (e) {
+      console.error(e);
+      setMessageType("error");
+      setMessage("Failed to save measurements ❌");
     }
+    setTimeout(() => setMessage(""), 3000);
   };
 
   const handleCancel = () => {
-    setMeasurements(user.measurements || {});
+    setMeasurements({
+      ...DEFAULT_MEASUREMENTS,
+      ...(user?.measurements || {}),
+    });
     setEditing(false);
-    setMessage("");
   };
 
-  async function handleLogout() {
-    try {
-      await api.post("/logout");
-      localStorage.clear();
-      window.location.href = "/login";
-    } catch (error) {
-      console.error("Logout failed:", error);
-    }
-  }
-
-  const formatLabel = (key) => {
-    return key
-      .replace(/_cm/g, "")
+  const formatLabel = (key) =>
+    key
+      .replace("_cm", "")
+      .replace("_kg", "")
       .replace(/_/g, " ")
-      .split(" ")
-      .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
-      .join(" ");
-  };
+      .replace(/\b\w/g, (l) => l.toUpperCase());
 
-  if (loading) {
-    return (
-      <div className="auth-wrapper">
-        <div style={{ textAlign: "center", padding: "2rem" }}>
-          <div className="spinner"></div>
-          <p style={{ marginTop: "1rem", color: "#641b2e" }}>Loading your profile...</p>
-        </div>
-      </div>
-    );
-  }
+  const initials = user?.name
+    ? user.name
+        .split(" ")
+        .filter(Boolean)
+        .slice(0, 2)
+        .map((p) => p[0].toUpperCase())
+        .join("")
+    : "U";
 
-  if (!user) {
-    return (
-      <div className="auth-wrapper">
-        <p className="error">Unable to load profile. Please try again.</p>
-      </div>
-    );
-  }
+  const hasMeasurements = Object.values(measurements).some(Boolean);
+
+  if (loading) return <p style={{ textAlign: "center" }}>Loading profile...</p>;
+  if (!user) return <p style={{ textAlign: "center" }}>No user data.</p>;
 
   return (
-    <div className="auth-wrapper profile-container">
-      {/* Header Section */}
-      <div className="profile-header">
-        <div className="avatar-circle">
-          {user.name.charAt(0).toUpperCase()}
+    <div className="profile-page">
+      <div className="profile-card">
+        {/* Header */}
+        <div className="profile-header">
+          <div className="avatar-circle">{initials}</div>
+          <div className="profile-header-text">
+            <h2 className="profile-title">Welcome, {user.name}</h2>
+            <p className="profile-email">{user.email}</p>
+          </div>
         </div>
-        <h2>
-          Welcome back, <span>{user.name}</span>!
-        </h2>
-        <p className="profile-email">{user.email}</p>
-      </div>
 
-      {/* Message Display */}
-      {message && (
-        <div className={message.includes("success") ? "success" : "error"}>
-          {message}
-        </div>
-      )}
+        {message && (
+          <div className={messageType === "error" ? "error" : "success"}>
+            {message}
+          </div>
+        )}
 
-      {/* Measurements Section */}
-      <div className="measurements-section">
-        <div className="section-header">
-          <h3>Body Measurements</h3>
-          {!editing && (
-            <button 
-              onClick={() => setEditing(true)} 
-              className="edit-icon-btn"
-              title="Edit measurements"
-            >
-              ✏️
-            </button>
+        {/* Measurements */}
+        <div className="profile-section">
+          <div className="section-header">
+            <h3>Body Measurements</h3>
+
+            {!editing && (
+              <button
+                className="edit-icon-btn"
+                onClick={() => setEditing(true)}
+                aria-label="Edit measurements"
+                title="Edit measurements"
+              >
+                ✏️
+              </button>
+            )}
+          </div>
+
+          {!editing ? (
+            <div className="measurements-display">
+              {!hasMeasurements ? (
+                <div className="empty-state">
+                  <div className="empty-icon">📏</div>
+                  <div>No measurements yet.</div>
+                  <div className="empty-hint">
+                    Add them to get better size recommendations.
+                  </div>
+                </div>
+              ) : (
+                <ul className="measurements-list">
+                  {Object.entries(measurements).map(([key, value]) => (
+                    <li className="measurement-item" key={key}>
+                      <span className="measurement-label">{formatLabel(key)}</span>
+                      <span className="measurement-value">{value ? value : "—"}</span>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
+          ) : (
+            <div className="measurements-form">
+              <div className="form-grid">
+                {Object.entries(measurements).map(([key, value]) => {
+                  const isSelect = key === "body_shape" || key === "fit_preference";
+                  return (
+                    <div className="form-group" key={key}>
+                      <label htmlFor={key}>{formatLabel(key)}</label>
+
+                      {isSelect ? (
+                        <select
+                          id={key}
+                          name={key}
+                          value={value}
+                          onChange={handleChange}
+                        >
+                          <option value="">—</option>
+                          {key === "body_shape" && (
+                            <>
+                              <option value="hourglass">Hourglass</option>
+                              <option value="pear">Pear</option>
+                              <option value="apple">Apple</option>
+                              <option value="rectangle">Rectangle</option>
+                              <option value="inverted_triangle">
+                                Inverted Triangle
+                              </option>
+                            </>
+                          )}
+                          {key === "fit_preference" && (
+                            <>
+                              <option value="tight">Tight</option>
+                              <option value="regular">Regular</option>
+                              <option value="loose">Loose</option>
+                            </>
+                          )}
+                        </select>
+                      ) : (
+                        <div className="input-with-unit">
+                          <input
+                            id={key}
+                            type="number"
+                            step="0.1"
+                            name={key}
+                            value={value}
+                            onChange={handleChange}
+                            placeholder="—"
+                          />
+                          {(key.endsWith("_cm") || key.endsWith("_kg")) && (
+                            <span className="unit-label">
+                              {key.endsWith("_cm") ? "cm" : "kg"}
+                            </span>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+
+              <div className="form-actions">
+                <button className="save-btn" onClick={handleSave}>
+                  💾 Save
+                </button>
+                <button className="secondary-btn" onClick={handleCancel}>
+                  Cancel
+                </button>
+              </div>
+            </div>
           )}
         </div>
 
-        {!editing ? (
-          <div className="measurements-display">
-            {Object.entries(measurements).length > 0 ? (
-              <ul className="measurements-list">
-                {Object.entries(measurements).map(([key, value]) => (
-                  <li key={key} className="measurement-item">
-                    <span className="measurement-label">{formatLabel(key)}</span>
-                    <span className="measurement-value">
-                      {value ? `${value} cm` : "—"}
-                    </span>
-                  </li>
-                ))}
-              </ul>
-            ) : (
-              <div className="empty-state">
-                <div className="empty-icon">📏</div>
-                <p>No measurements added yet.</p>
-                <p className="empty-hint">Click edit to add your measurements</p>
-              </div>
-            )}
-          </div>
-        ) : (
-          <form className="measurements-form" onSubmit={(e) => e.preventDefault()}>
-            <div className="form-grid">
-              {Object.keys(measurements).length > 0 ? (
-                Object.keys(measurements).map((key) => (
-                  <div key={key} className="form-group">
-                    <label htmlFor={key}>{formatLabel(key)}</label>
-                    <div className="input-with-unit">
-                      <input
-                        id={key}
-                        name={key}
-                        type="number"
-                        step="0.1"
-                        value={measurements[key] || ""}
-                        onChange={handleChange}
-                        placeholder="0.0"
-                      />
-                      <span className="unit-label">cm</span>
-                    </div>
-                  </div>
-                ))
-              ) : (
-                <p style={{ gridColumn: "1 / -1", textAlign: "center", color: "#888" }}>
-                  No measurement fields available. Contact support to set up your profile.
-                </p>
-              )}
-            </div>
-
-            <div className="form-actions">
-              <button type="button" onClick={handleSave} className="save-btn">
-                💾 Save Changes
-              </button>
-              <button type="button" className="secondary-btn" onClick={handleCancel}>
-                ✕ Cancel
-              </button>
-            </div>
-          </form>
-        )}
+     
       </div>
 
-      {/* Logout Button */}
-      <button onClick={handleLogout} className="logout-btn">
-        Logout
-      </button>
 
       <style jsx>{`
         .profile-container {

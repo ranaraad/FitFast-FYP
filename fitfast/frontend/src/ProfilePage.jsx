@@ -1,10 +1,6 @@
 import { useState, useEffect } from "react";
 import api from "./api";
 
-/**
- * Use the SAME schema as MeasurementsPage
- * so values show correctly everywhere.
- */
 const DEFAULT_MEASUREMENTS = {
   height_cm: "",
   weight_kg: "",
@@ -53,7 +49,6 @@ export default function ProfilePage() {
 
   const handleSave = async () => {
     try {
-      // Match MeasurementsPage update style
       await api.put("/user", { measurements });
       setMessageType("success");
       setMessage("Measurements saved successfully ✅");
@@ -101,6 +96,7 @@ export default function ProfilePage() {
         {/* Header */}
         <div className="profile-header">
           <div className="avatar-circle">{initials}</div>
+
           <div className="profile-header-text">
             <h2 className="profile-title">Welcome, {user.name}</h2>
             <p className="profile-email">{user.email}</p>
@@ -120,6 +116,7 @@ export default function ProfilePage() {
 
             {!editing && (
               <button
+                type="button"
                 className="edit-icon-btn"
                 onClick={() => setEditing(true)}
                 aria-label="Edit measurements"
@@ -156,6 +153,7 @@ export default function ProfilePage() {
               <div className="form-grid">
                 {Object.entries(measurements).map(([key, value]) => {
                   const isSelect = key === "body_shape" || key === "fit_preference";
+
                   return (
                     <div className="form-group" key={key}>
                       <label htmlFor={key}>{formatLabel(key)}</label>
@@ -168,6 +166,7 @@ export default function ProfilePage() {
                           onChange={handleChange}
                         >
                           <option value="">—</option>
+
                           {key === "body_shape" && (
                             <>
                               <option value="hourglass">Hourglass</option>
@@ -179,6 +178,7 @@ export default function ProfilePage() {
                               </option>
                             </>
                           )}
+
                           {key === "fit_preference" && (
                             <>
                               <option value="tight">Tight</option>
@@ -188,7 +188,7 @@ export default function ProfilePage() {
                           )}
                         </select>
                       ) : (
-                        <div className="input-with-unit">
+                        <div className="input-with-unit profile-input-unit">
                           <input
                             id={key}
                             type="number"
@@ -198,6 +198,7 @@ export default function ProfilePage() {
                             onChange={handleChange}
                             placeholder="—"
                           />
+
                           {(key.endsWith("_cm") || key.endsWith("_kg")) && (
                             <span className="unit-label">
                               {key.endsWith("_cm") ? "cm" : "kg"}
@@ -211,18 +212,16 @@ export default function ProfilePage() {
               </div>
 
               <div className="form-actions">
-                <button className="save-btn" onClick={handleSave}>
+                <button type="button" className="save-btn" onClick={handleSave}>
                   💾 Save
                 </button>
-                <button className="secondary-btn" onClick={handleCancel}>
+                <button type="button" className="secondary-btn" onClick={handleCancel}>
                   Cancel
                 </button>
               </div>
             </div>
           )}
         </div>
-
-     
       </div>
 
 

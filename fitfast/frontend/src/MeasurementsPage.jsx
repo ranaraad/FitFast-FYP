@@ -71,7 +71,7 @@ export default function MeasurementsPage() {
 
   /* ================= RENDER ================= */
   return (
-    <div className="auth-wrapper measurements-page">
+    <div className="measurements-page">
       <div className="page-header">
         <div className="header-icon">📏</div>
         <h2>

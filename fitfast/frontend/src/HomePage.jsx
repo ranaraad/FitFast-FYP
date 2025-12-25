@@ -154,16 +154,6 @@ export default function HomePage() {
               <p className="store-description">{store.description}</p>
             )}
 
-            <div className="store-meta">
-              {store.rating && <span className="store-tag">⭐ {store.rating}</span>}
-              {store.eta_minutes && <span className="store-tag">{store.eta_minutes} min</span>}
-              {store.delivery_fee !== null && (
-                <span className="store-tag">
-                  {store.delivery_fee === 0 ? "Free Delivery" : `${store.delivery_fee}$ Delivery`}
-                </span>
-              )}
-            </div>
-
             {store.categories && (
               <div className="store-categories">
                 {store.categories.slice(0, 2).map((cat) => (

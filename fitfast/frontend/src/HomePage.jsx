@@ -1,7 +1,9 @@
 import { useEffect, useState } from "react";
 import api from "./api";
+import { useNavigate } from "react-router-dom";
 
 export default function HomePage() {
+  const navigate = useNavigate();
   const [stores, setStores] = useState([]);
   const [filteredStores, setFilteredStores] = useState([]);
   const [search, setSearch] = useState("");
@@ -165,7 +167,11 @@ export default function HomePage() {
               </div>
             )}
 
-            <button className="shop-btn">Shop Now</button>
+                        <button
+              className="shop-btn"
+              onClick={() => store.id && navigate(`/stores/${store.id}`)}>
+              Shop Now
+            </button>
           </div>
         </article>
       ))}

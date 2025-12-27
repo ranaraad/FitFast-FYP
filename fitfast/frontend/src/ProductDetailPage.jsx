@@ -15,6 +15,82 @@ export default function ProductDetailPage() {
   const [isWishlisted, setIsWishlisted] = useState(false);
   const [selectedQuantity, setSelectedQuantity] = useState(1);
 
+  const normalizeOptions = (value, fallback = []) => {
+    if (Array.isArray(value)) return value.filter(Boolean);
+    if (typeof value === "string") {
+      return value
+        .split(/[,|]/)
+        .map((entry) => entry.trim())
+        .filter(Boolean);
+    }
+    return fallback;
+  };
+
+  const normalizeSizeStock = (item) => {
+    const rawStock = item?.size_stock || item?.sizeStock || {};
+
+    if (Array.isArray(rawStock)) return {};
+
+    return Object.entries(rawStock).reduce((acc, [size, quantity]) => {
+      acc[size] = Number(quantity) || 0;
+      return acc;
+    }, {});
+  };
+
+  const getTotalStock = (item) => {
+    const sizeStock = normalizeSizeStock(item);
+    const sizeTotal = Object.values(sizeStock).reduce((sum, qty) => sum + qty, 0);
+
+    if (sizeTotal > 0) return sizeTotal;
+    if (item?.stock_quantity !== undefined) return Number(item.stock_quantity) || 0;
+
+    return 0;
+  };
+
+  const getSizeStock = (item, size) => normalizeSizeStock(item)[size] || 0;
+
+  const getSizes = (item) => {
+    const sizeStock = normalizeSizeStock(item);
+    const stockSizes = Object.keys(sizeStock);
+
+    if (stockSizes.length > 0) return stockSizes;
+
+    return normalizeOptions(
+      item?.sizes || item?.available_sizes || item?.size_options,
+      ["XS", "S", "M", "L", "XL"]
+    );
+  };
+
+  const getColors = (item) => {
+    const variants =
+      item?.color_variants || item?.available_colors || item?.color_options || [];
+
+    if (Array.isArray(variants)) {
+      return variants
+        .map((variant) => variant?.name || variant?.color || variant)
+        .filter(Boolean);
+    }
+
+    if (typeof variants === "object" && variants !== null) {
+      return Object.values(variants)
+        .map((variant) => variant?.name || variant)
+        .filter(Boolean);
+    }
+
+    return ["Charcoal", "Sand", "Rose"];
+  };
+
+  const getAvailableQuantity = () => {
+    if (!product) return 0;
+
+    const sizeQuantity = selectedSize ? getSizeStock(product, selectedSize) : 0;
+    const totalStock = getTotalStock(product);
+
+    if (sizeQuantity > 0) return sizeQuantity;
+    return totalStock;
+  };
+
+
   useEffect(() => {
     async function fetchData() {
       setLoading(true);
@@ -28,11 +104,7 @@ export default function ProductDetailPage() {
         const normalizedProductId = productId?.toString();
         const matchesProduct = (item) => {
           const candidate =
-            item.id ||
-            item.productId ||
-            item.product_id ||
-            item.slug ||
-            item.name;
+             item.id || item.productId || item.product_id || item.slug || item.name;
 
           return candidate?.toString() === normalizedProductId;
         };
@@ -51,8 +123,16 @@ export default function ProductDetailPage() {
           // Set default selections
           const sizes = getSizes(foundProduct);
           const colors = getColors(foundProduct);
-          setSelectedSize(sizes[0] || "Standard");
+          const sizeStock = normalizeSizeStock(foundProduct);
+
+          const firstAvailableSize =
+            sizes.find((size) => (sizeStock[size] ?? 0) > 0) ||
+            sizes[0] ||
+            "Standard";
+
+          setSelectedSize(firstAvailableSize);
           setSelectedColor(colors[0] || "Default");
+          setSelectedQuantity(1);
         } else {
           setError("Product not found");
         }
@@ -73,29 +153,15 @@ export default function ProductDetailPage() {
     return () => clearTimeout(timeout);
   }, [cartFeedback]);
 
-  const normalizeOptions = (value, fallback = []) => {
-    if (Array.isArray(value)) return value.filter(Boolean);
-    if (typeof value === "string") {
-      return value
-        .split(/[,|]/)
-        .map((entry) => entry.trim())
-        .filter(Boolean);
-    }
-    return fallback;
-  };
-
-  const getSizes = (item) =>
-    normalizeOptions(
-      item.sizes || item.available_sizes || item.size_options,
-      ["XS", "S", "M", "L", "XL"]
-    );
-
-  const getColors = (item) =>
-    normalizeOptions(
-      item.colors || item.available_colors || item.color_options,
-      ["Charcoal", "Sand", "Rose"]
-    );
-
+ useEffect(() => {
+    if (!product) return;
+    const available = getAvailableQuantity();
+    setSelectedQuantity((qty) => {
+      if (available <= 0) return Math.max(1, qty);
+      return Math.max(1, Math.min(qty, available));
+    });
+  }, [product, selectedSize]); 
+ 
   const getItemImage = (item) =>
     item?.image_url ||
     item?.image ||
@@ -112,7 +178,7 @@ export default function ProductDetailPage() {
   };
   
 
-const buildFeatureList = () => {
+  const buildFeatureList = (sizes, colors) => {
     const baseFeatures = [
       "Breathable, all-day comfort fabric",
       "Tailored silhouette with clean finishing",
@@ -138,6 +204,22 @@ const buildFeatureList = () => {
   };
 
   const handleAddToCart = () => {
+    const maxQuantity = getAvailableQuantity();
+
+    if (maxQuantity <= 0) {
+      setCartFeedback("This item is currently out of stock.");
+      return;
+    }
+
+    if (selectedQuantity > maxQuantity) {
+      setSelectedQuantity(maxQuantity);
+      setCartFeedback(
+        `Only ${maxQuantity} available${
+          selectedSize ? ` for size ${selectedSize}` : ""
+        }`
+      );
+      return;
+    }
     setCartFeedback(
       `${product.name} added to cart (${selectedColor}${
         selectedSize ? ` / ${selectedSize}` : ""
@@ -171,7 +253,11 @@ const buildFeatureList = () => {
 
   const sizes = getSizes(product);
   const colors = getColors(product);
-  const features = buildFeatureList();
+  const features = buildFeatureList(sizes, colors);
+  const availableQuantity = getAvailableQuantity();
+  const selectedSizeStock = selectedSize ? getSizeStock(product, selectedSize) : 0;
+  const isOutOfStock = availableQuantity <= 0;
+  const maxQuantity = Math.max(availableQuantity || 0, 1);
   const fabric =
     product.fabric || product.material || product.materials || "Premium cotton blend";
   const care =
@@ -292,18 +378,32 @@ const buildFeatureList = () => {
                     setSelectedQuantity((qty) => Math.max(1, qty - 1))
                   }
                   aria-label="Decrease quantity"
+                  disabled={selectedQuantity <= 1 || isOutOfStock}
                 >
                   −
                 </button>
                 <span className="quantity-value">{selectedQuantity}</span>
                 <button
                   className="quantity-btn"
-                  onClick={() => setSelectedQuantity((qty) => qty + 1)}
+                  onClick={() =>
+                    setSelectedQuantity((qty) => Math.min(maxQuantity, qty + 1))
+                  }
                   aria-label="Increase quantity"
+                  disabled={
+                    isOutOfStock ||
+                    (availableQuantity > 0 && selectedQuantity >= availableQuantity)
+                  }
                 >
                   +
                 </button>
               </div>
+              <p className="stock-hint">
+                {isOutOfStock
+                  ? "Out of stock"
+                  : selectedSizeStock > 0
+                  ? `${selectedSizeStock} available in ${selectedSize}`
+                  : `${availableQuantity} available`}
+              </p>
             </div>
 
             <div className="option-section">
@@ -312,17 +412,23 @@ const buildFeatureList = () => {
                 <span className="option-selected">{selectedSize}</span>
               </div>
               <div className="size-options">
-                {sizes.map((size) => (
-                  <button
-                    key={size}
-                    className={`size-option ${
-                      selectedSize === size ? "selected" : ""
-                    }`}
-                    onClick={() => setSelectedSize(size)}
-                  >
-                    {size}
-                  </button>
-                ))}
+                {sizes.map((size) => {
+                  const sizeQuantity = getSizeStock(product, size);
+                  const isSizeUnavailable = sizeQuantity <= 0;
+
+                  return (
+                    <button
+                      key={size}
+                      className={`size-option ${
+                        selectedSize === size ? "selected" : ""
+                      } ${isSizeUnavailable ? "disabled" : ""}`}
+                      onClick={() => setSelectedSize(size)}
+                      disabled={isSizeUnavailable}
+                    >
+                      {size}
+                    </button>
+                  );
+                })}
               </div>
             </div>
           </div>
@@ -332,8 +438,9 @@ const buildFeatureList = () => {
               type="button"
               className="add-to-cart-btn-large"
               onClick={handleAddToCart}
+              disabled={isOutOfStock}
             >
-              Add to Cart
+               {isOutOfStock ? "Out of Stock" : "Add to Cart"}
             </button>
           </div>
           <div className="detail-sections">

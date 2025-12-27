@@ -1954,6 +1954,8 @@ a:hover {
   color: white;
 }
 
+
+
 .size-options {
   display: flex;
   gap: 0.75rem;
@@ -1984,6 +1986,28 @@ a:hover {
   background: #641b2e;
   color: white;
 }
+
+.size-option.disabled,
+.size-option:disabled {
+  background: #f3f4f6;
+  color: #9ca3af;
+  border-color: #e5e7eb;
+  cursor: not-allowed;
+  box-shadow: none;
+}
+
+.size-option.disabled:hover,
+.size-option:disabled:hover {
+  border-color: #e5e7eb;
+  background: #f3f4f6;
+}
+
+.stock-hint {
+  margin-top: 0.5rem;
+  color: #6b7280;
+  font-size: 0.9rem;
+}
+
 
 .product-actions-detail {
   margin-top: 1rem;

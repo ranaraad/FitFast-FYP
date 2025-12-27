@@ -6,6 +6,7 @@ import ProfilePage from "./ProfilePage.jsx";
 import MeasurementsPage from "./MeasurementsPage.jsx";
 import HomePage from "./HomePage.jsx";
 import StorePage from "./StorePage.jsx";
+import ProductDetailPage from "./ProductDetailPage.jsx";
 
 export default function App() {
   const location = useLocation();

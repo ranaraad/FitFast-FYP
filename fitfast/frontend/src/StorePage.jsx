@@ -1,13 +1,16 @@
 import { useState, useEffect } from "react";
-import { useParams } from "react-router-dom";
+import { useParams, useNavigate } from "react-router-dom";
 import api from "./api";
 
 export default function StorePage() {
   const { storeId } = useParams();
+  const navigate = useNavigate();
   const [store, setStore] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [selectedCategoryId, setSelectedCategoryId] = useState(null);
+  const [cartFeedback, setCartFeedback] = useState("");
+  const [wishlistItems, setWishlistItems] = useState(new Set());
 
   useEffect(() => {
     async function fetchStore() {
@@ -29,6 +32,13 @@ export default function StorePage() {
   }, [storeId]);
 
   useEffect(() => {
+    if (!cartFeedback) return;
+
+    const timeout = setTimeout(() => setCartFeedback(""), 3200);
+    return () => clearTimeout(timeout);
+  }, [cartFeedback]);
+
+  useEffect(() => {
     if (store?.categories?.length) {
       const firstCategory = store.categories[0];
       setSelectedCategoryId(firstCategory.id ?? firstCategory.name);
@@ -48,7 +58,7 @@ export default function StorePage() {
   }
 
   const categories = store.categories || [];
-   const selectedCategory = categories.find(
+  const selectedCategory = categories.find(
     (category) => (category.id ?? category.name) === selectedCategoryId
   );
 
@@ -60,9 +70,42 @@ export default function StorePage() {
     item.primary_image_url ||
     item.primary_image?.image_path;
 
+  const handleItemClick = (item) => {
+    navigate(`/stores/${storeId}/product/${item.id || item.name}`);
+  };
+
+  const handleAddToCart = (e, item) => {
+    e.stopPropagation();
+    setCartFeedback(`${item.name || "Item"} added to cart`);
+  };
+
+  const handleToggleWishlist = (e, itemId) => {
+    e.stopPropagation();
+    setWishlistItems((prev) => {
+      const newSet = new Set(prev);
+      if (newSet.has(itemId)) {
+        newSet.delete(itemId);
+        setCartFeedback("Removed from wishlist");
+      } else {
+        newSet.add(itemId);
+        setCartFeedback("Added to wishlist");
+      }
+      return newSet;
+    });
+  };
+
+  const formatPrice = (price) => {
+    if (!price && price !== 0) return "";
+    const amount = Number(price);
+    if (Number.isNaN(amount)) return price;
+    return `$${amount.toFixed(2)}`;
+  };
+
   return (
     <div className="store-page">
-         <section className="store-hero">
+      {cartFeedback && <div className="cart-feedback">{cartFeedback}</div>}
+      
+      <section className="store-hero">
         <div className="store-hero-content">
           <p className="eyebrow">Curated wardrobe</p>
           <h1>{store.name}</h1>
@@ -72,10 +115,8 @@ export default function StorePage() {
           {store.logo_url ? (
             <img src={store.logo_url} alt={`${store.name} logo`} />
           ) : (
-            
             <span>{store.name?.slice(0, 1) || "S"}</span>
           )}
-       
           <small>{categories.length} categories</small>
         </div>
       </section>
@@ -122,38 +163,67 @@ export default function StorePage() {
 
             {selectedCategory?.items?.length ? (
               <div className="product-grid">
-                {selectedCategory.items.map((item) => (
-                  <article
-                    key={item.id || item.name}
-                    className="product-card"
-                  >
-                    <div className="product-image">
-                      {getItemImage(item) ? (
-                        <img
-                          src={getItemImage(item)}
-                          alt={item.name || "Item"}
-                          loading="lazy"
-                        />
-                      ) : (
-                        <div className="image-placeholder">
-                          {item.name?.slice(0, 1) || ""}
-                        </div>
-                      )}
-                    </div>
+                {selectedCategory.items.map((item) => {
+                  const itemId = item.id || item.name;
+                  const isWishlisted = wishlistItems.has(itemId);
 
-                    <div className="product-info">
-                      <div className="product-top">
-                        <h3>{item.name}</h3>
-                        {item.price && (
-                          <span className="price">${item.price}</span>
+                  return (
+                    <article
+                      key={itemId}
+                      className="product-card-modern"
+                      onClick={() => handleItemClick(item)}
+                    >
+                      <div className="product-image-container">
+                        {getItemImage(item) ? (
+                          <img
+                            src={getItemImage(item)}
+                            alt={item.name || "Item"}
+                            loading="lazy"
+                          />
+                        ) : (
+                          <div className="image-placeholder">
+                            {item.name?.slice(0, 1) || ""}
+                          </div>
                         )}
+                        
+                        <button
+                          className={`wishlist-btn ${isWishlisted ? "active" : ""}`}
+                          onClick={(e) => handleToggleWishlist(e, itemId)}
+                          aria-label="Add to wishlist"
+                        >
+                          <svg
+                            width="20"
+                            height="20"
+                            viewBox="0 0 24 24"
+                            fill={isWishlisted ? "currentColor" : "none"}
+                            stroke="currentColor"
+                            strokeWidth="2"
+                          >
+                            <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z" />
+                          </svg>
+                        </button>
+
+                        <div className="best-fit-badge">Best Fit: Medium - 90% Match!</div>
                       </div>
-                      {item.description && (
-                        <p className="muted small">{item.description}</p>
-                      )}
-                    </div>
-                  </article>
-                ))}
+
+                      <div className="product-info-modern">
+                        <h3>{item.name}</h3>
+                        <div className="product-footer">
+                          {item.price && (
+                            <span className="price-modern">{formatPrice(item.price)}</span>
+                          )}
+                          <button
+                            type="button"
+                            className="add-to-cart-btn"
+                            onClick={(e) => handleAddToCart(e, item)}
+                          >
+                            Add to Cart
+                          </button>
+                        </div>
+                      </div>
+                    </article>
+                  );
+                })}
               </div>
             ) : (
               <div className="empty-state card">No items in this category yet.</div>

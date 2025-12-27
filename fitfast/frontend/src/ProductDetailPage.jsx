@@ -13,6 +13,7 @@ export default function ProductDetailPage() {
   const [selectedColor, setSelectedColor] = useState("");
   const [cartFeedback, setCartFeedback] = useState("");
   const [isWishlisted, setIsWishlisted] = useState(false);
+  const [selectedQuantity, setSelectedQuantity] = useState(1);
 
   useEffect(() => {
     async function fetchData() {
@@ -24,17 +25,25 @@ export default function ProductDetailPage() {
         const storeData = res.data.data || res.data;
         setStore(storeData);
 
-        // Find the product in the store's categories
-        let foundProduct = null;
-        for (const category of storeData.categories || []) {
-          const item = category.items?.find(
-            (i) => (i.id || i.name) === productId
-          );
-          if (item) {
-            foundProduct = item;
-            break;
-          }
-        }
+        const normalizedProductId = productId?.toString();
+        const matchesProduct = (item) => {
+          const candidate =
+            item.id ||
+            item.productId ||
+            item.product_id ||
+            item.slug ||
+            item.name;
+
+          return candidate?.toString() === normalizedProductId;
+        };
+
+        const categories = storeData.categories || [];
+        const categoryProduct = categories
+          .flatMap((category) => category.items || [])
+          .find(matchesProduct);
+
+        const fallbackProduct = (storeData.items || []).find(matchesProduct);
+        const foundProduct = categoryProduct || fallbackProduct;
 
         if (foundProduct) {
           setProduct(foundProduct);
@@ -101,13 +110,41 @@ export default function ProductDetailPage() {
     if (Number.isNaN(amount)) return price;
     return `$${amount.toFixed(2)}`;
   };
+  
+
+const buildFeatureList = () => {
+    const baseFeatures = [
+      "Breathable, all-day comfort fabric",
+      "Tailored silhouette with clean finishing",
+      "Machine-washable and travel-friendly",
+    ];
+
+    const hasColorRange = colors.length > 0;
+    const hasSizeRange = sizes.length > 1;
+
+    if (hasColorRange) {
+      baseFeatures.push(`Available in ${colors.join(", ")}`);
+    }
+
+    if (hasSizeRange) {
+      baseFeatures.push(
+        `Inclusive sizing from ${sizes[0]}${
+          sizes.length > 1 ? ` to ${sizes[sizes.length - 1]}` : ""
+        }`
+      );
+    }
+
+    return baseFeatures;
+  };
 
   const handleAddToCart = () => {
     setCartFeedback(
       `${product.name} added to cart (${selectedColor}${
         selectedSize ? ` / ${selectedSize}` : ""
-      })`
-    );
+
+      }) x${selectedQuantity}`
+
+  );
   };
 
   const handleToggleWishlist = () => {
@@ -134,6 +171,19 @@ export default function ProductDetailPage() {
 
   const sizes = getSizes(product);
   const colors = getColors(product);
+  const features = buildFeatureList();
+  const fabric =
+    product.fabric || product.material || product.materials || "Premium cotton blend";
+  const care =
+    product.care_instructions ||
+    product.care ||
+    "Machine wash cold with like colors. Tumble dry low."
+  const deliveryNote =
+    product.shipping_note ||
+    "Free standard delivery over $75. Easy 30-day returns.";
+  const fitNote =
+    product.fit ||
+    "True to size with a relaxed drape. Size down for a closer fit.";
 
   return (
     <div className="product-detail-page">
@@ -189,6 +239,25 @@ export default function ProductDetailPage() {
             <p className="product-description">{product.description}</p>
           )}
 
+          <div className="product-meta-grid">
+            <div>
+              <p className="meta-label">Fabric</p>
+              <p className="meta-value">{fabric}</p>
+            </div>
+            <div>
+              <p className="meta-label">Fit</p>
+              <p className="meta-value">{fitNote}</p>
+            </div>
+            <div>
+              <p className="meta-label">Care</p>
+              <p className="meta-value">{care}</p>
+            </div>
+            <div>
+              <p className="meta-label">Delivery</p>
+              <p className="meta-value">{deliveryNote}</p>
+            </div>
+          </div>
+
           <div className="product-options">
             <div className="option-section">
               <div className="option-header">
@@ -208,6 +277,32 @@ export default function ProductDetailPage() {
                     {color}
                   </button>
                 ))}
+              </div>
+            </div>
+
+            <div className="option-section">
+              <div className="option-header">
+                <span className="option-label">Quantity</span>
+                <span className="option-selected">{selectedQuantity}</span>
+              </div>
+              <div className="quantity-control">
+                <button
+                  className="quantity-btn"
+                  onClick={() =>
+                    setSelectedQuantity((qty) => Math.max(1, qty - 1))
+                  }
+                  aria-label="Decrease quantity"
+                >
+                  −
+                </button>
+                <span className="quantity-value">{selectedQuantity}</span>
+                <button
+                  className="quantity-btn"
+                  onClick={() => setSelectedQuantity((qty) => qty + 1)}
+                  aria-label="Increase quantity"
+                >
+                  +
+                </button>
               </div>
             </div>
 
@@ -240,6 +335,53 @@ export default function ProductDetailPage() {
             >
               Add to Cart
             </button>
+          </div>
+          <div className="detail-sections">
+            <div className="detail-card">
+              <h3>Highlights</h3>
+              <ul className="feature-list">
+                {features.map((feature) => (
+                  <li key={feature}>{feature}</li>
+                ))}
+              </ul>
+            </div>
+
+            <div className="detail-card">
+              <h3>Size & Fit</h3>
+              <div className="fit-grid">
+                <div>
+                  <p className="meta-label">Model details</p>
+                  <p className="meta-value">5'9" · Wearing size M</p>
+                </div>
+                <div>
+                  <p className="meta-label">Fit notes</p>
+                  <p className="meta-value">{fitNote}</p>
+                </div>
+              </div>
+
+              <div className="size-guide">
+                <div className="size-guide-row header">
+                  <span>Size</span>
+                  <span>Chest</span>
+                  <span>Waist</span>
+                  <span>Length</span>
+                </div>
+                {sizes.map((size) => (
+                  <div className="size-guide-row" key={size}>
+                    <span>{size}</span>
+                    <span>34" - 38"</span>
+                    <span>28" - 32"</span>
+                    <span>26" - 30"</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            <div className="detail-card">
+              <h3>Delivery & Returns</h3>
+              <p className="meta-value">{deliveryNote}</p>
+              <p className="muted small">Express delivery available at checkout.</p>
+            </div>
           </div>
         </div>
       </div>

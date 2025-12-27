@@ -72,7 +72,8 @@ class StoreController extends Controller
             ->with([
                 'items' => function ($query) use ($store) {
                     $query->where('store_id', $store->id)
-                        ->orderBy('name');
+                        ->orderBy('name')
+                        ->with(['images']);
                 },
             ])
             ->get()
@@ -82,12 +83,74 @@ class StoreController extends Controller
                     'name' => $category->name,
                     'description' => $category->description,
                     'items' => $category->items->map(function ($item) {
+                        $primaryImagePath = $item->primary_image?->image_path;
+                        $primaryImageUrl = null;
+
+                        if ($primaryImagePath && Storage::disk('public')->exists($primaryImagePath)) {
+                            $primaryImageUrl = asset('storage/' . $primaryImagePath);
+                        }
+
+                        $galleryImages = $item->images
+                            ->map(function ($image) {
+                                $path = $image->image_path;
+
+                                if ($path && Storage::disk('public')->exists($path)) {
+                                    return asset('storage/' . $path);
+                                }
+
+                                return null;
+                            })
+                            ->filter()
+                            ->values();
+
+                        $sizeStock = collect($item->size_stock ?? [])
+                            ->mapWithKeys(function ($quantity, $size) {
+                                return [$size => (int) $quantity];
+                            });
+
+                        $colorVariants = collect($item->color_variants ?? [])
+                            ->map(function ($variant) {
+                                $images = collect($variant['images'] ?? [])
+                                    ->map(function ($path) {
+                                        if ($path && Storage::disk('public')->exists($path)) {
+                                            return asset('storage/' . $path);
+                                        }
+
+                                        return $path;
+                                    })
+                                    ->filter()
+                                    ->values();
+
+                                return [
+                                    'name' => $variant['name'] ?? $variant['color'] ?? null,
+                                    'hex_code' => $variant['hex_code'] ?? $variant['hex'] ?? null,
+                                    'stock' => isset($variant['stock']) ? (int) $variant['stock'] : null,
+                                    'images' => $images,
+                                ];
+                            })
+                            ->filter(function ($variant) {
+                                return !empty($variant['name']);
+                            })
+                            ->values();
                         return [
                             'id' => $item->id,
                             'name' => $item->name,
                             'description' => $item->description,
                             'price' => $item->price,
                             'stock_quantity' => $item->stock_quantity,
+                             'size_stock' => $sizeStock->all(),
+                            'available_sizes' => $sizeStock
+                                ->filter(function ($quantity) {
+                                    return $quantity > 0;
+                                })
+                                ->keys()
+                                ->values()
+                                ->all(),
+                            'color_variants' => $colorVariants->all(),
+                            'sizing_data' => $item->sizing_data,
+                            'garment_type' => $item->garment_type,
+                            'primary_image_url' => $primaryImageUrl,
+                            'gallery_images' => $galleryImages->all(),
                         ];
                     })->values(),
                 ];

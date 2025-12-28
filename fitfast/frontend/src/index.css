@@ -1768,21 +1768,27 @@ a:hover {
 .back-link {
   display: inline-flex;
   align-items: center;
-  gap: 0.5rem;
+  gap: 0.6rem;
   color: #641b2e;
-  font-weight: 600;
-  font-size: 0.95rem;
+  font-weight: 700;
+  font-size: 1rem;
   text-decoration: none;
   margin-bottom: 2rem;
   cursor: pointer;
-  background: none;
-  border: none;
-  padding: 0;
-  transition: color 0.2s ease;
+  background: linear-gradient(135deg, #f8e8e5, #f1d9d5);
+  border: 1px solid #e0cfd0;
+  padding: 0.75rem 1.1rem;
+  border-radius: 14px;
+  box-shadow: 0 8px 18px rgba(190, 91, 80, 0.18);
+  transition: all 0.25s ease;
 }
 
 .back-link:hover {
-  color: #be5b50;
+  color: #ffffff;
+  background: linear-gradient(135deg, #641b2e, #944c4a);
+  border-color: #641b2e;
+  transform: translateY(-1px);
+  box-shadow: 0 10px 20px rgba(100, 27, 46, 0.25);
 }
 
 .product-detail-container {
@@ -1862,31 +1868,24 @@ a:hover {
 }
 
 .wishlist-btn-large {
-  background: white;
-  border: 2px solid #e0e0e0;
-  width: 54px;
-  height: 54px;
-  border-radius: 50%;
-  display: flex;
+  background: transparent;
+  border: none;
+  padding: 0.35rem;
+  display: inline-flex;
   align-items: center;
   justify-content: center;
   cursor: pointer;
-  transition: all 0.3s ease;
+  transition: transform 0.2s ease, color 0.2s ease;
   color: #641b2e;
-  flex-shrink: 0;
 }
 
 .wishlist-btn-large:hover {
-  transform: scale(1.1);
-  border-color: #641b2e;
-  background: #641b2e;
-  color: white;
+ transform: scale(1.08);
+  color: #be5b50;
 }
 
 .wishlist-btn-large.active {
-  background: #641b2e;
-  color: white;
-  border-color: #641b2e;
+  color: #be5b50;
 }
 
 .product-description {

@@ -255,7 +255,6 @@ export default function ProductDetailPage() {
   const colors = getColors(product);
   const features = buildFeatureList(sizes, colors);
   const availableQuantity = getAvailableQuantity();
-  const selectedSizeStock = selectedSize ? getSizeStock(product, selectedSize) : 0;
   const isOutOfStock = availableQuantity <= 0;
   const maxQuantity = Math.max(availableQuantity || 0, 1);
   const fabric =
@@ -348,7 +347,6 @@ export default function ProductDetailPage() {
             <div className="option-section">
               <div className="option-header">
                 <span className="option-label">Color</span>
-                <span className="option-selected">{selectedColor}</span>
               </div>
               <div className="color-options">
                 {colors.map((color) => (
@@ -369,7 +367,6 @@ export default function ProductDetailPage() {
             <div className="option-section">
               <div className="option-header">
                 <span className="option-label">Quantity</span>
-                <span className="option-selected">{selectedQuantity}</span>
               </div>
               <div className="quantity-control">
                 <button
@@ -397,19 +394,12 @@ export default function ProductDetailPage() {
                   +
                 </button>
               </div>
-              <p className="stock-hint">
-                {isOutOfStock
-                  ? "Out of stock"
-                  : selectedSizeStock > 0
-                  ? `${selectedSizeStock} available in ${selectedSize}`
-                  : `${availableQuantity} available`}
-              </p>
+             
             </div>
 
             <div className="option-section">
               <div className="option-header">
                 <span className="option-label">Size</span>
-                <span className="option-selected">{selectedSize}</span>
               </div>
               <div className="size-options">
                 {sizes.map((size) => {

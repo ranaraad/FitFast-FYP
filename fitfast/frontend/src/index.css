@@ -1017,30 +1017,33 @@ body {
   position: absolute;
   top: 1rem;
   right: 1rem;
-  background: white;
+  background: transparent;
   border: none;
-  width: 42px;
-  height: 42px;
-  border-radius: 50%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
+  padding: 0.35rem;
+  display: grid;
+  place-items: center;
   cursor: pointer;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
-  transition: all 0.3s ease;
+  transition: transform 0.2s ease, color 0.2s ease, filter 0.2s ease;
   z-index: 10;
-  color: #641b2e;
+  color: #942341;
+}
+
+.wishlist-btn svg {
+  display: block;
+  filter: drop-shadow(0 2px 3px rgba(0, 0, 0, 0.16));
 }
 
 .wishlist-btn:hover {
-  transform: scale(1.1);
-  background: #641b2e;
-  color: white;
+  transform: scale(1.08);
+  color: #be5b50;
+}
+
+.wishlist-btn:active {
+  transform: scale(0.96);
 }
 
 .wishlist-btn.active {
-  background: #641b2e;
-  color: white;
+  color: #be5b50;
 }
 
 /* Best Fit Badge */
@@ -2179,17 +2182,25 @@ a:hover {
   background: transparent;
   border: none;
   padding: 0.35rem;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
+  display: inline-grid;
+  place-items: center;
   cursor: pointer;
-  transition: transform 0.2s ease, color 0.2s ease;
-  color: #641b2e;
+  transition: transform 0.2s ease, color 0.2s ease, filter 0.2s ease;
+  color: #942341;
+}
+
+.wishlist-btn-large svg {
+  display: block;
+  filter: drop-shadow(0 2px 3px rgba(0, 0, 0, 0.16));
 }
 
 .wishlist-btn-large:hover {
- transform: scale(1.08);
+  transform: scale(1.08);
   color: #be5b50;
+}
+
+.wishlist-btn-large:active {
+  transform: scale(0.96);
 }
 
 .wishlist-btn-large.active {

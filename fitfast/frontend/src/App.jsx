@@ -7,6 +7,7 @@ import MeasurementsPage from "./MeasurementsPage.jsx";
 import HomePage from "./HomePage.jsx";
 import StorePage from "./StorePage.jsx";
 import ProductDetailPage from "./ProductDetailPage.jsx";
+import SupportPage from "./SupportPage.jsx";
 
 export default function App() {
   const location = useLocation();
@@ -28,6 +29,7 @@ export default function App() {
           <Route path="/measurements" element={<MeasurementsPage />} />
           <Route path="/stores/:storeId" element={<StorePage />} />
           <Route path="/stores/:storeId/product/:productId" element={<ProductDetailPage />} />
+          <Route path="/support" element={<SupportPage />} />
         </Routes>
       </div>
     </>

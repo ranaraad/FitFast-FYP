@@ -5,6 +5,7 @@ use Illuminate\Http\Request;
 use App\Http\Controllers\AuthController;
 use App\Http\Controllers\Client\UserController; 
 use App\Http\Controllers\Client\StoreController;
+use App\Http\Controllers\API\SupportChatController;
 
 
 Route::post('/register', [AuthController::class, 'register']);
@@ -19,5 +20,10 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/user', [UserController::class, 'show']);
 
     Route::put('/user', [UserController::class, 'update']);
+
+        Route::get('/chat-support', [SupportChatController::class, 'index']);
+    Route::post('/chat-support', [SupportChatController::class, 'store']);
+    Route::get('/chat-support/{chatSupport}', [SupportChatController::class, 'show']);
+    Route::post('/chat-support/{chatSupport}/reply', [SupportChatController::class, 'reply']);
 
 });

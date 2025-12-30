@@ -443,6 +443,89 @@ export default function ProfilePage() {
           margin-top: 0.5rem;
         }
 
+        /* Wishlist styling - compact mini cards similar to cart items */
+        .wishlist-grid {
+          display: grid;
+          grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+          gap: 1rem;
+        }
+
+        .wishlist-card {
+          display: flex;
+          align-items: center;
+          gap: 0.75rem;
+          padding: 0.9rem 1rem;
+          background: white;
+          border: 1px solid rgba(100, 27, 46, 0.12);
+          border-radius: 14px;
+          box-shadow: 0 6px 14px rgba(0, 0, 0, 0.05);
+          transition: transform 0.2s ease, box-shadow 0.2s ease;
+        }
+
+        .wishlist-card:hover {
+          transform: translateY(-2px);
+          box-shadow: 0 10px 20px rgba(0, 0, 0, 0.08);
+          border-color: rgba(100, 27, 46, 0.18);
+        }
+
+        .wishlist-media {
+          width: 72px;
+          height: 72px;
+          border-radius: 12px;
+          overflow: hidden;
+          background: linear-gradient(135deg, #f8e8e5, #f1d9d5);
+          flex-shrink: 0;
+          display: grid;
+          place-items: center;
+        }
+
+        .wishlist-media img {
+          width: 100%;
+          height: 100%;
+          object-fit: cover;
+        }
+
+        .wishlist-info {
+          flex: 1;
+          min-width: 0;
+          display: flex;
+          flex-direction: column;
+          gap: 0.2rem;
+        }
+
+        .wishlist-name {
+          font-weight: 700;
+          font-size: 0.95rem;
+          color: #1a1a1a;
+          margin: 0;
+          line-height: 1.3;
+          overflow: hidden;
+          text-overflow: ellipsis;
+          white-space: nowrap;
+        }
+
+        .wishlist-meta {
+          font-size: 0.85rem;
+          color: #777;
+          margin: 0;
+        }
+
+        .remove-btn {
+          align-self: flex-start;
+          padding: 0.45rem 0.85rem;
+          border-radius: 10px;
+          font-size: 0.85rem;
+          background: #f8eeee;
+          color: #641b2e;
+          border: 1px solid rgba(100, 27, 46, 0.12);
+        }
+
+        .remove-btn:hover {
+          background: #641b2e;
+          color: white;
+          border-color: #641b2e;
+        }
+
         .measurements-form {
           background: white;
           border-radius: 12px;

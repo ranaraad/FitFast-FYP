@@ -1,11 +1,29 @@
-const STORAGE_KEY = "fitfast_wishlist";
+const STORAGE_KEY_PREFIX = "fitfast_wishlist";
 
 const isBrowser = typeof window !== "undefined" && !!window.localStorage;
+
+function getStorageKey() {
+  if (!isBrowser) return STORAGE_KEY_PREFIX;
+
+  try {
+    const rawUser = window.localStorage.getItem("auth_user");
+    const user = rawUser ? JSON.parse(rawUser) : null;
+
+    if (user?.id) {
+      return `${STORAGE_KEY_PREFIX}_${user.id}`;
+    }
+  } catch (err) {
+    console.error("Failed to read auth_user for wishlist scoping", err);
+  }
+
+  return `${STORAGE_KEY_PREFIX}_guest`;
+}
 
 function readStorage() {
   if (!isBrowser) return [];
   try {
-    const raw = window.localStorage.getItem(STORAGE_KEY);
+     const storageKey = getStorageKey();
+    const raw = window.localStorage.getItem(storageKey);
     const parsed = raw ? JSON.parse(raw) : [];
     return Array.isArray(parsed) ? parsed : [];
   } catch (err) {
@@ -17,7 +35,8 @@ function readStorage() {
 function writeStorage(items) {
   if (!isBrowser) return;
   try {
-    window.localStorage.setItem(STORAGE_KEY, JSON.stringify(items));
+    const storageKey = getStorageKey();
+    window.localStorage.setItem(storageKey, JSON.stringify(items));
   } catch (err) {
     console.error("Failed to write wishlist to storage", err);
   }

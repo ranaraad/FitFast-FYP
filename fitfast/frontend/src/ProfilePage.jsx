@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 import api from "./api";
 import {
   getWishlist,
@@ -19,6 +20,7 @@ const DEFAULT_MEASUREMENTS = {
 };
 
 export default function ProfilePage() {
+  const navigate = useNavigate();
   const [user, setUser] = useState(null);
   const [editing, setEditing] = useState(false);
   const [measurements, setMeasurements] = useState(DEFAULT_MEASUREMENTS);
@@ -89,7 +91,7 @@ export default function ProfilePage() {
       .replace(/_/g, " ")
       .replace(/\b\w/g, (l) => l.toUpperCase());
 
-      const formatPrice = (price) => {
+  const formatPrice = (price) => {
     if (price === null || price === undefined || price === "") return null;
     const value = Number(price);
     if (Number.isNaN(value)) return price;
@@ -109,7 +111,7 @@ export default function ProfilePage() {
   const hasMeasurements = Object.values(measurements).some(Boolean);
   const hasWishlist = wishlistItems.length > 0;
 
-  const handleRemoveWishlist = (item) => {
+  const handleToggleWishlist = (item) => {
     const { items } = toggleWishlistEntry({
       id: item.id,
       storeId: item.storeId,
@@ -287,26 +289,42 @@ export default function ProfilePage() {
 
               return (
                 <div className="wishlist-card" key={key}>
-                  <div className="wishlist-media">
-                    {item.image ? (
-                      <img src={item.image} alt={item.name || "Wishlist item"} />
-                    ) : (
-                      <div className="image-placeholder">{item.name?.[0] || ""}</div>
-                    )}
-                  </div>
-                  <div className="wishlist-info">
-                    <p className="wishlist-name">{item.name || "Saved item"}</p>
-                    <p className="wishlist-meta">
-                      {item.storeName ? `${item.storeName} • ` : ""}
-                      {displayPrice || "Price pending"}
-                    </p>
+                  <div 
+                    className="wishlist-clickable"
+                    onClick={() => navigate(`/product/${item.storeId}/${item.id}`)}
+                    style={{ cursor: 'pointer' }}
+                  >
+                    <div className="wishlist-media">
+                      {item.image ? (
+                        <img src={item.image} alt={item.name || "Wishlist item"} />
+                      ) : (
+                        <div className="image-placeholder">{item.name?.[0] || ""}</div>
+                      )}
+                    </div>
+                    <div className="wishlist-info">
+                      <p className="wishlist-name">{item.name || "Saved item"}</p>
+                      <p className="wishlist-meta">
+                        {item.storeName ? `${item.storeName} • ` : ""}
+                        {displayPrice || "Price pending"}
+                      </p>
+                    </div>
                   </div>
                   <button
                     type="button"
-                    className="secondary-btn remove-btn"
-                    onClick={() => handleRemoveWishlist(item)}
+                    className="wishlist-heart-btn filled"
+                    aria-label="Remove from wishlist"
+                    title="Remove from wishlist"
+                    onClick={() => handleToggleWishlist(item)}
                   >
-                    Remove
+                    <svg 
+                      width="20" 
+                      height="20" 
+                      viewBox="0 0 24 24" 
+                      fill="currentColor"
+                      xmlns="http://www.w3.org/2000/svg"
+                    >
+                      <path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/>
+                    </svg>
                   </button>
                 </div>
               );
@@ -441,6 +459,111 @@ export default function ProfilePage() {
           font-size: 0.85rem;
           color: #aaa;
           margin-top: 0.5rem;
+        }
+
+        /* Wishlist styling - compact mini cards similar to cart items */
+        .wishlist-grid {
+          display: grid;
+          grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+          gap: 1rem;
+        }
+
+        .wishlist-card {
+          display: flex;
+          align-items: center;
+          gap: 0.75rem;
+          padding: 0.9rem 1rem;
+          background: white;
+          border: 1px solid rgba(100, 27, 46, 0.12);
+          border-radius: 14px;
+          box-shadow: 0 6px 14px rgba(0, 0, 0, 0.05);
+          transition: transform 0.2s ease, box-shadow 0.2s ease;
+        }
+
+        .wishlist-card:hover {
+          transform: translateY(-2px);
+          box-shadow: 0 10px 20px rgba(0, 0, 0, 0.08);
+          border-color: rgba(100, 27, 46, 0.18);
+        }
+
+        .wishlist-clickable {
+          display: flex;
+          align-items: center;
+          gap: 0.75rem;
+          flex: 1;
+          min-width: 0;
+        }
+
+        .wishlist-media {
+          width: 72px;
+          height: 72px;
+          border-radius: 12px;
+          overflow: hidden;
+          background: linear-gradient(135deg, #f8e8e5, #f1d9d5);
+          flex-shrink: 0;
+          display: grid;
+          place-items: center;
+        }
+
+        .wishlist-media img {
+          width: 100%;
+          height: 100%;
+          object-fit: cover;
+        }
+
+        .wishlist-info {
+          flex: 1;
+          min-width: 0;
+          display: flex;
+          flex-direction: column;
+          gap: 0.2rem;
+        }
+
+        .wishlist-name {
+          font-weight: 700;
+          font-size: 0.95rem;
+          color: #1a1a1a;
+          margin: 0;
+          line-height: 1.3;
+          overflow: hidden;
+          text-overflow: ellipsis;
+          white-space: nowrap;
+        }
+
+        .wishlist-meta {
+          font-size: 0.85rem;
+          color: #777;
+          margin: 0;
+        }
+
+        .wishlist-heart-btn {
+          align-self: flex-start;
+          width: 40px;
+          height: 40px;
+          border-radius: 50%;
+          border: none;
+          background: transparent;
+          color: #942341ff;
+          display: grid;
+          place-items: center;
+          transition: all 0.2s ease;
+          cursor: pointer;
+          padding: 0;
+          flex-shrink: 0;
+        }
+
+        .wishlist-heart-btn:hover {
+          transform: scale(1.1);
+          background: rgba(233, 30, 99, 0.08);
+        }
+
+        .wishlist-heart-btn:active {
+          transform: scale(0.95);
+        }
+
+        .wishlist-heart-btn svg {
+          display: block;
+          filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.1));
         }
 
         .measurements-form {

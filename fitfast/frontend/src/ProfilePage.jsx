@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 import api from "./api";
 import {
   getWishlist,
@@ -19,6 +20,7 @@ const DEFAULT_MEASUREMENTS = {
 };
 
 export default function ProfilePage() {
+  const navigate = useNavigate();
   const [user, setUser] = useState(null);
   const [editing, setEditing] = useState(false);
   const [measurements, setMeasurements] = useState(DEFAULT_MEASUREMENTS);
@@ -89,7 +91,7 @@ export default function ProfilePage() {
       .replace(/_/g, " ")
       .replace(/\b\w/g, (l) => l.toUpperCase());
 
-      const formatPrice = (price) => {
+  const formatPrice = (price) => {
     if (price === null || price === undefined || price === "") return null;
     const value = Number(price);
     if (Number.isNaN(value)) return price;
@@ -109,7 +111,7 @@ export default function ProfilePage() {
   const hasMeasurements = Object.values(measurements).some(Boolean);
   const hasWishlist = wishlistItems.length > 0;
 
-  const handleRemoveWishlist = (item) => {
+  const handleToggleWishlist = (item) => {
     const { items } = toggleWishlistEntry({
       id: item.id,
       storeId: item.storeId,
@@ -287,26 +289,42 @@ export default function ProfilePage() {
 
               return (
                 <div className="wishlist-card" key={key}>
-                  <div className="wishlist-media">
-                    {item.image ? (
-                      <img src={item.image} alt={item.name || "Wishlist item"} />
-                    ) : (
-                      <div className="image-placeholder">{item.name?.[0] || ""}</div>
-                    )}
-                  </div>
-                  <div className="wishlist-info">
-                    <p className="wishlist-name">{item.name || "Saved item"}</p>
-                    <p className="wishlist-meta">
-                      {item.storeName ? `${item.storeName} • ` : ""}
-                      {displayPrice || "Price pending"}
-                    </p>
+                  <div 
+                    className="wishlist-clickable"
+                    onClick={() => navigate(`/product/${item.storeId}/${item.id}`)}
+                    style={{ cursor: 'pointer' }}
+                  >
+                    <div className="wishlist-media">
+                      {item.image ? (
+                        <img src={item.image} alt={item.name || "Wishlist item"} />
+                      ) : (
+                        <div className="image-placeholder">{item.name?.[0] || ""}</div>
+                      )}
+                    </div>
+                    <div className="wishlist-info">
+                      <p className="wishlist-name">{item.name || "Saved item"}</p>
+                      <p className="wishlist-meta">
+                        {item.storeName ? `${item.storeName} • ` : ""}
+                        {displayPrice || "Price pending"}
+                      </p>
+                    </div>
                   </div>
                   <button
                     type="button"
-                    className="secondary-btn remove-btn"
-                    onClick={() => handleRemoveWishlist(item)}
+                    className="wishlist-heart-btn filled"
+                    aria-label="Remove from wishlist"
+                    title="Remove from wishlist"
+                    onClick={() => handleToggleWishlist(item)}
                   >
-                    Remove
+                    <svg 
+                      width="20" 
+                      height="20" 
+                      viewBox="0 0 24 24" 
+                      fill="currentColor"
+                      xmlns="http://www.w3.org/2000/svg"
+                    >
+                      <path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/>
+                    </svg>
                   </button>
                 </div>
               );
@@ -468,6 +486,14 @@ export default function ProfilePage() {
           border-color: rgba(100, 27, 46, 0.18);
         }
 
+        .wishlist-clickable {
+          display: flex;
+          align-items: center;
+          gap: 0.75rem;
+          flex: 1;
+          min-width: 0;
+        }
+
         .wishlist-media {
           width: 72px;
           height: 72px;
@@ -510,20 +536,34 @@ export default function ProfilePage() {
           margin: 0;
         }
 
-        .remove-btn {
+        .wishlist-heart-btn {
           align-self: flex-start;
-          padding: 0.45rem 0.85rem;
-          border-radius: 10px;
-          font-size: 0.85rem;
-          background: #f8eeee;
-          color: #641b2e;
-          border: 1px solid rgba(100, 27, 46, 0.12);
+          width: 40px;
+          height: 40px;
+          border-radius: 50%;
+          border: none;
+          background: transparent;
+          color: #942341ff;
+          display: grid;
+          place-items: center;
+          transition: all 0.2s ease;
+          cursor: pointer;
+          padding: 0;
+          flex-shrink: 0;
         }
 
-        .remove-btn:hover {
-          background: #641b2e;
-          color: white;
-          border-color: #641b2e;
+        .wishlist-heart-btn:hover {
+          transform: scale(1.1);
+          background: rgba(233, 30, 99, 0.08);
+        }
+
+        .wishlist-heart-btn:active {
+          transform: scale(0.95);
+        }
+
+        .wishlist-heart-btn svg {
+          display: block;
+          filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.1));
         }
 
         .measurements-form {

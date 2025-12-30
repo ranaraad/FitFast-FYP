@@ -1,6 +1,11 @@
 import { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import api from "./api";
+import {
+  getWishlist,
+  isItemWishlisted,
+  toggleWishlistEntry,
+} from "./wishlistStorage";
 
 export default function ProductDetailPage() {
   const { storeId, productId } = useParams();
@@ -148,6 +153,13 @@ export default function ProductDetailPage() {
   }, [storeId, productId]);
 
   useEffect(() => {
+    if (!product) return;
+    const wishlist = getWishlist();
+    setIsWishlisted(isItemWishlisted(wishlist, productId, storeId));
+  }, [product, productId, storeId]);
+
+
+  useEffect(() => {
     if (!cartFeedback) return;
     const timeout = setTimeout(() => setCartFeedback(""), 3200);
     return () => clearTimeout(timeout);
@@ -230,8 +242,19 @@ export default function ProductDetailPage() {
   };
 
   const handleToggleWishlist = () => {
-    setIsWishlisted(!isWishlisted);
-    setCartFeedback(isWishlisted ? "Removed from wishlist" : "Added to wishlist");
+    if (!product) return;
+
+    const { added } = toggleWishlistEntry({
+      id: productId,
+      storeId,
+      name: product.name,
+      price: product.price,
+      image: getItemImage(product),
+      storeName: store?.name,
+    });
+
+    setIsWishlisted(added);
+    setCartFeedback(added ? "Added to wishlist" : "Removed from wishlist");
   };
 
   if (loading) {

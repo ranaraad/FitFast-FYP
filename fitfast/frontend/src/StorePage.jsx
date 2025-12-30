@@ -1,6 +1,11 @@
 import { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import api from "./api";
+import {
+  getWishlist,
+  isItemWishlisted,
+  toggleWishlistEntry,
+} from "./wishlistStorage";
 
 export default function StorePage() {
   const { storeId } = useParams();
@@ -10,7 +15,7 @@ export default function StorePage() {
   const [error, setError] = useState("");
   const [selectedCategoryId, setSelectedCategoryId] = useState(null);
   const [cartFeedback, setCartFeedback] = useState("");
-  const [wishlistItems, setWishlistItems] = useState(new Set());
+  const [wishlistItems, setWishlistItems] = useState(() => getWishlist());
 
   useEffect(() => {
     async function fetchStore() {
@@ -79,19 +84,20 @@ export default function StorePage() {
     setCartFeedback(`${item.name || "Item"} added to cart`);
   };
 
-  const handleToggleWishlist = (e, itemId) => {
+  const handleToggleWishlist = (e, item) => {
     e.stopPropagation();
-    setWishlistItems((prev) => {
-      const newSet = new Set(prev);
-      if (newSet.has(itemId)) {
-        newSet.delete(itemId);
-        setCartFeedback("Removed from wishlist");
-      } else {
-        newSet.add(itemId);
-        setCartFeedback("Added to wishlist");
-      }
-      return newSet;
+    const itemId = item.id || item.name;
+
+    const { items, added } = toggleWishlistEntry({
+      id: itemId,
+      storeId,
+      name: item.name,
+      price: item.price,
+      image: getItemImage(item),
+      storeName: store?.name,
     });
+    setWishlistItems(items);
+    setCartFeedback(added ? "Added to wishlist" : "Removed from wishlist");
   };
 
   const formatPrice = (price) => {
@@ -165,7 +171,11 @@ export default function StorePage() {
               <div className="product-grid">
                 {selectedCategory.items.map((item) => {
                   const itemId = item.id || item.name;
-                  const isWishlisted = wishlistItems.has(itemId);
+                  const isWishlisted = isItemWishlisted(
+                    wishlistItems,
+                    itemId,
+                    storeId
+                  );
 
                   return (
                     <article
@@ -188,7 +198,7 @@ export default function StorePage() {
                         
                         <button
                           className={`wishlist-btn ${isWishlisted ? "active" : ""}`}
-                          onClick={(e) => handleToggleWishlist(e, itemId)}
+                          onClick={(e) => handleToggleWishlist(e, item)}
                           aria-label="Add to wishlist"
                         >
                           <svg

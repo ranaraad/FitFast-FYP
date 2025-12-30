@@ -1,5 +1,9 @@
 import { useState, useEffect } from "react";
 import api from "./api";
+import {
+  getWishlist,
+  toggleWishlistEntry,
+} from "./wishlistStorage";
 
 const DEFAULT_MEASUREMENTS = {
   height_cm: "",
@@ -21,6 +25,7 @@ export default function ProfilePage() {
   const [message, setMessage] = useState("");
   const [messageType, setMessageType] = useState("success"); // "success" | "error"
   const [loading, setLoading] = useState(true);
+  const [wishlistItems, setWishlistItems] = useState([]);
 
   useEffect(() => {
     async function fetchUser() {
@@ -31,6 +36,7 @@ export default function ProfilePage() {
           ...DEFAULT_MEASUREMENTS,
           ...(res.data?.measurements || {}),
         });
+        setWishlistItems(getWishlist());
       } catch (error) {
         console.error(error);
         setMessageType("error");
@@ -41,6 +47,13 @@ export default function ProfilePage() {
     }
     fetchUser();
   }, []);
+
+  useEffect(() => {
+    const syncWishlist = () => setWishlistItems(getWishlist());
+    window.addEventListener("storage", syncWishlist);
+    return () => window.removeEventListener("storage", syncWishlist);
+  }, []);
+
 
   const handleChange = (e) => {
     const { name, value } = e.target;
@@ -76,6 +89,14 @@ export default function ProfilePage() {
       .replace(/_/g, " ")
       .replace(/\b\w/g, (l) => l.toUpperCase());
 
+      const formatPrice = (price) => {
+    if (price === null || price === undefined || price === "") return null;
+    const value = Number(price);
+    if (Number.isNaN(value)) return price;
+    return `$${value.toFixed(2)}`;
+  };
+
+
   const initials = user?.name
     ? user.name
         .split(" ")
@@ -86,6 +107,22 @@ export default function ProfilePage() {
     : "U";
 
   const hasMeasurements = Object.values(measurements).some(Boolean);
+  const hasWishlist = wishlistItems.length > 0;
+
+  const handleRemoveWishlist = (item) => {
+    const { items } = toggleWishlistEntry({
+      id: item.id,
+      storeId: item.storeId,
+      name: item.name,
+      price: item.price,
+      image: item.image,
+      storeName: item.storeName,
+    });
+    setWishlistItems(items);
+    setMessageType("success");
+    setMessage(`${item.name || "Item"} removed from wishlist`);
+    setTimeout(() => setMessage(""), 2000);
+  };
 
   if (loading) return <p style={{ textAlign: "center" }}>Loading profile...</p>;
   if (!user) return <p style={{ textAlign: "center" }}>No user data.</p>;
@@ -222,6 +259,60 @@ export default function ProfilePage() {
             </div>
           )}
         </div>
+      </div>
+
+      <div className="profile-section">
+        <div className="section-header wishlist-header">
+          <h3>Wishlist</h3>
+          {hasWishlist && (
+            <span className="pill-count">{wishlistItems.length} saved</span>
+          )}
+        </div>
+
+        {!hasWishlist ? (
+          <div className="measurements-display">
+            <div className="empty-state">
+              <div className="empty-icon">💖</div>
+              <div>No wishlist items yet.</div>
+              <div className="empty-hint">
+                Add favorites while browsing stores to see them here.
+              </div>
+            </div>
+          </div>
+        ) : (
+          <div className="wishlist-grid">
+            {wishlistItems.map((item) => {
+              const key = `${item.storeId}-${item.id}`;
+              const displayPrice = formatPrice(item.price);
+
+              return (
+                <div className="wishlist-card" key={key}>
+                  <div className="wishlist-media">
+                    {item.image ? (
+                      <img src={item.image} alt={item.name || "Wishlist item"} />
+                    ) : (
+                      <div className="image-placeholder">{item.name?.[0] || ""}</div>
+                    )}
+                  </div>
+                  <div className="wishlist-info">
+                    <p className="wishlist-name">{item.name || "Saved item"}</p>
+                    <p className="wishlist-meta">
+                      {item.storeName ? `${item.storeName} • ` : ""}
+                      {displayPrice || "Price pending"}
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    className="secondary-btn remove-btn"
+                    onClick={() => handleRemoveWishlist(item)}
+                  >
+                    Remove
+                  </button>
+                </div>
+              );
+            })}
+          </div>
+        )}
       </div>
 
 

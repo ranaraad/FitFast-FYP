@@ -6,6 +6,7 @@ import {
   isItemWishlisted,
   toggleWishlistEntry,
 } from "./wishlistStorage";
+import { addToCart } from "./cartStorage";
 
 export default function StorePage() {
   const { storeId } = useParams();
@@ -81,6 +82,17 @@ export default function StorePage() {
 
   const handleAddToCart = (e, item) => {
     e.stopPropagation();
+    const itemId = item.id || item.name;
+
+    addToCart({
+      id: itemId,
+      storeId,
+      name: item.name,
+      price: item.price,
+      image: getItemImage(item),
+      storeName: store?.name,
+      quantity: 1,
+    });
     setCartFeedback(`${item.name || "Item"} added to cart`);
   };
 

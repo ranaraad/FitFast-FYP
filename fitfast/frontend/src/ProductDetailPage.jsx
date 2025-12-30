@@ -6,6 +6,7 @@ import {
   isItemWishlisted,
   toggleWishlistEntry,
 } from "./wishlistStorage";
+import { addToCart } from "./cartStorage";
 
 export default function ProductDetailPage() {
   const { storeId, productId } = useParams();
@@ -232,6 +233,17 @@ export default function ProductDetailPage() {
       );
       return;
     }
+    addToCart({
+      id: productId,
+      storeId,
+      name: product.name,
+      price: product.price,
+      image: getItemImage(product),
+      size: selectedSize,
+      color: selectedColor,
+      storeName: store?.name,
+      quantity: selectedQuantity,
+    });
     setCartFeedback(
       `${product.name} added to cart (${selectedColor}${
         selectedSize ? ` / ${selectedSize}` : ""

@@ -185,23 +185,6 @@
                 <hr>
                 <div class="row">
                     <div class="col-sm-3">
-                        <p class="mb-0 font-weight-bold">Color Variants</p>
-                    </div>
-                    <div class="col-sm-9">
-                        @if(!empty($item->color_variants))
-                            @foreach($item->color_variants as $colorKey => $colorData)
-                                <span class="badge badge-light border mr-2 mb-2 p-2">
-                                    {{ $colorData['name'] ?? $colorKey }}: {{ $colorData['stock'] ?? 0 }} units
-                                </span>
-                            @endforeach
-                        @else
-                            <span class="text-muted">No color variants</span>
-                        @endif
-                    </div>
-                </div>
-                <hr>
-                <div class="row">
-                    <div class="col-sm-3">
                         <p class="mb-0 font-weight-bold">Total Stock</p>
                     </div>
                     <div class="col-sm-9">
@@ -244,56 +227,209 @@
             </div>
         </div>
 
-        <!-- Stock by Size Card -->
+        <!-- Color-Size Variants Card (NEW) -->
         <div class="card shadow mb-4">
-            <div class="card-header py-3">
-                <h6 class="m-0 font-weight-bold text-primary">Stock by Size</h6>
+            <div class="card-header py-3 d-flex justify-content-between align-items-center">
+                <h6 class="m-0 font-weight-bold text-primary">Color & Size Variants</h6>
+                <span class="badge badge-info">{{ is_array($item->available_variants) ? count($item->available_variants) : 0 }} variants in stock</span>
             </div>
             <div class="card-body">
-                <div class="table-responsive">
-                    <table class="table table-bordered">
-                        <thead class="thead-light">
-                            <tr>
-                                <th>Size</th>
-                                <th>Stock Quantity</th>
-                                <th>Status</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            @foreach(\App\Models\Item::STANDARD_SIZES as $size)
-                                @php
-                                    $sizeStock = $item->getSizeStock($size);
-                                    $sizeStatus = $item->getSizeStockStatus($size);
-                                    $statusClass = [
-                                        'in_stock' => 'badge-success',
-                                        'low_stock' => 'badge-warning',
-                                        'out_of_stock' => 'badge-secondary'
-                                    ][$sizeStatus];
-                                    $statusText = [
-                                        'in_stock' => 'In Stock',
-                                        'low_stock' => 'Low Stock',
-                                        'out_of_stock' => 'Out of Stock'
-                                    ][$sizeStatus];
-                                @endphp
+                @php
+                    // Get variants data
+                    $variants = $item->variants ?? [];
+                    $availableVariants = $item->available_variants ?? [];
+                    $variantsByColor = $item->variants_by_color ?? [];
+                    $variantsBySize = $item->variants_by_size ?? [];
+
+                    // Group variants by color
+                    $groupedVariants = [];
+                    $totalStock = 0;
+
+                    foreach ($availableVariants as $variant) {
+                        if (!isset($groupedVariants[$variant['color']])) {
+                            $groupedVariants[$variant['color']] = [];
+                        }
+                        $groupedVariants[$variant['color']][] = $variant;
+                        $totalStock += $variant['stock'];
+                    }
+                @endphp
+
+                @if(count($availableVariants) > 0)
+                    <!-- Stock Summary -->
+                    <div class="alert alert-info mb-4">
+                        <div class="row">
+                            <div class="col-md-4">
+                                <strong>Total Stock:</strong>
+                                <div class="h5">{{ $totalStock }} units</div>
+                            </div>
+                            <div class="col-md-4">
+                                <strong>Colors:</strong>
+                                <div class="h5">{{ count($groupedVariants) }}</div>
+                            </div>
+                            <div class="col-md-4">
+                                <strong>Active Variants:</strong>
+                                <div class="h5">{{ count($availableVariants) }}</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Color Breakdown -->
+                    <h6 class="text-primary mb-3">Stock by Color</h6>
+                    <div class="row mb-4">
+                        @foreach($groupedVariants as $color => $colorVariants)
+                            @php
+                                $colorStock = array_sum(array_column($colorVariants, 'stock'));
+                                $colorSizes = array_unique(array_column($colorVariants, 'size'));
+                            @endphp
+                            <div class="col-md-6 mb-3">
+                                <div class="card border-left-primary h-100">
+                                    <div class="card-body">
+                                        <div class="d-flex justify-content-between align-items-center">
+                                            <h6 class="font-weight-bold text-primary mb-0">{{ $color }}</h6>
+                                            <span class="badge badge-success">{{ $colorStock }} units</span>
+                                        </div>
+                                        <div class="mt-2">
+                                            <small class="text-muted">Available sizes:</small>
+                                            <div class="d-flex flex-wrap gap-1 mt-1">
+                                                @foreach($colorSizes as $size)
+                                                    @php
+                                                        $sizeVariant = collect($colorVariants)->firstWhere('size', $size);
+                                                        $sizeStock = $sizeVariant['stock'] ?? 0;
+                                                    @endphp
+                                                    <span class="badge badge-light border">
+                                                        {{ $size }}: {{ $sizeStock }}
+                                                    </span>
+                                                @endforeach
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        @endforeach
+                    </div>
+
+                    <!-- Detailed Variant Table -->
+                    <h6 class="text-primary mb-3">Detailed Variant Breakdown</h6>
+                    <div class="table-responsive">
+                        <table class="table table-bordered table-sm">
+                            <thead class="thead-light">
                                 <tr>
-                                    <td><strong>{{ $size }}</strong></td>
-                                    <td>{{ $sizeStock }}</td>
-                                    <td>
-                                        <span class="badge {{ $statusClass }}">{{ $statusText }}</span>
+                                    <th>Color</th>
+                                    @foreach(\App\Models\Item::STANDARD_SIZES as $size)
+                                        <th class="text-center">{{ $size }}</th>
+                                    @endforeach
+                                    <th class="text-center">Total</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @php
+                                    $sizeTotals = array_fill_keys(\App\Models\Item::STANDARD_SIZES, 0);
+                                    $colorTotals = [];
+                                @endphp
+
+                                @foreach($groupedVariants as $color => $colorVariants)
+                                    @php
+                                        $colorRowTotal = 0;
+                                        $colorStockBySize = [];
+                                        foreach ($colorVariants as $variant) {
+                                            $colorStockBySize[$variant['size']] = $variant['stock'];
+                                            $colorRowTotal += $variant['stock'];
+                                            $sizeTotals[$variant['size']] += $variant['stock'];
+                                        }
+                                        $colorTotals[$color] = $colorRowTotal;
+                                    @endphp
+                                    <tr>
+                                        <td><strong>{{ $color }}</strong></td>
+                                        @foreach(\App\Models\Item::STANDARD_SIZES as $size)
+                                            @php
+                                                $stock = $colorStockBySize[$size] ?? 0;
+                                            @endphp
+                                            <td class="text-center">
+                                                @if($stock > 10)
+                                                    <span class="badge badge-success">{{ $stock }}</span>
+                                                @elseif($stock > 0)
+                                                    <span class="badge badge-warning">{{ $stock }}</span>
+                                                @else
+                                                    <span class="badge badge-secondary">0</span>
+                                                @endif
+                                            </td>
+                                        @endforeach
+                                        <td class="text-center font-weight-bold">
+                                            {{ $colorRowTotal }}
+                                        </td>
+                                    </tr>
+                                @endforeach
+                            </tbody>
+                            <tfoot class="table-info">
+                                <tr>
+                                    <td><strong>Total by Size</strong></td>
+                                    @foreach(\App\Models\Item::STANDARD_SIZES as $size)
+                                        <td class="text-center font-weight-bold">
+                                            {{ $sizeTotals[$size] }}
+                                        </td>
+                                    @endforeach
+                                    <td class="text-center font-weight-bold">
+                                        {{ array_sum($sizeTotals) }}
                                     </td>
                                 </tr>
+                            </tfoot>
+                        </table>
+                    </div>
+
+                    <!-- Size Stock Visualization -->
+                    <div class="mt-4">
+                        <h6 class="text-primary mb-3">Stock Distribution by Size</h6>
+                        <div class="row">
+                            @foreach(\App\Models\Item::STANDARD_SIZES as $size)
+                                @php
+                                    $sizeStock = $sizeTotals[$size];
+                                    $percentage = $totalStock > 0 ? ($sizeStock / $totalStock) * 100 : 0;
+                                @endphp
+                                <div class="col-md-2 mb-3">
+                                    <div class="card text-center">
+                                        <div class="card-body p-2">
+                                            <h6 class="mb-1">{{ $size }}</h6>
+                                            <div class="progress mb-1" style="height: 20px;">
+                                                <div class="progress-bar
+                                                    @if($sizeStock > 10) bg-success
+                                                    @elseif($sizeStock > 0) bg-warning
+                                                    @else bg-secondary
+                                                    @endif"
+                                                    role="progressbar"
+                                                    style="width: {{ min($percentage, 100) }}%"
+                                                    aria-valuenow="{{ $sizeStock }}"
+                                                    aria-valuemin="0"
+                                                    aria-valuemax="{{ $totalStock }}">
+                                                </div>
+                                            </div>
+                                            <small class="text-muted">{{ $sizeStock }} units</small>
+                                            <br>
+                                            <small class="text-muted">{{ number_format($percentage, 1) }}%</small>
+                                        </div>
+                                    </div>
+                                </div>
                             @endforeach
-                        </tbody>
-                        <tfoot>
-                            <tr class="table-info">
-                                <td><strong>Total Stock</strong></td>
-                                <td colspan="2">
-                                    <strong>{{ $item->stock_quantity }}</strong> units
-                                </td>
-                            </tr>
-                        </tfoot>
-                    </table>
-                </div>
+                        </div>
+                    </div>
+                @else
+                    <div class="alert alert-warning">
+                        <i class="fas fa-exclamation-triangle"></i>
+                        <strong>No stock available!</strong> This item has no color-size variants with stock.
+                        <a href="{{ route('cms.items.edit', $item) }}" class="alert-link">Add stock variants</a>
+                    </div>
+                @endif
+
+                <!-- Raw Variants Data (for debugging/development) -->
+                @if(app()->environment('local') && !empty($variants))
+                    <div class="mt-4">
+                        <h6 class="text-muted mb-2">
+                            <small>Raw Variants Data ({{ count($variants) }} total entries)</small>
+                        </h6>
+                        <div class="bg-light p-3 rounded" style="max-height: 200px; overflow-y: auto;">
+                            <pre class="mb-0"><code>{{ json_encode($variants, JSON_PRETTY_PRINT) }}</code></pre>
+                        </div>
+                    </div>
+                @endif
             </div>
         </div>
 
@@ -541,6 +677,12 @@
                         <h4>{{ $measurementCount }}</h4>
                         <p class="text-muted">Sizes with Measurements</p>
                     </div>
+                    <hr>
+                    <div class="mb-4">
+                        <i class="fas fa-palette fa-2x text-info mb-2"></i>
+                        <h4>{{ count($item->variants_by_color ?? []) }}</h4>
+                        <p class="text-muted">Active Colors</p>
+                    </div>
                 </div>
             </div>
         </div>
@@ -563,6 +705,69 @@
                         @method('DELETE')
                     </form>
                 </div>
+            </div>
+        </div>
+
+        <!-- Variant Summary Card -->
+        <div class="card shadow mb-4">
+            <div class="card-header py-3">
+                <h6 class="m-0 font-weight-bold text-primary">Variant Summary</h6>
+            </div>
+            <div class="card-body">
+                @php
+                    $availableVariants = $item->available_variants ?? [];
+                    $totalStock = array_sum(array_column($availableVariants, 'stock'));
+                    $colorCount = count($item->variants_by_color ?? []);
+                    $sizeCount = count($item->variants_by_size ?? []);
+                @endphp
+
+                <div class="mb-3">
+                    <strong>Active Variants:</strong>
+                    <span class="float-right badge badge-info">{{ count($availableVariants) }}</span>
+                </div>
+
+                <div class="mb-3">
+                    <strong>Colors with Stock:</strong>
+                    <span class="float-right badge badge-success">{{ $colorCount }}</span>
+                </div>
+
+                <div class="mb-3">
+                    <strong>Sizes with Stock:</strong>
+                    <span class="float-right badge badge-warning">{{ $sizeCount }}</span>
+                </div>
+
+                <div class="mb-3">
+                    <strong>Total Stock Value:</strong>
+                    <span class="float-right text-success font-weight-bold">
+                        ${{ number_format($totalStock * $item->price, 2) }}
+                    </span>
+                </div>
+
+                @if(count($availableVariants) > 0)
+                    <hr>
+                    <h6 class="text-muted mb-2">Most Stocked Variants</h6>
+                    @php
+                        $topVariants = collect($availableVariants)
+                            ->sortByDesc('stock')
+                            ->take(3);
+                    @endphp
+                    <div class="list-group list-group-flush">
+                        @foreach($topVariants as $variant)
+                            <div class="list-group-item px-0 py-2">
+                                <div class="d-flex justify-content-between">
+                                    <span class="font-weight-bold">{{ $variant['color'] }}/{{ $variant['size'] }}</span>
+                                    <span class="badge
+                                        @if($variant['stock'] > 10) badge-success
+                                        @elseif($variant['stock'] > 0) badge-warning
+                                        @else badge-secondary
+                                        @endif">
+                                        {{ $variant['stock'] }} units
+                                    </span>
+                                </div>
+                            </div>
+                        @endforeach
+                    </div>
+                @endif
             </div>
         </div>
 
@@ -695,6 +900,18 @@
 
 .badge {
     font-size: 0.75em;
+}
+
+.progress-bar {
+    transition: width 0.6s ease;
+}
+
+.table th, .table td {
+    vertical-align: middle;
+}
+
+.border-left-primary {
+    border-left: 4px solid #4e73df !important;
 }
 </style>
 @endpush

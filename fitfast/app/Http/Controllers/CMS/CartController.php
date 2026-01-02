@@ -8,6 +8,9 @@ use App\Models\Item;
 use App\Models\CartItem;
 use Illuminate\Http\Request;
 use App\Http\Controllers\Controller;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
+
 
 class CartController extends Controller
 {
@@ -49,8 +52,8 @@ class CartController extends Controller
             'items' => 'required|array',
             'items.*.item_id' => 'required|exists:items,id',
             'items.*.quantity' => 'required|integer|min:1',
-            'items.*.selected_size' => 'nullable|string|max:50',
-            'items.*.selected_color' => 'required|string|max:50', // Now required
+            'items.*.selected_size' => 'required|string|max:50',
+            'items.*.selected_color' => 'required|string|max:50',
         ]);
 
         // Check if user already has a cart
@@ -61,35 +64,56 @@ class CartController extends Controller
         }
 
         $errors = [];
+        $successfulItems = [];
 
-        // Add items to cart with stock validation
+        // Add items to cart with variant stock validation
         foreach ($validated['items'] as $index => $itemData) {
             $item = Item::find($itemData['item_id']);
 
-            // Check color stock availability
-            if (!$this->checkColorStockAvailability($item, $itemData['selected_color'], $itemData['quantity'])) {
-                $errors[] = "Item '{$item->name}' color '{$itemData['selected_color']}' is out of stock or insufficient quantity.";
+            // Check color-size variant stock availability
+            if (!$this->checkVariantStockAvailability($item, $itemData['selected_color'], $itemData['selected_size'], $itemData['quantity'])) {
+                $errors[] = "Item '{$item->name}' in {$itemData['selected_color']}/{$itemData['selected_size']} has insufficient stock.";
                 continue;
             }
 
-            CartItem::create([
-                'cart_id' => $cart->id,
-                'item_id' => $itemData['item_id'],
-                'quantity' => $itemData['quantity'],
-                'selected_size' => $itemData['selected_size'] ?? null,
-                'selected_color' => $itemData['selected_color'],
-                'item_price' => $item->price,
-            ]);
+            try {
+                // Decrease variant stock using CartController method
+                if (!$this->decreaseVariantStock($item, $itemData['selected_color'], $itemData['selected_size'], $itemData['quantity'])) {
+                    throw new \Exception("Failed to decrease stock for {$item->name} in {$itemData['selected_color']}/{$itemData['selected_size']}");
+                }
 
-            // Decrease color stock
-            $this->decreaseColorStock($item, $itemData['selected_color'], $itemData['quantity']);
+                // Create cart item
+                $cartItem = CartItem::create([
+                    'cart_id' => $cart->id,
+                    'item_id' => $itemData['item_id'],
+                    'quantity' => $itemData['quantity'],
+                    'selected_size' => $itemData['selected_size'],
+                    'selected_color' => $itemData['selected_color'],
+                    'item_price' => $item->price,
+                ]);
+
+                $successfulItems[] = $cartItem;
+
+            } catch (\Exception $e) {
+                $errors[] = $e->getMessage();
+            }
         }
 
         $cart->updateTotal();
 
         if (!empty($errors)) {
+            // If there were any errors, rollback successful items too
+            if (!empty($successfulItems)) {
+                foreach ($successfulItems as $cartItem) {
+                    // Restore stock for successful items before showing error
+                    $item = Item::find($cartItem->item_id);
+                    $this->increaseVariantStock($item, $cartItem->selected_color, $cartItem->selected_size, $cartItem->quantity);
+                    $cartItem->delete();
+                }
+            }
+
             return redirect()->back()
-                ->with('warning', 'Cart created with some items unavailable: ' . implode(' ', $errors))
+                ->with('warning', 'Unable to add some items to cart: ' . implode(' ', $errors))
                 ->withInput();
         }
 
@@ -105,8 +129,8 @@ class CartController extends Controller
             'items.*.id' => 'nullable|exists:cart_items,id',
             'items.*.item_id' => 'required|exists:items,id',
             'items.*.quantity' => 'required|integer|min:1',
-            'items.*.selected_size' => 'nullable|string|max:50',
-            'items.*.selected_color' => 'required|string|max:50', // Now required
+            'items.*.selected_size' => 'required|string|max:50',
+            'items.*.selected_color' => 'required|string|max:50',
             'items_to_remove' => 'nullable|array',
         ]);
 
@@ -116,12 +140,13 @@ class CartController extends Controller
         }
 
         $errors = [];
+        $successfulUpdates = [];
 
         // First, restore stock for items being removed
         if (!empty($validated['items_to_remove'])) {
             $removedItems = CartItem::whereIn('id', $validated['items_to_remove'])->get();
             foreach ($removedItems as $removedItem) {
-                $this->increaseColorStock($removedItem->item, $removedItem->selected_color, $removedItem->quantity);
+                $this->increaseVariantStock($removedItem->item, $removedItem->selected_color, $removedItem->selected_size, $removedItem->quantity);
             }
             CartItem::whereIn('id', $validated['items_to_remove'])->delete();
         }
@@ -134,42 +159,67 @@ class CartController extends Controller
                 // Update existing item
                 $cartItem = CartItem::find($itemData['id']);
                 if ($cartItem) {
-                    // Restore old stock first
-                    $this->increaseColorStock($cartItem->item, $cartItem->selected_color, $cartItem->quantity);
+                    // Track changes for stock adjustment
+                    $oldQuantity = $cartItem->quantity;
+                    $oldColor = $cartItem->selected_color;
+                    $oldSize = $cartItem->selected_size;
 
-                    // Check new color stock availability
-                    if (!$this->checkColorStockAvailability($item, $itemData['selected_color'], $itemData['quantity'])) {
-                        $errors[] = "Item '{$item->name}' color '{$itemData['selected_color']}' is out of stock or insufficient quantity.";
-                        continue;
+                    $newQuantity = $itemData['quantity'];
+                    $newColor = $itemData['selected_color'];
+                    $newSize = $itemData['selected_size'];
+
+                    // Check if anything changed
+                    if ($oldQuantity != $newQuantity || $oldColor != $newColor || $oldSize != $newSize) {
+                        // Restore old stock first
+                        $this->increaseVariantStock($cartItem->item, $oldColor, $oldSize, $oldQuantity);
+
+                        // Check new variant stock availability
+                        if (!$this->checkVariantStockAvailability($item, $newColor, $newSize, $newQuantity)) {
+                            $errors[] = "Item '{$item->name}' in {$newColor}/{$newSize} has insufficient stock.";
+                            // Restore the original stock
+                            $this->decreaseVariantStock($item, $oldColor, $oldSize, $oldQuantity);
+                            continue;
+                        }
+
+                        // Decrease new variant stock
+                        if (!$this->decreaseVariantStock($item, $newColor, $newSize, $newQuantity)) {
+                            $errors[] = "Failed to update stock for {$item->name} in {$newColor}/{$newSize}";
+                            continue;
+                        }
                     }
 
                     $cartItem->update([
-                        'quantity' => $itemData['quantity'],
-                        'selected_size' => $itemData['selected_size'] ?? null,
-                        'selected_color' => $itemData['selected_color'],
+                        'quantity' => $newQuantity,
+                        'selected_size' => $newSize,
+                        'selected_color' => $newColor,
                         'item_price' => $item->price,
                     ]);
 
-                    // Decrease new color stock
-                    $this->decreaseColorStock($item, $itemData['selected_color'], $itemData['quantity']);
+                    $successfulUpdates[] = $cartItem;
                 }
             } else {
                 // Create new item
-                if (!$this->checkColorStockAvailability($item, $itemData['selected_color'], $itemData['quantity'])) {
-                    $errors[] = "Item '{$item->name}' color '{$itemData['selected_color']}' is out of stock or insufficient quantity.";
+                if (!$this->checkVariantStockAvailability($item, $itemData['selected_color'], $itemData['selected_size'], $itemData['quantity'])) {
+                    $errors[] = "Item '{$item->name}' in {$itemData['selected_color']}/{$itemData['selected_size']} has insufficient stock.";
                     continue;
                 }
 
-                CartItem::create([
+                // Decrease variant stock
+                if (!$this->decreaseVariantStock($item, $itemData['selected_color'], $itemData['selected_size'], $itemData['quantity'])) {
+                    $errors[] = "Failed to decrease stock for {$item->name} in {$itemData['selected_color']}/{$itemData['selected_size']}";
+                    continue;
+                }
+
+                $cartItem = CartItem::create([
                     'cart_id' => $cart->id,
                     'item_id' => $itemData['item_id'],
                     'quantity' => $itemData['quantity'],
-                    'selected_size' => $itemData['selected_size'] ?? null,
+                    'selected_size' => $itemData['selected_size'],
                     'selected_color' => $itemData['selected_color'],
                     'item_price' => $item->price,
                 ]);
 
-                $this->decreaseColorStock($item, $itemData['selected_color'], $itemData['quantity']);
+                $successfulUpdates[] = $cartItem;
             }
         }
 
@@ -185,8 +235,13 @@ class CartController extends Controller
             ->with('success', 'Cart updated successfully.');
     }
 
-        public function destroy(Cart $cart)
+    public function destroy(Cart $cart)
     {
+        // Restore stock for all items in the cart before deleting
+        foreach ($cart->cartItems as $cartItem) {
+            $this->increaseVariantStock($cartItem->item, $cartItem->selected_color, $cartItem->selected_size, $cartItem->quantity);
+        }
+
         $cart->cartItems()->delete();
         $cart->delete();
 
@@ -196,63 +251,131 @@ class CartController extends Controller
 
     public function clearCart(Cart $cart)
     {
-        $cart->clear();
+        // Restore stock for all items in the cart
+        foreach ($cart->cartItems as $cartItem) {
+            $this->increaseVariantStock($cartItem->item, $cartItem->selected_color, $cartItem->selected_size, $cartItem->quantity);
+        }
+
+        $cart->cartItems()->delete();
+        $cart->updateTotal();
 
         return redirect()->route('cms.carts.show', $cart)
             ->with('success', 'Cart cleared successfully.');
     }
 
     /**
-     * Check if color stock is available
+     * NEW METHODS FOR COLOR-SIZE VARIANT SYSTEM
      */
-    private function checkColorStockAvailability(Item $item, string $color, int $quantity): bool
+
+    private function checkVariantStockAvailability(Item $item, string $color, string $size, int $quantity): bool
     {
-        return $item->isColorInStock($color, $quantity);
+        $variants = $item->variants ?? [];
+
+        foreach ($variants as $variant) {
+            if (isset($variant['color'], $variant['size'], $variant['stock'])) {
+                // Case-insensitive comparison
+                if (strtolower($variant['color']) === strtolower($color) &&
+                    strtoupper($variant['size']) === strtoupper($size)) {
+                    return $variant['stock'] >= $quantity;
+                }
+            }
+        }
+
+        return false;
     }
 
-    /**
-     * Decrease color stock for an item
-     */
-    private function decreaseColorStock(Item $item, string $color, int $quantity): void
+    private function decreaseVariantStock(Item $item, string $color, string $size, int $quantity): bool
     {
-        $item->decreaseColorStock($color, $quantity);
+        Log::info('Decreasing variant stock', [
+            'item_id' => $item->id,
+            'color' => $color,
+            'size' => $size,
+            'quantity' => $quantity,
+            'variants_before' => $item->variants
+        ]);
+
+        $variants = $item->variants ?? [];
+        $updated = false;
+
+        foreach ($variants as $index => &$variant) {
+            if (isset($variant['color'], $variant['size'], $variant['stock'])) {
+                if (strtolower($variant['color']) === strtolower($color) &&
+                    strtoupper($variant['size']) === strtoupper($size)) {
+
+                    if ($variant['stock'] >= $quantity) {
+                        $variant['stock'] -= $quantity;
+
+                        // If stock becomes 0, remove the variant
+                        if ($variant['stock'] <= 0) {
+                            unset($variants[$index]);
+                        }
+
+                        $updated = true;
+                        break;
+                    }
+                }
+            }
+        }
+
+        if ($updated) {
+            $item->variants = $variants;
+            $item->updateAggregatedStock();
+
+            Log::info('Decreasing variant stock successful', [
+                'item_id' => $item->id,
+                'variants_after' => $item->variants
+            ]);
+
+            return $item->save();
+        }
+
+        Log::error('Failed to decrease variant stock', [
+            'item_id' => $item->id,
+            'color' => $color,
+            'size' => $size,
+            'quantity' => $quantity
+        ]);
+
+        return false;
     }
 
-    /**
-     * Increase color stock for an item (when cart items are removed)
-     */
-    private function increaseColorStock(Item $item, string $color, int $quantity): void
+    private function increaseVariantStock(Item $item, string $color, string $size, int $quantity): bool
     {
-        $item->increaseColorStock($color, $quantity);
+        Log::info('Increasing variant stock', [
+            'item_id' => $item->id,
+            'color' => $color,
+            'size' => $size,
+            'quantity' => $quantity
+        ]);
+
+        $variants = $item->variants ?? [];
+        $found = false;
+
+        foreach ($variants as &$variant) {
+            if (isset($variant['color'], $variant['size'])) {
+                if (strtolower($variant['color']) === strtolower($color) &&
+                    strtoupper($variant['size']) === strtoupper($size)) {
+
+                    $variant['stock'] = ($variant['stock'] ?? 0) + $quantity;
+                    $found = true;
+                    break;
+                }
+            }
+        }
+
+        if (!$found) {
+            // Create new variant entry
+            $key = strtolower($color) . '_' . strtoupper($size);
+            $variants[$key] = [
+                'color' => $color,
+                'size' => $size,
+                'stock' => $quantity
+            ];
+        }
+
+        $item->variants = $variants;
+        $item->updateAggregatedStock();
+
+        return $item->save();
     }
-
-   // Add to CartController.php
-// In CartController.php
-public function getUserCarts(User $user, Request $request)
-{
-    $storeId = $request->get('store_id');
-
-    $query = Cart::with(['cartItems.item.store'])
-        ->where('user_id', $user->id)
-        ->whereHas('cartItems');
-
-    // Filter by store if provided
-    if ($storeId) {
-        $query->whereHas('cartItems.item', function($q) use ($storeId) {
-            $q->where('store_id', $storeId);
-        });
-    }
-
-    $carts = $query->get()->map(function ($cart) {
-        return [
-            'id' => $cart->id,
-            'total_items' => $cart->total_items,
-            'cart_total' => $cart->cart_total,
-            'formatted_total' => number_format($cart->cart_total, 2),
-            'last_activity' => $cart->last_activity,
-        ];
-    });
-
-    return response()->json($carts);
-}
 }

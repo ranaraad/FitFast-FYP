@@ -8,7 +8,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Support\Facades\DB;
-
+use Illuminate\Support\Facades\Log;
 class Item extends Model
 {
     use HasFactory;
@@ -29,6 +29,7 @@ class Item extends Model
         'stock_quantity',
         'garment_type',
         'size_stock',
+        'variants', // Added for color-size variant support
     ];
 
     protected $casts = [
@@ -37,6 +38,7 @@ class Item extends Model
         'stock_quantity' => 'integer',
         'size_stock' => 'array',
         'color_variants' => 'array',
+        'variants' => 'array',
     ];
 
     /**
@@ -406,11 +408,228 @@ class Item extends Model
     }
 
     /**
-     * STOCK MANAGEMENT METHODS
+     * STOCK MANAGEMENT METHODS - NEW COLOR-SIZE VARIANT SYSTEM
      */
 
     /**
-     * Get stock quantity for a specific size
+     * Get variant key for storage
+     */
+    private function getVariantKey($color, $size)
+    {
+        return strtolower($color) . '_' . strtoupper($size);
+    }
+
+    /**
+     * Update aggregated stock data from variants
+     */
+    public function updateAggregatedStock()
+    {
+        $variants = $this->variants ?? [];
+        $colorVariants = [];
+        $sizeStock = [];
+        $totalStock = 0;
+
+        foreach ($variants as $variant) {
+            if (isset($variant['stock']) && $variant['stock'] > 0) {
+                $color = $variant['color'];
+                $size = $variant['size'];
+                $stock = $variant['stock'];
+
+                // Update color variants
+                if (!isset($colorVariants[$color])) {
+                    $colorVariants[$color] = [
+                        'name' => $color,
+                        'stock' => 0
+                    ];
+                }
+                $colorVariants[$color]['stock'] += $stock;
+
+                // Update size stock
+                if (!isset($sizeStock[$size])) {
+                    $sizeStock[$size] = 0;
+                }
+                $sizeStock[$size] += $stock;
+
+                $totalStock += $stock;
+            }
+        }
+
+        $this->color_variants = $colorVariants;
+        $this->size_stock = $sizeStock;
+        $this->stock_quantity = $totalStock;
+    }
+
+    /**
+     * Get stock for a specific color-size variant
+     */
+    public function getVariantStock($color, $size)
+    {
+        $variants = $this->variants ?? [];
+        $key = $this->getVariantKey($color, $size);
+
+        // First check for the key-based entry (like "blue_M")
+        if (isset($variants[$key])) {
+            return $variants[$key]['stock'] ?? 0;
+        }
+
+        // If not found, search through numeric indexed entries
+        foreach ($variants as $variant) {
+            if (isset($variant['color'], $variant['size'], $variant['stock'])) {
+                // Case-insensitive comparison
+                if (strtolower($variant['color']) === strtolower($color) &&
+                    strtoupper($variant['size']) === strtoupper($size)) {
+                    return $variant['stock'];
+                }
+            }
+        }
+
+        return 0;
+    }
+
+    /**
+     * Set stock for a specific color-size variant
+     */
+    public function setVariantStock($color, $size, $quantity)
+    {
+        $variants = $this->variants ?? [];
+        $key = $this->getVariantKey($color, $size);
+
+        if ($quantity > 0) {
+            // Check if variant already exists (numeric or key-based)
+            $found = false;
+            foreach ($variants as $index => $variant) {
+                if (isset($variant['color'], $variant['size'])) {
+                    if (strtolower($variant['color']) === strtolower($color) &&
+                        strtoupper($variant['size']) === strtoupper($size)) {
+                        // Update existing variant
+                        if (is_string($index)) {
+                            // It's a key-based entry like "blue_M"
+                            $variants[$index]['stock'] = max(0, $quantity);
+                        } else {
+                            // It's a numeric indexed entry
+                            $variants[$index]['stock'] = max(0, $quantity);
+                        }
+                        $found = true;
+                        break;
+                    }
+                }
+            }
+
+            if (!$found) {
+                // Create new variant with key-based entry
+                $variants[$key] = [
+                    'color' => $color,
+                    'size' => $size,
+                    'stock' => max(0, $quantity)
+                ];
+            }
+        } else {
+            // Remove variant if quantity is 0 or less
+            foreach ($variants as $index => $variant) {
+                if (isset($variant['color'], $variant['size'])) {
+                    if (strtolower($variant['color']) === strtolower($color) &&
+                        strtoupper($variant['size']) === strtoupper($size)) {
+                        unset($variants[$index]);
+                        break;
+                    }
+                }
+            }
+        }
+
+        $this->variants = $variants;
+
+        // Update aggregated data
+        $this->updateAggregatedStock();
+    }
+
+    /**
+     * Decrease stock for a variant
+     */
+    public function decreaseVariantStock($color, $size, $quantity = 1): bool
+    {
+        $currentStock = $this->getVariantStock($color, $size);
+        if ($currentStock >= $quantity) {
+            $this->setVariantStock($color, $size, $currentStock - $quantity);
+            return true;
+        }
+        return false;
+    }
+
+    /**
+     * Increase stock for a variant
+     */
+    public function increaseVariantStock($color, $size, $quantity = 1): void
+    {
+        $currentStock = $this->getVariantStock($color, $size);
+        $this->setVariantStock($color, $size, $currentStock + $quantity);
+    }
+
+    /**
+     * Get available variants (with stock > 0)
+     */
+    public function getAvailableVariantsAttribute()
+    {
+        $available = [];
+        $variants = $this->variants ?? [];
+
+        foreach ($variants as $variant) {
+            if (($variant['stock'] ?? 0) > 0) {
+                $available[] = $variant;
+            }
+        }
+
+        return $available;
+    }
+
+    /**
+     * Get variants grouped by color
+     */
+    public function getVariantsByColorAttribute()
+    {
+        $grouped = [];
+        $variants = $this->variants ?? [];
+
+        foreach ($variants as $variant) {
+            if (($variant['stock'] ?? 0) > 0) {
+                $color = $variant['color'];
+                if (!isset($grouped[$color])) {
+                    $grouped[$color] = [];
+                }
+                $grouped[$color][] = $variant;
+            }
+        }
+
+        return $grouped;
+    }
+
+    /**
+     * Get variants grouped by size
+     */
+    public function getVariantsBySizeAttribute()
+    {
+        $grouped = [];
+        $variants = $this->variants ?? [];
+
+        foreach ($variants as $variant) {
+            if (($variant['stock'] ?? 0) > 0) {
+                $size = $variant['size'];
+                if (!isset($grouped[$size])) {
+                    $grouped[$size] = [];
+                }
+                $grouped[$size][] = $variant;
+            }
+        }
+
+        return $grouped;
+    }
+
+    /**
+     * DEPRECATED/LEGACY METHODS - For backward compatibility
+     * These should be phased out as we move to the new variant system
+     */
+
+    /**
+     * Get stock quantity for a specific size (Legacy)
      */
     public function getSizeStock($size)
     {
@@ -419,20 +638,7 @@ class Item extends Model
     }
 
     /**
-     * Set stock quantity for a specific size
-     */
-    public function setSizeStock($size, $quantity)
-    {
-        $sizeStock = $this->size_stock ?? [];
-        $sizeStock[$size] = max(0, $quantity);
-        $this->size_stock = $sizeStock;
-
-        // Update total stock quantity
-        $this->stock_quantity = array_sum($sizeStock);
-    }
-
-    /**
-     * Get available sizes (sizes with stock > 0)
+     * Get available sizes (sizes with stock > 0) (Legacy)
      */
     public function getAvailableSizesAttribute()
     {
@@ -449,7 +655,7 @@ class Item extends Model
     }
 
     /**
-     * Check if a specific size is in stock
+     * Check if a specific size is in stock (Legacy)
      */
     public function isSizeInStock($size)
     {
@@ -457,29 +663,7 @@ class Item extends Model
     }
 
     /**
-     * Decrease stock for a specific size
-     */
-    public function decreaseSizeStock($size, $quantity = 1)
-    {
-        $currentStock = $this->getSizeStock($size);
-        if ($currentStock >= $quantity) {
-            $this->setSizeStock($size, $currentStock - $quantity);
-            return true;
-        }
-        return false;
-    }
-
-    /**
-     * Increase stock for a specific size
-     */
-    public function increaseSizeStock($size, $quantity = 1)
-    {
-        $currentStock = $this->getSizeStock($size);
-        $this->setSizeStock($size, $currentStock + $quantity);
-    }
-
-    /**
-     * Get available colors with stock information
+     * Get available colors with stock information (Legacy)
      */
     public function getAvailableColorsAttribute()
     {
@@ -496,7 +680,7 @@ class Item extends Model
     }
 
     /**
-     * Get stock for a specific color
+     * Get stock for a specific color (Legacy)
      */
     public function getColorStock($color)
     {
@@ -505,35 +689,7 @@ class Item extends Model
     }
 
     /**
-     * Set stock for a specific color
-     */
-    public function setColorStock($color, $quantity)
-    {
-        $colorVariants = $this->color_variants ?? [];
-
-        if (!isset($colorVariants[$color])) {
-            $colorVariants[$color] = ['name' => $color, 'stock' => 0];
-        }
-
-        $colorVariants[$color]['stock'] = max(0, $quantity);
-        $this->color_variants = $colorVariants;
-
-        // Update total stock quantity
-        $this->stock_quantity = $this->calculateTotalStock();
-    }
-
-    /**
-     * Get stock for a specific color and size combination
-     */
-    public function getVariantStock($color, $size = null)
-    {
-        // For now, we'll use color stock. In a real system, you might want
-        // to track stock per color-size combination
-        return $this->getColorStock($color);
-    }
-
-    /**
-     * Check if a color is available
+     * Check if a color is available (Legacy)
      */
     public function isColorInStock($color, $quantity = 1)
     {
@@ -541,7 +697,7 @@ class Item extends Model
     }
 
     /**
-     * Get default color (first available color)
+     * Get default color (first available color) (Legacy)
      */
     public function getDefaultColorAttribute()
     {
@@ -550,40 +706,46 @@ class Item extends Model
     }
 
     /**
-     * Calculate total stock from all color variants
+     * Calculate total stock (Legacy - now uses aggregated data)
      */
     public function calculateTotalStock()
     {
-        $colorVariants = $this->color_variants ?? [];
-        $total = 0;
-
-        foreach ($colorVariants as $colorData) {
-            $total += $colorData['stock'] ?? 0;
-        }
-
-        return $total;
+        return $this->stock_quantity;
     }
 
     /**
-     * Decrease stock for a specific color
+     * Decrease stock for a specific color (Legacy)
      */
-    public function decreaseColorStock($color, $quantity = 1)
+    public function decreaseColorStock($color, $quantity = 1): bool
     {
+        // Try to use variant system first
+        $availableSizes = $this->available_sizes;
+        foreach ($availableSizes as $size) {
+            if ($this->getVariantStock($color, $size) >= $quantity) {
+                return $this->decreaseVariantStock($color, $size, $quantity);
+            }
+        }
+
+        // Fall back to legacy method
         $currentStock = $this->getColorStock($color);
         if ($currentStock >= $quantity) {
-            $this->setColorStock($color, $currentStock - $quantity);
-            return true;
+            $colorVariants = $this->color_variants ?? [];
+            $colorVariants[$color]['stock'] = $currentStock - $quantity;
+            $this->color_variants = $colorVariants;
+            $this->stock_quantity = $this->calculateTotalStock();
+            return $this->save();
         }
         return false;
     }
 
     /**
-     * Increase stock for a specific color
+     * Increase stock for a specific color (Legacy)
      */
-    public function increaseColorStock($color, $quantity = 1)
+    public function increaseColorStock($color, $quantity = 1): void
     {
-        $currentStock = $this->getColorStock($color);
-        $this->setColorStock($color, $currentStock + $quantity);
+        // For legacy support, we need to distribute to a default size
+        $defaultSize = 'M'; // Default to medium
+        $this->increaseVariantStock($color, $defaultSize, $quantity);
     }
 
     /**
@@ -781,11 +943,11 @@ class Item extends Model
      */
     public function isInStock(): bool
     {
-        return $this->calculateTotalStock() > 0;
+        return $this->stock_quantity > 0;
     }
 
     /**
-     * Decrease stock quantity.
+     * Decrease stock quantity (Legacy - use variant methods instead)
      */
     public function decreaseStock(int $quantity = 1): bool
     {
@@ -797,7 +959,7 @@ class Item extends Model
     }
 
     /**
-     * Increase stock quantity.
+     * Increase stock quantity (Legacy - use variant methods instead)
      */
     public function increaseStock(int $quantity = 1): void
     {
@@ -821,7 +983,7 @@ class Item extends Model
     }
 
     /**
-     * Get stock status for a size
+     * Get stock status for a size (Legacy)
      */
     public function getSizeStockStatus($size): string
     {
@@ -880,9 +1042,18 @@ class Item extends Model
         return $descriptions[$measurement] ?? 'Garment measurement';
     }
 
-    public function safeDecreaseStock(int $quantity = 1, $color = null): bool
+    /**
+     * SAFE STOCK METHODS WITH RACE CONDITION PROTECTION
+     */
+
+    public function safeDecreaseStock(int $quantity = 1, $color = null, $size = null): bool
     {
-        // If using color variants, decrease color stock safely
+        // If both color and size are provided, use variant system
+        if ($color && $size) {
+            return $this->safeDecreaseVariantStock($color, $size, $quantity);
+        }
+
+        // If only color is provided, use color-based legacy system
         if ($color && !empty($this->color_variants)) {
             return $this->safeDecreaseColorStock($color, $quantity);
         }
@@ -903,7 +1074,38 @@ class Item extends Model
     }
 
     /**
-     * SAFELY decrease color stock - prevents overselling
+     * SAFELY decrease variant stock - prevents overselling
+     */
+    public function safeDecreaseVariantStock($color, $size, $quantity = 1): bool
+    {
+        $variants = $this->variants ?? [];
+        $key = $this->getVariantKey($color, $size);
+
+        if (!isset($variants[$key])) {
+            return false;
+        }
+
+        $currentStock = $variants[$key]['stock'] ?? 0;
+
+        if ($currentStock < $quantity) {
+            return false;
+        }
+
+        // Update variant stock
+        $variants[$key]['stock'] = $currentStock - $quantity;
+        if ($variants[$key]['stock'] <= 0) {
+            unset($variants[$key]);
+        }
+
+        // Update the database with the new variants and recalculate aggregates
+        $this->variants = $variants;
+        $this->updateAggregatedStock();
+
+        return $this->save();
+    }
+
+    /**
+     * SAFELY decrease color stock - prevents overselling (Legacy)
      */
     public function safeDecreaseColorStock($color, $quantity = 1): bool
     {
@@ -932,20 +1134,33 @@ class Item extends Model
     /**
      * Check if item can fulfill order (has enough stock)
      */
-    public function canFulfillOrder($quantity, $color = null): bool
+    public function canFulfillOrder($quantity, $color = null, $size = null): bool
     {
+        // If both color and size are provided, check variant stock
+        if ($color && $size) {
+            return $this->getVariantStock($color, $size) >= $quantity;
+        }
+
+        // If only color is provided, check color stock
         if ($color && !empty($this->color_variants)) {
             return $this->getColorStock($color) >= $quantity;
         }
 
+        // Otherwise check total stock
         return $this->stock_quantity >= $quantity;
     }
 
     /**
      * SAFELY increase stock (for returns/cancellations)
      */
-    public function safeIncreaseStock(int $quantity = 1, $color = null): bool
+    public function safeIncreaseStock(int $quantity = 1, $color = null, $size = null): bool
     {
+        // If both color and size are provided, use variant system
+        if ($color && $size) {
+            return $this->safeIncreaseVariantStock($color, $size, $quantity);
+        }
+
+        // If only color is provided, use color-based legacy system
         if ($color && !empty($this->color_variants)) {
             return $this->safeIncreaseColorStock($color, $quantity);
         }
@@ -955,7 +1170,33 @@ class Item extends Model
     }
 
     /**
-     * SAFELY increase color stock
+     * SAFELY increase variant stock
+     */
+    public function safeIncreaseVariantStock($color, $size, $quantity = 1): bool
+    {
+        $variants = $this->variants ?? [];
+        $key = $this->getVariantKey($color, $size);
+
+        if (!isset($variants[$key])) {
+            $variants[$key] = [
+                'color' => $color,
+                'size' => $size,
+                'stock' => 0
+            ];
+        }
+
+        $currentStock = $variants[$key]['stock'] ?? 0;
+        $variants[$key]['stock'] = $currentStock + $quantity;
+        $this->variants = $variants;
+
+        // Update aggregated data
+        $this->updateAggregatedStock();
+
+        return $this->save();
+    }
+
+    /**
+     * SAFELY increase color stock (Legacy)
      */
     public function safeIncreaseColorStock($color, $quantity = 1): bool
     {
@@ -973,5 +1214,22 @@ class Item extends Model
         $this->stock_quantity = $this->calculateTotalStock();
 
         return $this->save();
+    }
+
+    // In Item model, add this method:
+    public function getVariantStockDebug($color, $size)
+    {
+        $variants = $this->variants ?? [];
+        $key = $this->getVariantKey($color, $size);
+
+        Log::info('Variant stock debug', [
+            'color' => $color,
+            'size' => $size,
+            'key' => $key,
+            'variants' => $variants,
+            'found' => $variants[$key] ?? 'not found'
+        ]);
+
+        return $variants[$key]['stock'] ?? 0;
     }
 }

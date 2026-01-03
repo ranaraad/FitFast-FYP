@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import api from "./api";
 import {
@@ -312,6 +312,22 @@ export default function ProfilePage() {
   const [deleteError, setDeleteError] = useState("");
   const [activeOrder, setActiveOrder] = useState(null);
   const [showOrderModal, setShowOrderModal] = useState(false);
+  const measurementsRef = useRef(null);
+  const ordersRef = useRef(null);
+  const settingsRef = useRef(null);
+  const wishlistRef = useRef(null);
+
+  const sectionLinks = useMemo(
+    () => [
+      { id: "measurements", label: "Measurements", ref: measurementsRef },
+      { id: "orders", label: "Orders", ref: ordersRef },
+      { id: "settings", label: "Settings", ref: settingsRef },
+      { id: "wishlist", label: "Wishlist", ref: wishlistRef },
+    ],
+    [measurementsRef, ordersRef, settingsRef, wishlistRef]
+  );
+
+  const [activeSection, setActiveSection] = useState(sectionLinks[0]?.id ?? "measurements");
 
   useEffect(() => {
     async function fetchUser() {
@@ -429,6 +445,37 @@ export default function ProfilePage() {
     writeStoredJson(paymentStorageKey, paymentMethods);
   }, [paymentStorageKey, paymentMethods]);
 
+  useEffect(() => {
+    if (!isBrowser) return undefined;
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        const visible = entries
+          .filter((entry) => entry.isIntersecting)
+          .sort((a, b) => b.intersectionRatio - a.intersectionRatio);
+
+        if (visible.length) {
+          const topSection = visible[0].target.getAttribute("data-section-id");
+          if (topSection) {
+            setActiveSection((prev) => (prev === topSection ? prev : topSection));
+          }
+        }
+      },
+      {
+        rootMargin: "-45% 0px -45% 0px",
+        threshold: [0.25, 0.5, 0.75],
+      }
+    );
+
+    sectionLinks.forEach(({ ref }) => {
+      if (ref.current) {
+        observer.observe(ref.current);
+      }
+    });
+
+    return () => observer.disconnect();
+  }, [sectionLinks]);
+
 
   const handleChange = (e) => {
     const { name, value } = e.target;
@@ -506,6 +553,23 @@ export default function ProfilePage() {
 
     const itemsLabel = `${itemCount} ${itemCount === 1 ? "item" : "items"}`;
     return datePart ? `${itemsLabel} • ${datePart}` : itemsLabel;
+  };
+
+  const handleSidebarNavigate = (sectionId) => {
+    const target = sectionLinks.find((entry) => entry.id === sectionId);
+    if (target?.ref.current) {
+      target.ref.current.scrollIntoView({ behavior: "smooth", block: "start" });
+      if (typeof target.ref.current.focus === "function") {
+        if (typeof window !== "undefined" && typeof window.requestAnimationFrame === "function") {
+          window.requestAnimationFrame(() => {
+            target.ref.current?.focus({ preventScroll: true });
+          });
+        } else {
+          target.ref.current.focus();
+        }
+      }
+    }
+    setActiveSection(sectionId);
   };
 
   const handleTogglePasswordModal = () => {
@@ -780,312 +844,356 @@ export default function ProfilePage() {
 
   return (
     <div className="profile-page">
-      <div className="profile-card">
-        {/* Header */}
-        <div className="profile-header">
-          <div className="avatar-circle">{initials}</div>
-
-          <div className="profile-header-text">
-            <h2 className="profile-title">Welcome, {user.name}</h2>
-            <p className="profile-email">{user.email}</p>
-          </div>
-        </div>
-
-        {message && (
-          <div className={messageType === "error" ? "error" : "success"}>
-            {message}
-          </div>
-        )}
-
-        {/* Measurements */}
-        <div className="profile-section">
-          <div className="section-header">
-            <h3>Body Measurements</h3>
-
-            {!editing && (
+      <div className="profile-layout">
+        <aside className="profile-sidebar" aria-label="Account quick links">
+          <p className="sidebar-title">Quick access</p>
+          <nav className="sidebar-nav" aria-label="Account sections">
+            {sectionLinks.map((section) => (
               <button
                 type="button"
-                className="edit-icon-btn"
-                onClick={() => setEditing(true)}
-                aria-label="Edit measurements"
-                title="Edit measurements"
+                key={section.id}
+                className={`sidebar-link${activeSection === section.id ? " active" : ""}`}
+                onClick={() => handleSidebarNavigate(section.id)}
+                aria-current={activeSection === section.id ? "true" : undefined}
               >
-                ✏️
+                {section.label}
               </button>
+            ))}
+          </nav>
+        </aside>
+        <div className="profile-content">
+          <div
+            ref={measurementsRef}
+            id="measurements"
+            data-section-id="measurements"
+            className="profile-card"
+            tabIndex={-1}
+          >
+            {/* Header */}
+            <div className="profile-header">
+              <div className="avatar-circle">{initials}</div>
+
+              <div className="profile-header-text">
+                <h2 className="profile-title">Welcome, {user.name}</h2>
+                <p className="profile-email">{user.email}</p>
+              </div>
+            </div>
+
+            {message && (
+              <div className={messageType === "error" ? "error" : "success"}>
+                {message}
+              </div>
+            )}
+
+            {/* Measurements */}
+            <div className="profile-section">
+              <div className="section-header">
+                <h3>Body Measurements</h3>
+
+                {!editing && (
+                  <button
+                    type="button"
+                    className="edit-icon-btn"
+                    onClick={() => setEditing(true)}
+                    aria-label="Edit measurements"
+                    title="Edit measurements"
+                  >
+                    ✏️
+                  </button>
+                )}
+              </div>
+
+              {!editing ? (
+                <div className="measurements-display">
+                  {!hasMeasurements ? (
+                    <div className="empty-state">
+                      <div className="empty-icon">📏</div>
+                      <div>No measurements yet.</div>
+                      <div className="empty-hint">
+                        Add them to get better size recommendations.
+                      </div>
+                    </div>
+                  ) : (
+                    <ul className="measurements-list">
+                      {Object.entries(measurements).map(([key, value]) => (
+                        <li className="measurement-item" key={key}>
+                          <span className="measurement-label">{formatLabel(key)}</span>
+                          <span className="measurement-value">{value ? value : "—"}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                </div>
+              ) : (
+                <div className="measurements-form">
+                  <div className="form-grid">
+                    {Object.entries(measurements).map(([key, value]) => {
+                      const isSelect = key === "body_shape" || key === "fit_preference";
+
+                      return (
+                        <div className="form-group" key={key}>
+                          <label htmlFor={key}>{formatLabel(key)}</label>
+
+                          {isSelect ? (
+                            <select
+                              id={key}
+                              name={key}
+                              value={value}
+                              onChange={handleChange}
+                            >
+                              <option value="">—</option>
+
+                              {key === "body_shape" && (
+                                <>
+                                  <option value="hourglass">Hourglass</option>
+                                  <option value="pear">Pear</option>
+                                  <option value="apple">Apple</option>
+                                  <option value="rectangle">Rectangle</option>
+                                  <option value="inverted_triangle">
+                                    Inverted Triangle
+                                  </option>
+                                </>
+                              )}
+
+                              {key === "fit_preference" && (
+                                <>
+                                  <option value="tight">Tight</option>
+                                  <option value="regular">Regular</option>
+                                  <option value="loose">Loose</option>
+                                </>
+                              )}
+                            </select>
+                          ) : (
+                            <div className="input-with-unit profile-input-unit">
+                              <input
+                                id={key}
+                                type="number"
+                                step="0.1"
+                                name={key}
+                                value={value}
+                                onChange={handleChange}
+                                placeholder="—"
+                              />
+
+                              {(key.endsWith("_cm") || key.endsWith("_kg")) && (
+                                <span className="unit-label">
+                                  {key.endsWith("_cm") ? "cm" : "kg"}
+                                </span>
+                              )}
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+
+                  <div className="form-actions">
+                    <button type="button" className="save-btn" onClick={handleSave}>
+                      💾 Save
+                    </button>
+                    <button type="button" className="secondary-btn" onClick={handleCancel}>
+                      Cancel
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+
+          <div
+            ref={ordersRef}
+            id="orders"
+            data-section-id="orders"
+            className="profile-section"
+            tabIndex={-1}
+          >
+            <div className="section-header">
+              <h3>Order History</h3>
+              {hasOrders && <span className="pill-count">{resolvedOrders.length} orders</span>}
+            </div>
+
+            {!hasOrders ? (
+              <div className="measurements-display">
+                <div className="empty-state">
+                  <div className="empty-icon">🛍️</div>
+                  <div>No orders yet.</div>
+                  <div className="empty-hint">When you shop, your order timeline will appear here.</div>
+                </div>
+              </div>
+            ) : (
+              <div className="orders-timeline">
+                {resolvedOrders.map((order) => (
+                  <div className="order-card" key={order.id}>
+                    <div className="order-row">
+                      <div>
+                        <p className="order-id">{order.id}</p>
+                        <p className="order-details">{formatOrderSummary(order)}</p>
+                      </div>
+                      <div className="order-status-stack">
+                        <span className={statusClassName(order.status)}>{order.status}</span>
+                        <span className="order-total">{formatPrice(order.total)}</span>
+                      </div>
+                    </div>
+
+                    <div className="order-actions">
+                      {order.trackable && (
+                        <button
+                          type="button"
+                          className="secondary-btn small"
+                          onClick={() => handleTrackOrder(order)}
+                        >
+                          Track order
+                        </button>
+                      )}
+                      <button
+                        type="button"
+                        className="ghost-btn small"
+                        onClick={() => handleViewOrderDetails(order)}
+                      >
+                        View details
+                      </button>
+                      <button
+                        type="button"
+                        className="ghost-btn small"
+                        onClick={() => handleOrderSupport(order)}
+                      >
+                        Get support
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
             )}
           </div>
 
-          {!editing ? (
-            <div className="measurements-display">
-              {!hasMeasurements ? (
-                <div className="empty-state">
-                  <div className="empty-icon">📏</div>
-                  <div>No measurements yet.</div>
-                  <div className="empty-hint">
-                    Add them to get better size recommendations.
-                  </div>
+          <div
+            ref={settingsRef}
+            id="settings"
+            data-section-id="settings"
+            className="profile-section"
+            tabIndex={-1}
+          >
+            <div className="section-header">
+              <h3>Account Settings</h3>
+            </div>
+
+            <div className="settings-grid">
+              <div className="setting-card">
+                <div>
+                  <p className="setting-title">Security</p>
+                  <p className="setting-description">Update your password to keep your account protected.</p>
                 </div>
-              ) : (
-                <ul className="measurements-list">
-                  {Object.entries(measurements).map(([key, value]) => (
-                    <li className="measurement-item" key={key}>
-                      <span className="measurement-label">{formatLabel(key)}</span>
-                      <span className="measurement-value">{value ? value : "—"}</span>
-                    </li>
-                  ))}
-                </ul>
+                <button type="button" className="secondary-btn" onClick={handleTogglePasswordModal}>
+                  Change password
+                </button>
+              </div>
+              <div className="setting-card">
+                <div>
+                  <p className="setting-title">Billing</p>
+                  <p className="setting-description">Manage your saved cards and billing contacts.</p>
+                </div>
+                <button type="button" className="ghost-btn" onClick={handleToggleBillingModal}>
+                  Manage billing
+                </button>
+              </div>
+              <div className="setting-card critical">
+                <div>
+                  <p className="setting-title">Delete account</p>
+                  <p className="setting-description">Remove your profile permanently, including orders and measurements.</p>
+                </div>
+                <button type="button" className="danger-btn" onClick={openDeleteModal}>
+                  Delete account
+                </button>
+              </div>
+            </div>
+
+            <div className="logout-card">
+              <div className="logout-copy">
+                <p className="logout-title">Ready to head out?</p>
+                <p className="logout-description">Sign out safely — we’ll be here when you return.</p>
+              </div>
+              <button type="button" className="primary-btn" onClick={handleLogout}>
+                Log out
+              </button>
+            </div>
+          </div>
+
+          <div
+            ref={wishlistRef}
+            id="wishlist"
+            data-section-id="wishlist"
+            className="profile-section"
+            tabIndex={-1}
+          >
+            <div className="section-header wishlist-header">
+              <h3>Wishlist</h3>
+              {hasWishlist && (
+                <span className="pill-count">{wishlistItems.length} saved</span>
               )}
             </div>
-          ) : (
-            <div className="measurements-form">
-              <div className="form-grid">
-                {Object.entries(measurements).map(([key, value]) => {
-                  const isSelect = key === "body_shape" || key === "fit_preference";
+
+            {!hasWishlist ? (
+              <div className="measurements-display">
+                <div className="empty-state">
+                  <div className="empty-icon">💖</div>
+                  <div>No wishlist items yet.</div>
+                  <div className="empty-hint">
+                    Add favorites while browsing stores to see them here.
+                  </div>
+                </div>
+              </div>
+            ) : (
+              <div className="wishlist-grid">
+                {wishlistItems.map((item) => {
+                  const key = `${item.storeId}-${item.id}`;
+                  const displayPrice = formatPrice(item.price);
 
                   return (
-                    <div className="form-group" key={key}>
-                      <label htmlFor={key}>{formatLabel(key)}</label>
-
-                      {isSelect ? (
-                        <select
-                          id={key}
-                          name={key}
-                          value={value}
-                          onChange={handleChange}
-                        >
-                          <option value="">—</option>
-
-                          {key === "body_shape" && (
-                            <>
-                              <option value="hourglass">Hourglass</option>
-                              <option value="pear">Pear</option>
-                              <option value="apple">Apple</option>
-                              <option value="rectangle">Rectangle</option>
-                              <option value="inverted_triangle">
-                                Inverted Triangle
-                              </option>
-                            </>
-                          )}
-
-                          {key === "fit_preference" && (
-                            <>
-                              <option value="tight">Tight</option>
-                              <option value="regular">Regular</option>
-                              <option value="loose">Loose</option>
-                            </>
-                          )}
-                        </select>
-                      ) : (
-                        <div className="input-with-unit profile-input-unit">
-                          <input
-                            id={key}
-                            type="number"
-                            step="0.1"
-                            name={key}
-                            value={value}
-                            onChange={handleChange}
-                            placeholder="—"
-                          />
-
-                          {(key.endsWith("_cm") || key.endsWith("_kg")) && (
-                            <span className="unit-label">
-                              {key.endsWith("_cm") ? "cm" : "kg"}
-                            </span>
+                    <div className="wishlist-card" key={key}>
+                      <div
+                        className="wishlist-clickable"
+                        onClick={() => navigate(`/product/${item.storeId}/${item.id}`)}
+                        style={{ cursor: "pointer" }}
+                      >
+                        <div className="wishlist-media">
+                          {item.image ? (
+                            <img src={item.image} alt={item.name || "Wishlist item"} />
+                          ) : (
+                            <div className="image-placeholder">{item.name?.[0] || ""}</div>
                           )}
                         </div>
-                      )}
+                        <div className="wishlist-info">
+                          <p className="wishlist-name">{item.name || "Saved item"}</p>
+                          <p className="wishlist-meta">
+                            {item.storeName ? `${item.storeName} • ` : ""}
+                            {displayPrice || "Price pending"}
+                          </p>
+                        </div>
+                      </div>
+                      <button
+                        type="button"
+                        className="wishlist-heart-btn filled"
+                        aria-label="Remove from wishlist"
+                        title="Remove from wishlist"
+                        onClick={() => handleToggleWishlist(item)}
+                      >
+                        <svg
+                          width="20"
+                          height="20"
+                          viewBox="0 0 24 24"
+                          fill="currentColor"
+                          xmlns="http://www.w3.org/2000/svg"
+                        >
+                          <path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z" />
+                        </svg>
+                      </button>
                     </div>
                   );
                 })}
               </div>
-
-              <div className="form-actions">
-                <button type="button" className="save-btn" onClick={handleSave}>
-                  💾 Save
-                </button>
-                <button type="button" className="secondary-btn" onClick={handleCancel}>
-                  Cancel
-                </button>
-              </div>
-            </div>
-          )}
-        </div>
-      </div>
-
-      <div className="profile-section">
-        <div className="section-header">
-          <h3>Order History</h3>
-          {hasOrders && <span className="pill-count">{resolvedOrders.length} orders</span>}
-        </div>
-
-        {!hasOrders ? (
-          <div className="measurements-display">
-            <div className="empty-state">
-              <div className="empty-icon">🛍️</div>
-              <div>No orders yet.</div>
-              <div className="empty-hint">When you shop, your order timeline will appear here.</div>
-            </div>
-          </div>
-        ) : (
-          <div className="orders-timeline">
-            {resolvedOrders.map((order) => (
-              <div className="order-card" key={order.id}>
-                <div className="order-row">
-                  <div>
-                    <p className="order-id">{order.id}</p>
-                    <p className="order-details">{formatOrderSummary(order)}</p>
-                  </div>
-                  <div className="order-status-stack">
-                    <span className={statusClassName(order.status)}>{order.status}</span>
-                    <span className="order-total">{formatPrice(order.total)}</span>
-                  </div>
-                </div>
-
-                <div className="order-actions">
-                  {order.trackable && (
-                    <button
-                      type="button"
-                      className="secondary-btn small"
-                      onClick={() => handleTrackOrder(order)}
-                    >
-                      Track order
-                    </button>
-                  )}
-                  <button
-                    type="button"
-                    className="ghost-btn small"
-                    onClick={() => handleViewOrderDetails(order)}
-                  >
-                    View details
-                  </button>
-                  <button
-                    type="button"
-                    className="ghost-btn small"
-                    onClick={() => handleOrderSupport(order)}
-                  >
-                    Get support
-                  </button>
-                </div>
-              </div>
-            ))}
-          </div>
-        )}
-      </div>
-
-      <div className="profile-section">
-        <div className="section-header">
-          <h3>Account Settings</h3>
-        </div>
-
-        <div className="settings-grid">
-          <div className="setting-card">
-            <div>
-              <p className="setting-title">Security</p>
-              <p className="setting-description">Update your password to keep your account protected.</p>
-            </div>
-            <button type="button" className="secondary-btn" onClick={handleTogglePasswordModal}>
-              Change password
-            </button>
-          </div>
-          <div className="setting-card">
-            <div>
-              <p className="setting-title">Billing</p>
-              <p className="setting-description">Manage your saved cards and billing contacts.</p>
-            </div>
-            <button type="button" className="ghost-btn" onClick={handleToggleBillingModal}>
-              Manage billing
-            </button>
-          </div>
-          <div className="setting-card critical">
-            <div>
-              <p className="setting-title">Delete account</p>
-              <p className="setting-description">Remove your profile permanently, including orders and measurements.</p>
-            </div>
-            <button type="button" className="danger-btn" onClick={openDeleteModal}>
-              Delete account
-            </button>
+            )}
           </div>
         </div>
-
-        <div className="logout-card">
-          <div className="logout-copy">
-            <p className="logout-title">Ready to head out?</p>
-            <p className="logout-description">Sign out safely — we’ll be here when you return.</p>
-          </div>
-          <button type="button" className="primary-btn" onClick={handleLogout}>
-            Log out
-          </button>
-        </div>
-      </div>
-
-      <div className="profile-section">
-        <div className="section-header wishlist-header">
-          <h3>Wishlist</h3>
-          {hasWishlist && (
-            <span className="pill-count">{wishlistItems.length} saved</span>
-          )}
-        </div>
-
-        {!hasWishlist ? (
-          <div className="measurements-display">
-            <div className="empty-state">
-              <div className="empty-icon">💖</div>
-              <div>No wishlist items yet.</div>
-              <div className="empty-hint">
-                Add favorites while browsing stores to see them here.
-              </div>
-            </div>
-          </div>
-        ) : (
-          <div className="wishlist-grid">
-            {wishlistItems.map((item) => {
-              const key = `${item.storeId}-${item.id}`;
-              const displayPrice = formatPrice(item.price);
-
-              return (
-                <div className="wishlist-card" key={key}>
-                  <div 
-                    className="wishlist-clickable"
-                    onClick={() => navigate(`/product/${item.storeId}/${item.id}`)}
-                    style={{ cursor: 'pointer' }}
-                  >
-                    <div className="wishlist-media">
-                      {item.image ? (
-                        <img src={item.image} alt={item.name || "Wishlist item"} />
-                      ) : (
-                        <div className="image-placeholder">{item.name?.[0] || ""}</div>
-                      )}
-                    </div>
-                    <div className="wishlist-info">
-                      <p className="wishlist-name">{item.name || "Saved item"}</p>
-                      <p className="wishlist-meta">
-                        {item.storeName ? `${item.storeName} • ` : ""}
-                        {displayPrice || "Price pending"}
-                      </p>
-                    </div>
-                  </div>
-                  <button
-                    type="button"
-                    className="wishlist-heart-btn filled"
-                    aria-label="Remove from wishlist"
-                    title="Remove from wishlist"
-                    onClick={() => handleToggleWishlist(item)}
-                  >
-                    <svg 
-                      width="20" 
-                      height="20" 
-                      viewBox="0 0 24 24" 
-                      fill="currentColor"
-                      xmlns="http://www.w3.org/2000/svg"
-                    >
-                      <path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/>
-                    </svg>
-                  </button>
-                </div>
-              );
-            })}
-          </div>
-        )}
       </div>
 
 
@@ -1374,6 +1482,118 @@ export default function ProfilePage() {
 
 
       <style jsx>{`
+        .profile-page {
+          display: flex;
+          flex-direction: column;
+          gap: 2rem;
+        }
+
+        .profile-layout {
+          display: flex;
+          flex-direction: column;
+          gap: 2rem;
+        }
+
+        .profile-content {
+          display: flex;
+          flex-direction: column;
+          gap: 2rem;
+          flex: 1;
+        }
+
+        .profile-card,
+        .profile-section {
+          background: #fff;
+          border-radius: 16px;
+          border: 1px solid rgba(100, 27, 46, 0.12);
+          padding: 1.75rem 1.5rem;
+          box-shadow: 0 18px 32px rgba(0, 0, 0, 0.06);
+        }
+
+        .profile-card {
+          display: flex;
+          flex-direction: column;
+          gap: 1.5rem;
+        }
+
+        .profile-card .profile-section {
+          border: none;
+          padding: 0;
+          box-shadow: none;
+        }
+
+        .profile-sidebar {
+          background: #fff6f5;
+          border-radius: 16px;
+          border: 1px solid rgba(100, 27, 46, 0.12);
+          box-shadow: 0 14px 28px rgba(0, 0, 0, 0.05);
+          padding: 1.5rem;
+          display: flex;
+          flex-direction: column;
+          gap: 1.25rem;
+        }
+
+        .sidebar-title {
+          margin: 0;
+          font-weight: 700;
+          color: #641b2e;
+          letter-spacing: 0.03em;
+          text-transform: uppercase;
+          font-size: 0.85rem;
+        }
+
+        .sidebar-nav {
+          display: flex;
+          flex-wrap: wrap;
+          gap: 0.75rem;
+        }
+
+        .sidebar-link {
+          border: 1px solid rgba(100, 27, 46, 0.2);
+          border-radius: 999px;
+          padding: 0.55rem 1.1rem;
+          background: #fff;
+          color: #641b2e;
+          font-weight: 600;
+          cursor: pointer;
+          transition: color 0.2s ease, background 0.2s ease, box-shadow 0.2s ease, transform 0.2s ease;
+        }
+
+        .sidebar-link:hover {
+          background: rgba(100, 27, 46, 0.08);
+          transform: translateY(-1px);
+        }
+
+        .sidebar-link.active {
+          background: linear-gradient(135deg, #641b2e, #be5b50);
+          color: #fff;
+          border-color: transparent;
+          box-shadow: 0 12px 20px rgba(100, 27, 46, 0.2);
+        }
+
+        [data-section-id]:focus-visible {
+          outline: 2px solid rgba(100, 27, 46, 0.45);
+          outline-offset: 6px;
+        }
+
+        @media (min-width: 960px) {
+          .profile-layout {
+            flex-direction: row;
+            align-items: flex-start;
+          }
+
+          .profile-sidebar {
+            position: sticky;
+            top: 96px;
+            min-width: 220px;
+            max-width: 240px;
+          }
+
+          .sidebar-nav {
+            flex-direction: column;
+          }
+        }
+
         .modal-backdrop {
           position: fixed;
           inset: 0;

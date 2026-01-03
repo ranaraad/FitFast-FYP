@@ -19,6 +19,270 @@ const DEFAULT_MEASUREMENTS = {
   fit_preference: "",
 };
 
+const isBrowser = typeof window !== "undefined";
+const ORDER_HISTORY_STORAGE = "fitfast_account_orders";
+const ORDER_STATUS_STORAGE = "fitfast_recent_order";
+const PAYMENT_METHODS_STORAGE = "fitfast_payment_methods";
+
+const DEFAULT_ADDRESS = {
+  line1: "342 Fashion Avenue",
+  line2: "Suite 18B",
+  city: "New York",
+  state: "NY",
+  postalCode: "10001",
+  country: "USA",
+  phone: "(212) 555-0113",
+};
+
+const DEFAULT_PAYMENT_FIXTURES = [
+  {
+    id: "pm-visa",
+    brand: "Visa",
+    nickname: "Personal card",
+    last4: "3188",
+    expMonth: "09",
+    expYear: "27",
+    isDefault: true,
+  },
+  {
+    id: "pm-amex",
+    brand: "Amex",
+    nickname: "Work travel",
+    last4: "0025",
+    expMonth: "04",
+    expYear: "28",
+    isDefault: false,
+  },
+];
+
+const DEFAULT_ORDER_FIXTURES = [
+  {
+    id: "FF-10294",
+    placedAt: "2025-11-11T14:20:00.000Z",
+    eta: "2025-11-14T14:20:00.000Z",
+    status: "Processing",
+    total: 160.81,
+    items: [
+      {
+        id: "look-61",
+        name: "Silk wrap dress",
+        quantity: 1,
+        price: 108.9,
+        size: "M",
+        color: "Ivory",
+      },
+      {
+        id: "belt-21",
+        name: "Leather waist belt",
+        quantity: 1,
+        price: 39,
+        size: "M",
+        color: "Chestnut",
+      },
+      {
+        id: "earrings-04",
+        name: "Gold drop earrings",
+        quantity: 1,
+        price: 12.91,
+      },
+    ],
+    delivery: {
+      id: "standard",
+      label: "Standard delivery",
+      description: "Arrives in 3-5 business days",
+    },
+    shippingAddress: { ...DEFAULT_ADDRESS },
+    payment: { label: "Visa", cardLast4: "3188" },
+    contact: {},
+    totals: {
+      subtotal: 160.81,
+      shipping: 0,
+      tax: 12.84,
+      discount: 0,
+      total: 160.81,
+    },
+    trackable: true,
+  },
+  {
+    id: "FF-10172",
+    placedAt: "2025-10-26T10:45:00.000Z",
+    eta: "2025-10-29T10:45:00.000Z",
+    status: "Shipped",
+    total: 212.4,
+    items: [
+      {
+        id: "jacket-18",
+        name: "Tailored wool blazer",
+        quantity: 1,
+        price: 172.4,
+        size: "S",
+        color: "Charcoal",
+      },
+      {
+        id: "heels-07",
+        name: "Pointed-toe heels",
+        quantity: 1,
+        price: 40,
+        size: "38",
+        color: "Black",
+      },
+    ],
+    delivery: {
+      id: "express",
+      label: "Express courier",
+      description: "Guaranteed next-day in major cities",
+    },
+    shippingAddress: { ...DEFAULT_ADDRESS, line2: "Penthouse 2B" },
+    payment: { label: "Amex", cardLast4: "0025" },
+    contact: {},
+    totals: {
+      subtotal: 212.4,
+      shipping: 16,
+      tax: 15.32,
+      discount: 0,
+      total: 212.4,
+    },
+    trackable: true,
+  },
+  {
+    id: "FF-09788",
+    placedAt: "2025-09-14T18:10:00.000Z",
+    eta: "2025-09-17T18:10:00.000Z",
+    status: "Delivered",
+    total: 98.5,
+    items: [
+      {
+        id: "knit-33",
+        name: "Cashmere turtleneck",
+        quantity: 1,
+        price: 98.5,
+        size: "L",
+        color: "Forest",
+      },
+    ],
+    delivery: {
+      id: "pickup",
+      label: "In-store pickup",
+      description: "Ready in under 2 hours",
+    },
+    shippingAddress: { ...DEFAULT_ADDRESS, line2: "" },
+    payment: { label: "Visa", cardLast4: "3188" },
+    contact: {},
+    totals: {
+      subtotal: 98.5,
+      shipping: 0,
+      tax: 7.88,
+      discount: 10,
+      total: 98.5,
+    },
+    trackable: false,
+  },
+];
+
+const readStoredJson = (key, fallback) => {
+  if (!isBrowser) return fallback;
+  try {
+    const raw = window.localStorage.getItem(key);
+    return raw ? JSON.parse(raw) : fallback;
+  } catch (err) {
+    console.error(`Failed to read storage for ${key}`, err);
+    return fallback;
+  }
+};
+
+const cloneDefaultOrders = () =>
+  DEFAULT_ORDER_FIXTURES.map((order) => ({
+    ...order,
+    items: Array.isArray(order.items)
+      ? order.items.map((item) => ({ ...item }))
+      : [],
+    delivery: order.delivery ? { ...order.delivery } : null,
+    shippingAddress: order.shippingAddress ? { ...order.shippingAddress } : { ...DEFAULT_ADDRESS },
+    payment: order.payment ? { ...order.payment } : null,
+    contact: order.contact ? { ...order.contact } : {},
+    totals: order.totals ? { ...order.totals } : {},
+  }));
+
+const cloneDefaultPaymentMethods = () =>
+  DEFAULT_PAYMENT_FIXTURES.map((method) => ({ ...method }));
+
+const writeStoredJson = (key, value) => {
+  if (!isBrowser) return;
+  try {
+    if (value === null || value === undefined) {
+      window.localStorage.removeItem(key);
+    } else {
+      window.localStorage.setItem(key, JSON.stringify(value));
+    }
+  } catch (err) {
+    console.error(`Failed to persist storage for ${key}`, err);
+  }
+};
+
+const mapApiPaymentMethod = (method) => ({
+  id: method.id || `pm-${method.last4 || Date.now()}`,
+  brand: method.brand || method.card_brand || "Card",
+  nickname: method.nickname || method.label || method.brand || "Saved card",
+  last4: method.last4 || method.card_last_four || "0000",
+  expMonth: method.exp_month || method.expMonth || "01",
+  expYear: method.exp_year || method.expYear || "30",
+  isDefault: Boolean(method.is_default ?? method.isDefault ?? false),
+});
+
+const mapApiOrder = (order) => {
+  const items = Array.isArray(order.items)
+    ? order.items.map((item) => ({
+        id: item.id || item.code || `${order.id}-item`,
+        name: item.name || item.title || "Ordered item",
+        quantity: item.quantity || item.qty || 1,
+        price: Number(item.price || item.unit_price || 0),
+        image: item.image || item.thumbnail || null,
+        size: item.size || null,
+        color: item.color || null,
+      }))
+    : [];
+
+  const totals = order.totals || {
+    subtotal: Number(order.subtotal || 0),
+    shipping: Number(order.shipping_total || 0),
+    tax: Number(order.tax_total || 0),
+    discount: Number(order.discount_total || 0),
+    total: Number(order.total || order.grand_total || 0),
+  };
+
+  return {
+    id: order.code || order.reference || `ORDER-${order.id}`,
+    placedAt: order.placed_at || order.created_at || new Date().toISOString(),
+    eta:
+      order.eta ||
+      order.estimated_delivery ||
+      new Date(Date.now() + 72 * 60 * 60 * 1000).toISOString(),
+    status: (order.status?.label || order.status || "Processing").toString(),
+    total: Number(totals.total || order.total || 0),
+    items,
+    delivery: order.delivery || {
+      id: order.delivery_method || "standard",
+      label: order.delivery_label || "Standard delivery",
+      description: "Arrives in 3-5 business days",
+    },
+    shippingAddress:
+      order.shipping_address || order.shippingAddress || { ...DEFAULT_ADDRESS },
+    payment: order.payment || order.payment_method || {
+      label: order.payment_label || "Card",
+      cardLast4: order.payment_last4 || "0000",
+    },
+    contact: order.contact || {
+      fullName: order.contact_name || "",
+      email: order.contact_email || "",
+      phone: order.contact_phone || "",
+    },
+    totals,
+    trackable: !["Cancelled", "Canceled"].includes(
+      (order.status?.label || order.status || "").toString()
+    ),
+  };
+};
+
 export default function ProfilePage() {
   const navigate = useNavigate();
   const [user, setUser] = useState(null);
@@ -28,6 +292,39 @@ export default function ProfilePage() {
   const [messageType, setMessageType] = useState("success"); // "success" | "error"
   const [loading, setLoading] = useState(true);
   const [wishlistItems, setWishlistItems] = useState([]);
+  const [orders, setOrders] = useState(() => {
+    const stored = readStoredJson(ORDER_HISTORY_STORAGE, null);
+    if (stored && Array.isArray(stored) && stored.length) return stored;
+    return cloneDefaultOrders();
+  });
+  const [paymentMethods, setPaymentMethods] = useState(() => {
+    const stored = readStoredJson(PAYMENT_METHODS_STORAGE, null);
+    if (stored && Array.isArray(stored) && stored.length) return stored;
+    return cloneDefaultPaymentMethods();
+  });
+  const [showPasswordModal, setShowPasswordModal] = useState(false);
+  const [passwordForm, setPasswordForm] = useState({
+    current: "",
+    next: "",
+    confirm: "",
+  });
+  const [passwordStatus, setPasswordStatus] = useState({ type: "", message: "" });
+  const [passwordLoading, setPasswordLoading] = useState(false);
+  const [showBillingModal, setShowBillingModal] = useState(false);
+  const [billingForm, setBillingForm] = useState({
+    nickname: "",
+    brand: "Visa",
+    number: "",
+    expMonth: "",
+    expYear: "",
+    setDefault: true,
+  });
+  const [billingError, setBillingError] = useState("");
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [deleteLoading, setDeleteLoading] = useState(false);
+  const [deleteError, setDeleteError] = useState("");
+  const [activeOrder, setActiveOrder] = useState(null);
+  const [showOrderModal, setShowOrderModal] = useState(false);
 
   useEffect(() => {
     async function fetchUser() {
@@ -39,6 +336,12 @@ export default function ProfilePage() {
           ...(res.data?.measurements || {}),
         });
         setWishlistItems(getWishlist());
+        if (Array.isArray(res.data?.orders) && res.data.orders.length) {
+          setOrders(res.data.orders.map(mapApiOrder));
+        }
+        if (Array.isArray(res.data?.payment_methods) && res.data.payment_methods.length) {
+          setPaymentMethods(res.data.payment_methods.map(mapApiPaymentMethod));
+        }
       } catch (error) {
         console.error(error);
         setMessageType("error");
@@ -55,6 +358,14 @@ export default function ProfilePage() {
     window.addEventListener("storage", syncWishlist);
     return () => window.removeEventListener("storage", syncWishlist);
   }, []);
+
+  useEffect(() => {
+    writeStoredJson(ORDER_HISTORY_STORAGE, orders);
+  }, [orders]);
+
+  useEffect(() => {
+    writeStoredJson(PAYMENT_METHODS_STORAGE, paymentMethods);
+  }, [paymentMethods]);
 
 
   const handleChange = (e) => {
@@ -101,41 +412,267 @@ export default function ProfilePage() {
   const statusClassName = (status = "") =>
     `status-badge status-${status.toLowerCase().replace(/[^a-z]+/g, "-")}`;
 
-  const defaultOrders = [
-    {
-      id: "FF-10294",
-      date: "Nov 11, 2025",
-      total: 148.9,
-      items: 3,
-      status: "Processing",
-      trackable: true,
-    },
-    {
-      id: "FF-10172",
-      date: "Oct 26, 2025",
-      total: 212.4,
-      items: 2,
-      status: "Shipped",
-      trackable: true,
-    },
-    {
-      id: "FF-09788",
-      date: "Sep 14, 2025",
-      total: 98.5,
-      items: 1,
-      status: "Delivered",
-      trackable: false,
-    },
-  ];
-
-  const orders = Array.isArray(user?.orders) && user.orders.length ? user.orders : defaultOrders;
   const hasOrders = orders.length > 0;
 
-  const handleLogout = () => navigate("/logout");
-  const handleChangePassword = () => navigate("/account/security");
-  const handleDeleteAccount = () => navigate("/support/delete-account");
-  const handleManageBilling = () => navigate("/account/billing");
+  const formatCardLabel = (method) => {
+    if (!method) return "Saved card";
+    return `${method.brand || "Card"} •••• ${method.last4}`;
+  };
 
+  const computeItemCount = (list = []) =>
+    Array.isArray(list)
+      ? list.reduce((total, item) => total + (item.quantity ? Number(item.quantity) : 1), 0)
+      : 0;
+
+  const formatOrderSummary = (order = {}) => {
+    const itemCount = computeItemCount(order.items);
+    const datePart = (() => {
+      if (!order?.placedAt) return "";
+      const parsed = new Date(order.placedAt);
+      if (Number.isNaN(parsed.getTime())) return order.placedAt;
+      return parsed.toLocaleDateString(undefined, {
+        month: "short",
+        day: "numeric",
+        year: "numeric",
+      });
+    })();
+
+    const itemsLabel = `${itemCount} ${itemCount === 1 ? "item" : "items"}`;
+    return datePart ? `${itemsLabel} • ${datePart}` : itemsLabel;
+  };
+
+  const handleTogglePasswordModal = () => {
+    setShowPasswordModal((prev) => !prev);
+    setPasswordStatus({ type: "", message: "" });
+    setPasswordForm({ current: "", next: "", confirm: "" });
+    setPasswordLoading(false);
+  };
+
+  const handlePasswordFieldChange = (event) => {
+    const { name, value } = event.target;
+    setPasswordForm((prev) => ({ ...prev, [name]: value }));
+  };
+
+  const handleSubmitPassword = async (event) => {
+    event.preventDefault();
+    setPasswordStatus({ type: "", message: "" });
+
+    if (!passwordForm.current || !passwordForm.next || !passwordForm.confirm) {
+      setPasswordStatus({ type: "error", message: "Please complete all password fields." });
+      return;
+    }
+
+    if (passwordForm.next.length < 6) {
+      setPasswordStatus({ type: "error", message: "New password should be at least 6 characters long." });
+      return;
+    }
+
+    if (passwordForm.next !== passwordForm.confirm) {
+      setPasswordStatus({ type: "error", message: "New password confirmation does not match." });
+      return;
+    }
+
+    setPasswordLoading(true);
+
+    try {
+      await api.post("/user/password", {
+        current_password: passwordForm.current,
+        new_password: passwordForm.next,
+        new_password_confirmation: passwordForm.confirm,
+      });
+      setPasswordStatus({ type: "success", message: "Password updated successfully." });
+      setPasswordForm({ current: "", next: "", confirm: "" });
+      setTimeout(() => {
+        setPasswordLoading(false);
+        setShowPasswordModal(false);
+      }, 1200);
+    } catch (error) {
+      console.error(error);
+      const fallback = error.response?.data?.message || "Unable to update password. Please check your current password.";
+      setPasswordStatus({ type: "error", message: fallback });
+      setPasswordLoading(false);
+    }
+  };
+
+  const handleToggleBillingModal = () => {
+    setShowBillingModal((prev) => !prev);
+    setBillingError("");
+    setBillingForm({ nickname: "", brand: "Visa", number: "", expMonth: "", expYear: "", setDefault: !paymentMethods.length });
+  };
+
+  const handleBillingFieldChange = (event) => {
+    const { name, value, type, checked } = event.target;
+    const nextValue = type === "checkbox" ? checked : value;
+    setBillingForm((prev) => ({ ...prev, [name]: nextValue }));
+  };
+
+  const handleAddPaymentMethod = (event) => {
+    event.preventDefault();
+    setBillingError("");
+
+    const sanitizedNumber = billingForm.number.replace(/\D/g, "");
+    if (sanitizedNumber.length < 12) {
+      setBillingError("Enter a valid card number (minimum 12 digits).");
+      return;
+    }
+
+    if (!/^(0[1-9]|1[0-2])$/.test(billingForm.expMonth)) {
+      setBillingError("Provide expiry month as MM.");
+      return;
+    }
+
+    if (!/^\d{2}$/.test(billingForm.expYear)) {
+      setBillingError("Provide expiry year as YY.");
+      return;
+    }
+
+    const last4 = sanitizedNumber.slice(-4);
+    const newMethod = {
+      id: `pm-${Date.now()}`,
+      brand: billingForm.brand,
+      nickname: billingForm.nickname || `${billingForm.brand} ending ${last4}`,
+      last4,
+      expMonth: billingForm.expMonth,
+      expYear: billingForm.expYear,
+      isDefault: Boolean(billingForm.setDefault),
+    };
+
+    setPaymentMethods((prev) => {
+      const next = billingForm.setDefault
+        ? prev.map((method) => ({ ...method, isDefault: false }))
+        : [...prev];
+      next.push(newMethod);
+      return next;
+    });
+
+    setBillingForm({ nickname: "", brand: "Visa", number: "", expMonth: "", expYear: "", setDefault: false });
+    setShowBillingModal(false);
+  };
+
+  const handleSetDefaultPayment = (id) => {
+    setPaymentMethods((prev) => prev.map((method) => ({ ...method, isDefault: method.id === id })));
+  };
+
+  const handleRemovePaymentMethod = (id) => {
+    setPaymentMethods((prev) => {
+      const remaining = prev.filter((method) => method.id !== id);
+      if (!remaining.length) {
+        return cloneDefaultPaymentMethods();
+      }
+      if (remaining.some((method) => method.isDefault)) {
+        return remaining.map((method) => ({ ...method }));
+      }
+      return remaining.map((method, index) => ({ ...method, isDefault: index === 0 }));
+    });
+  };
+
+  const handleLogout = async () => {
+    try {
+      await api.post("/logout");
+    } catch (error) {
+      console.error("Logout failed", error);
+    } finally {
+      if (isBrowser) {
+        window.localStorage.removeItem("auth_token");
+        window.localStorage.removeItem("auth_user");
+      }
+      navigate("/login");
+    }
+  };
+
+  const handleTrackOrder = (order) => {
+    if (!order) return;
+    if (!isBrowser) {
+      navigate("/order-status");
+      return;
+    }
+
+    const payload = {
+      code: order.id,
+      placedAt: order.placedAt,
+      eta: order.eta,
+      status: order.status,
+      delivery: order.delivery,
+      payment: order.payment,
+      contact: {
+        fullName: user?.name || order.contact?.fullName || "",
+        email: user?.email || order.contact?.email || "",
+        phone: order.contact?.phone || (user?.phone ?? ""),
+      },
+      shippingAddress: order.shippingAddress || { ...DEFAULT_ADDRESS },
+      items: order.items || [],
+      totals: order.totals || {
+        subtotal: order.total || 0,
+        shipping: 0,
+        tax: 0,
+        discount: 0,
+        total: order.total || 0,
+      },
+    };
+
+    // Persist a snapshot so the order status page has context even without a fresh API call.
+    try {
+      window.localStorage.setItem(ORDER_STATUS_STORAGE, JSON.stringify(payload));
+      window.dispatchEvent(new Event("fitfast-order-updated"));
+    } catch (err) {
+      console.error("Failed to persist order snapshot", err);
+    }
+
+    navigate("/order-status");
+  };
+
+  const handleViewOrderDetails = (order) => {
+    setActiveOrder(order);
+    setShowOrderModal(true);
+  };
+
+  const handleOrderSupport = (order) => {
+    const template = `Order ${order.id} (${order.status}) — I need assistance with this order.`;
+    if (isBrowser) {
+      sessionStorage.setItem(
+        "fitfast_support_prefill",
+        JSON.stringify({ message: template, type: "question" })
+      );
+    }
+    navigate("/support", { state: { prefillMessage: template, topic: "question" } });
+  };
+
+  const handleCloseOrderModal = () => {
+    setActiveOrder(null);
+    setShowOrderModal(false);
+  };
+
+  const openDeleteModal = () => {
+    setDeleteError("");
+    setDeleteLoading(false);
+    setShowDeleteModal(true);
+  };
+
+  const cancelDeleteAccount = () => {
+    setShowDeleteModal(false);
+    setDeleteLoading(false);
+    setDeleteError("");
+  };
+
+  const handleDeleteAccount = async () => {
+    setDeleteLoading(true);
+    setDeleteError("");
+    try {
+      await api.delete("/user");
+      if (isBrowser) {
+        window.localStorage.removeItem("auth_token");
+        window.localStorage.removeItem("auth_user");
+      }
+      setShowDeleteModal(false);
+      setDeleteLoading(false);
+      navigate("/register");
+    } catch (error) {
+      console.error(error);
+      const fallback = error.response?.data?.message || "Unable to delete account. Please try again.";
+      setDeleteError(fallback);
+      setDeleteLoading(false);
+    }
+  };
 
   const initials = user?.name
     ? user.name
@@ -322,7 +859,7 @@ export default function ProfilePage() {
                 <div className="order-row">
                   <div>
                     <p className="order-id">{order.id}</p>
-                    <p className="order-details">{order.items} items • {order.date}</p>
+                    <p className="order-details">{formatOrderSummary(order)}</p>
                   </div>
                   <div className="order-status-stack">
                     <span className={statusClassName(order.status)}>{order.status}</span>
@@ -335,7 +872,7 @@ export default function ProfilePage() {
                     <button
                       type="button"
                       className="secondary-btn small"
-                      onClick={() => navigate(`/orders/${order.id}/track`)}
+                      onClick={() => handleTrackOrder(order)}
                     >
                       Track order
                     </button>
@@ -343,14 +880,14 @@ export default function ProfilePage() {
                   <button
                     type="button"
                     className="ghost-btn small"
-                    onClick={() => navigate(`/orders/${order.id}`)}
+                    onClick={() => handleViewOrderDetails(order)}
                   >
                     View details
                   </button>
                   <button
                     type="button"
                     className="ghost-btn small"
-                    onClick={() => navigate(`/support`) }
+                    onClick={() => handleOrderSupport(order)}
                   >
                     Get support
                   </button>
@@ -372,7 +909,7 @@ export default function ProfilePage() {
               <p className="setting-title">Security</p>
               <p className="setting-description">Update your password to keep your account protected.</p>
             </div>
-            <button type="button" className="secondary-btn" onClick={handleChangePassword}>
+            <button type="button" className="secondary-btn" onClick={handleTogglePasswordModal}>
               Change password
             </button>
           </div>
@@ -381,7 +918,7 @@ export default function ProfilePage() {
               <p className="setting-title">Billing</p>
               <p className="setting-description">Manage your saved cards and billing contacts.</p>
             </div>
-            <button type="button" className="ghost-btn" onClick={handleManageBilling}>
+            <button type="button" className="ghost-btn" onClick={handleToggleBillingModal}>
               Manage billing
             </button>
           </div>
@@ -390,7 +927,7 @@ export default function ProfilePage() {
               <p className="setting-title">Delete account</p>
               <p className="setting-description">Remove your profile permanently, including orders and measurements.</p>
             </div>
-            <button type="button" className="danger-btn" onClick={handleDeleteAccount}>
+            <button type="button" className="danger-btn" onClick={openDeleteModal}>
               Delete account
             </button>
           </div>
@@ -478,7 +1015,515 @@ export default function ProfilePage() {
       </div>
 
 
+      {showPasswordModal && (
+        <div className="modal-backdrop" role="dialog" aria-modal="true">
+          <div className="modal-card">
+            <div className="modal-header">
+              <h4>Change password</h4>
+              <button type="button" className="modal-close" onClick={handleTogglePasswordModal} aria-label="Close password modal">
+                ✕
+              </button>
+            </div>
+            <form className="modal-body" onSubmit={handleSubmitPassword}>
+              <label className="modal-field">
+                <span>Current password</span>
+                <input
+                  type="password"
+                  name="current"
+                  value={passwordForm.current}
+                  onChange={handlePasswordFieldChange}
+                  autoComplete="current-password"
+                  disabled={passwordLoading}
+                  required
+                />
+              </label>
+              <label className="modal-field">
+                <span>New password</span>
+                <input
+                  type="password"
+                  name="next"
+                  value={passwordForm.next}
+                  onChange={handlePasswordFieldChange}
+                  autoComplete="new-password"
+                  disabled={passwordLoading}
+                  required
+                />
+              </label>
+              <label className="modal-field">
+                <span>Confirm new password</span>
+                <input
+                  type="password"
+                  name="confirm"
+                  value={passwordForm.confirm}
+                  onChange={handlePasswordFieldChange}
+                  autoComplete="new-password"
+                  disabled={passwordLoading}
+                  required
+                />
+              </label>
+              {passwordStatus.message && (
+                <div className={`modal-status ${passwordStatus.type}`}>
+                  {passwordStatus.message}
+                </div>
+              )}
+              <div className="modal-actions">
+                <button type="button" className="ghost-btn" onClick={handleTogglePasswordModal} disabled={passwordLoading}>
+                  Cancel
+                </button>
+                <button type="submit" className="primary-btn" disabled={passwordLoading}>
+                  {passwordLoading ? "Updating…" : "Save password"}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {showBillingModal && (
+        <div className="modal-backdrop" role="dialog" aria-modal="true">
+          <div className="modal-card wide">
+            <div className="modal-header">
+              <h4>Manage billing</h4>
+              <button type="button" className="modal-close" onClick={handleToggleBillingModal} aria-label="Close billing modal">
+                ✕
+              </button>
+            </div>
+            <div className="modal-body">
+              <div className="billing-columns">
+                <div className="billing-list">
+                  <p className="billing-subtitle">Saved payment methods</p>
+                  {paymentMethods.map((method) => (
+                    <div className="billing-card" key={method.id}>
+                      <div>
+                        <p className="billing-card-name">
+                          {formatCardLabel(method)}
+                          {method.isDefault && <span className="badge">Default</span>}
+                        </p>
+                        <p className="billing-card-meta">Expiry {method.expMonth}/{method.expYear}</p>
+                        {method.nickname && <p className="billing-card-note">{method.nickname}</p>}
+                      </div>
+                      <div className="billing-card-actions">
+                        {!method.isDefault && (
+                          <button type="button" className="ghost-btn small" onClick={() => handleSetDefaultPayment(method.id)}>
+                            Make default
+                          </button>
+                        )}
+                        <button type="button" className="ghost-btn small" onClick={() => handleRemovePaymentMethod(method.id)}>
+                          Remove
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+                <form className="billing-form" onSubmit={handleAddPaymentMethod}>
+                  <p className="billing-subtitle">Add a new card</p>
+                  <label className="modal-field">
+                    <span>Card nickname</span>
+                    <input
+                      name="nickname"
+                      value={billingForm.nickname}
+                      onChange={handleBillingFieldChange}
+                      placeholder="e.g. Travel card"
+                    />
+                  </label>
+                  <label className="modal-field">
+                    <span>Card brand</span>
+                    <select name="brand" value={billingForm.brand} onChange={handleBillingFieldChange}>
+                      <option value="Visa">Visa</option>
+                      <option value="Mastercard">Mastercard</option>
+                      <option value="Amex">American Express</option>
+                      <option value="Discover">Discover</option>
+                    </select>
+                  </label>
+                  <label className="modal-field">
+                    <span>Card number</span>
+                    <input
+                      name="number"
+                      value={billingForm.number}
+                      onChange={handleBillingFieldChange}
+                      placeholder="1234 5678 9012 3456"
+                      inputMode="numeric"
+                      autoComplete="cc-number"
+                      required
+                    />
+                  </label>
+                  <div className="billing-row">
+                    <label className="modal-field">
+                      <span>Expiry month</span>
+                      <input
+                        name="expMonth"
+                        value={billingForm.expMonth}
+                        onChange={handleBillingFieldChange}
+                        placeholder="MM"
+                        maxLength={2}
+                        inputMode="numeric"
+                        autoComplete="cc-exp-month"
+                        required
+                      />
+                    </label>
+                    <label className="modal-field">
+                      <span>Expiry year</span>
+                      <input
+                        name="expYear"
+                        value={billingForm.expYear}
+                        onChange={handleBillingFieldChange}
+                        placeholder="YY"
+                        maxLength={2}
+                        inputMode="numeric"
+                        autoComplete="cc-exp-year"
+                        required
+                      />
+                    </label>
+                  </div>
+                  <label className="checkbox-field">
+                    <input
+                      type="checkbox"
+                      name="setDefault"
+                      checked={billingForm.setDefault}
+                      onChange={handleBillingFieldChange}
+                    />
+                    <span>Set as default payment method</span>
+                  </label>
+                  {billingError && <div className="modal-status error">{billingError}</div>}
+                  <div className="modal-actions">
+                    <button type="button" className="ghost-btn" onClick={handleToggleBillingModal}>
+                      Close
+                    </button>
+                    <button type="submit" className="primary-btn">
+                      Save card
+                    </button>
+                  </div>
+                </form>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showDeleteModal && (
+        <div className="modal-backdrop" role="dialog" aria-modal="true">
+          <div className="modal-card danger">
+            <div className="modal-header">
+              <h4>Delete account</h4>
+              <button type="button" className="modal-close" onClick={cancelDeleteAccount} aria-label="Close delete modal">
+                ✕
+              </button>
+            </div>
+            <div className="modal-body">
+              <p>
+                This will remove your profile, measurements, and saved preferences. You will no longer have access to order history.
+              </p>
+              <p>Please confirm you wish to continue.</p>
+              {deleteError && <div className="modal-status error">{deleteError}</div>}
+            </div>
+            <div className="modal-actions">
+              <button type="button" className="ghost-btn" onClick={cancelDeleteAccount} disabled={deleteLoading}>
+                Keep my account
+              </button>
+              <button
+                type="button"
+                className="danger-btn"
+                onClick={handleDeleteAccount}
+                disabled={deleteLoading}
+              >
+                {deleteLoading ? "Deleting…" : "Delete account"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showOrderModal && activeOrder && (
+        <div className="modal-backdrop" role="dialog" aria-modal="true">
+          <div className="modal-card wide">
+            <div className="modal-header">
+              <h4>Order {activeOrder.id}</h4>
+              <button type="button" className="modal-close" onClick={handleCloseOrderModal} aria-label="Close order modal">
+                ✕
+              </button>
+            </div>
+            <div className="modal-body order-modal">
+              <div className="order-meta-block">
+                <span className={statusClassName(activeOrder.status)}>{activeOrder.status}</span>
+                <p className="order-meta-line">{formatOrderSummary(activeOrder)}</p>
+                <p className="order-meta-line">Total {formatPrice(activeOrder.total)}</p>
+                {activeOrder.delivery?.label && (
+                  <p className="order-meta-line">Delivery: {activeOrder.delivery.label}</p>
+                )}
+                {activeOrder.payment?.label && (
+                  <p className="order-meta-line">
+                    Paid with {activeOrder.payment.label}
+                    {activeOrder.payment.cardLast4 ? ` •••• ${activeOrder.payment.cardLast4}` : ""}
+                  </p>
+                )}
+              </div>
+              <div className="order-items">
+                {Array.isArray(activeOrder.items) && activeOrder.items.length ? (
+                  activeOrder.items.map((item) => (
+                    <div className="order-item-row" key={`${activeOrder.id}-${item.id}`}>
+                      <div>
+                        <p className="order-item-name">{item.name}</p>
+                        <p className="order-item-meta">Qty {item.quantity || 1}{item.size ? ` • Size ${item.size}` : ""}{item.color ? ` • ${item.color}` : ""}</p>
+                      </div>
+                      <div className="order-item-price">{formatPrice((item.price || 0) * (item.quantity || 1))}</div>
+                    </div>
+                  ))
+                ) : (
+                  <p className="order-meta-line">No line items recorded.</p>
+                )}
+              </div>
+            </div>
+            <div className="modal-actions">
+              {activeOrder.trackable && (
+                <button type="button" className="secondary-btn" onClick={() => handleTrackOrder(activeOrder)}>
+                  Track order
+                </button>
+              )}
+              <button type="button" className="ghost-btn" onClick={() => handleOrderSupport(activeOrder)}>
+                Get support
+              </button>
+              <button type="button" className="ghost-btn" onClick={handleCloseOrderModal}>
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+
       <style jsx>{`
+        .modal-backdrop {
+          position: fixed;
+          inset: 0;
+          background: rgba(26, 26, 26, 0.55);
+          display: grid;
+          place-items: center;
+          padding: 1.5rem;
+          z-index: 1000;
+        }
+
+        .modal-card {
+          width: min(520px, 100%);
+          background: #fff;
+          border-radius: 16px;
+          box-shadow: 0 24px 48px rgba(0, 0, 0, 0.18);
+          overflow: hidden;
+          display: flex;
+          flex-direction: column;
+          gap: 1.25rem;
+          max-height: calc(100vh - 3rem);
+        }
+
+        .modal-card.wide {
+          width: min(720px, 100%);
+        }
+
+        .modal-card.danger {
+          border: 2px solid rgba(198, 40, 40, 0.25);
+        }
+
+        .modal-header {
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+          padding: 1.25rem 1.5rem 0 1.5rem;
+        }
+
+        .modal-header h4 {
+          margin: 0;
+          font-size: 1.2rem;
+        }
+
+        .modal-close {
+          border: none;
+          background: transparent;
+          font-size: 1.25rem;
+          cursor: pointer;
+          line-height: 1;
+        }
+
+        .modal-body {
+          padding: 0 1.5rem 1.5rem 1.5rem;
+          display: flex;
+          flex-direction: column;
+          gap: 1rem;
+          overflow-y: auto;
+        }
+
+        .modal-field {
+          display: flex;
+          flex-direction: column;
+          gap: 0.4rem;
+          font-size: 0.9rem;
+        }
+
+        .modal-field span {
+          font-weight: 600;
+        }
+
+        .modal-field input,
+        .modal-field select {
+          border: 1px solid rgba(100, 27, 46, 0.2);
+          border-radius: 10px;
+          padding: 0.7rem 0.8rem;
+          font-size: 0.95rem;
+        }
+
+        .modal-actions {
+          padding: 0 1.5rem 1.5rem 1.5rem;
+          display: flex;
+          justify-content: flex-end;
+          gap: 0.75rem;
+          flex-wrap: wrap;
+        }
+
+        .modal-status {
+          padding: 0.65rem 0.9rem;
+          border-radius: 12px;
+          font-size: 0.9rem;
+          font-weight: 600;
+        }
+
+        .modal-status.success {
+          background: rgba(67, 160, 71, 0.12);
+          color: #2e7d32;
+        }
+
+        .modal-status.error {
+          background: rgba(198, 40, 40, 0.12);
+          color: #c62828;
+        }
+
+        .billing-columns {
+          display: grid;
+          grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+          gap: 1.5rem;
+        }
+
+        .billing-list {
+          display: flex;
+          flex-direction: column;
+          gap: 1rem;
+        }
+
+        .billing-form {
+          display: flex;
+          flex-direction: column;
+          gap: 1rem;
+          padding: 1rem;
+          border: 1px solid rgba(100, 27, 46, 0.12);
+          border-radius: 12px;
+          background: rgba(248, 238, 238, 0.35);
+        }
+
+        .billing-subtitle {
+          margin: 0;
+          font-weight: 700;
+          color: #1d1d1f;
+        }
+
+        .billing-card {
+          padding: 1rem;
+          border: 1px solid rgba(100, 27, 46, 0.12);
+          border-radius: 12px;
+          display: flex;
+          justify-content: space-between;
+          gap: 0.75rem;
+          background: #fff7f6;
+        }
+
+        .billing-card-name {
+          margin: 0;
+          font-weight: 600;
+          display: flex;
+          gap: 0.5rem;
+          align-items: center;
+        }
+
+        .billing-card-meta,
+        .billing-card-note {
+          margin: 0.25rem 0 0;
+          color: #666;
+          font-size: 0.85rem;
+        }
+
+        .billing-card-actions {
+          display: flex;
+          flex-direction: column;
+          gap: 0.5rem;
+        }
+
+        .badge {
+          background: rgba(67, 160, 71, 0.12);
+          color: #2e7d32;
+          font-size: 0.75rem;
+          padding: 0.2rem 0.6rem;
+          border-radius: 999px;
+        }
+
+        .billing-row {
+          display: grid;
+          grid-template-columns: repeat(2, minmax(0, 1fr));
+          gap: 0.75rem;
+        }
+
+        .checkbox-field {
+          display: flex;
+          align-items: center;
+          gap: 0.5rem;
+          font-size: 0.9rem;
+        }
+
+        .checkbox-field input {
+          width: 18px;
+          height: 18px;
+        }
+
+        .order-modal {
+          gap: 1.5rem;
+        }
+
+        .order-meta-block {
+          display: flex;
+          flex-direction: column;
+          gap: 0.35rem;
+        }
+
+        .order-meta-line {
+          margin: 0;
+          color: #555;
+        }
+
+        .order-items {
+          display: flex;
+          flex-direction: column;
+          gap: 0.85rem;
+          padding-top: 0.5rem;
+          border-top: 1px dashed rgba(100, 27, 46, 0.25);
+        }
+
+        .order-item-row {
+          display: flex;
+          justify-content: space-between;
+          align-items: flex-start;
+          gap: 0.75rem;
+        }
+
+        .order-item-name {
+          margin: 0;
+          font-weight: 600;
+        }
+
+        .order-item-meta {
+          margin: 0.2rem 0 0;
+          color: #666;
+          font-size: 0.85rem;
+        }
+
+        .order-item-price {
+          font-weight: 600;
+        }
+
         .profile-container {
           max-width: 600px;
         }
@@ -954,6 +1999,16 @@ export default function ProfilePage() {
         }
 
         @media (max-width: 480px) {
+          .modal-card,
+          .modal-card.wide {
+            width: 100%;
+            max-height: calc(100vh - 2rem);
+          }
+
+          .modal-actions {
+            justify-content: center;
+          }
+
           .avatar-circle {
             width: 70px;
             height: 70px;

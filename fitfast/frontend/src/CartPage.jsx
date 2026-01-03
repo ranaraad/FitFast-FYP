@@ -85,38 +85,50 @@ export default function CartPage() {
 
   return (
     <div className="cart-page">
-      {cartFeedback && <div className="cart-feedback">{cartFeedback}</div>}
+      {cartFeedback ? <div className="cart-toast">{cartFeedback}</div> : null}
 
       <div className="cart-hero">
-        <div>
+        <div className="cart-hero-copy">
           <p className="eyebrow">Your curated picks</p>
           <h1>Shopping Cart</h1>
           <p className="muted">
-            Review your wardrobe, adjust quantities, and head to checkout when
-            you are ready.
+            Review your wardrobe, adjust quantities, and head to checkout when you are ready.
           </p>
         </div>
         <div className="cart-hero-meta">
-          <span className="pill-count">{cartItems.length} items</span>
-          <button className="secondary-btn" onClick={handleContinueShopping}>
+          <div className="cart-hero-badge">
+            <span>{cartItems.length || "No"}</span>
+            <small>items in bag</small>
+          </div>
+          <button type="button" className="ghost-btn" onClick={handleContinueShopping}>
             Continue shopping
           </button>
         </div>
       </div>
 
       {!cartItems.length ? (
-        <div className="empty-cart card">
-          <div>
-            <h3>Your cart is empty</h3>
-            <p className="muted">
-              Save your favorites and come back when you are ready to checkout.
-            </p>
+        <div className="empty-cart">
+          <div className="empty-cart-visual">
+            <div className="hanger" />
+            <div className="shopping-bag">
+              <span>FitFast</span>
+            </div>
+            <div className="floating-tag">New arrivals daily</div>
           </div>
-          <div className="empty-cart-actions">
-            <Link className="secondary-btn" to="/">
-              Explore stores
-            </Link>
-            <button onClick={handleContinueShopping}>Browse items</button>
+          <div className="empty-cart-copy">
+            <p className="eyebrow">Looks like it is empty</p>
+            <h3>Your wardrobe is waiting</h3>
+            <p className="muted">
+              Discover this season&apos;s essentials, save your favorite fits, and return when you are ready to checkout.
+            </p>
+            <div className="empty-cart-actions">
+              <Link className="primary-btn" to="/">
+                Explore stores
+              </Link>
+              <button type="button" className="ghost-btn" onClick={handleContinueShopping}>
+                Browse items
+              </button>
+            </div>
           </div>
         </div>
       ) : (
@@ -136,17 +148,13 @@ export default function CartPage() {
                   <div className="cart-item-header">
                     <div>
                       <h3>{item.name}</h3>
-                      {item.storeName && (
-                        <p className="muted small">{item.storeName}</p>
-                      )}
+                      {item.storeName ? <p className="cart-item-brand">{item.storeName}</p> : null}
                       <div className="cart-item-meta">
-                        {item.color && <span>Color: {item.color}</span>}
-                        {item.size && <span>Size: {item.size}</span>}
+                        {item.color ? <span>Color: {item.color}</span> : null}
+                        {item.size ? <span>Size: {item.size}</span> : null}
                       </div>
                     </div>
-                    <div className="price-modern">
-                      {formatPrice(item.price)}
-                    </div>
+                    <span className="price-tag">{formatPrice(item.price)}</span>
                   </div>
 
                   <div className="cart-item-actions">
@@ -155,6 +163,7 @@ export default function CartPage() {
                         className="quantity-btn"
                         onClick={() => handleQuantityChange(item.cartKey, -1)}
                         aria-label="Decrease quantity"
+                        type="button"
                         disabled={(item.quantity || 1) <= 1}
                       >
                         −
@@ -164,6 +173,7 @@ export default function CartPage() {
                         className="quantity-btn"
                         onClick={() => handleQuantityChange(item.cartKey, 1)}
                         aria-label="Increase quantity"
+                        type="button"
                       >
                         +
                       </button>
@@ -171,11 +181,28 @@ export default function CartPage() {
 
                     <div className="cart-item-actions-secondary">
                       <button
-                        className="link-btn"
+                        className="trash-btn"
                         type="button"
                         onClick={() => handleRemove(item.cartKey)}
+                        aria-label="Remove from cart"
+                        title="Remove item"
                       >
-                        Remove
+                        <svg
+                          width="18"
+                          height="18"
+                          viewBox="0 0 24 24"
+                          fill="none"
+                          stroke="currentColor"
+                          strokeWidth="2"
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          xmlns="http://www.w3.org/2000/svg"
+                        >
+                          <polyline points="3 6 5 6 21 6"></polyline>
+                          <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+                          <line x1="10" y1="11" x2="10" y2="17"></line>
+                          <line x1="14" y1="11" x2="14" y2="17"></line>
+                        </svg>
                       </button>
                     </div>
                   </div>
@@ -185,7 +212,10 @@ export default function CartPage() {
           </section>
 
           <aside className="order-summary">
-            <h3>Order Summary</h3>
+            <div className="summary-heading">
+              <h3>Order summary</h3>
+              <p className="muted x-small">Taxes calculated at checkout</p>
+            </div>
             <div className="summary-row">
               <span>Subtotal</span>
               <span>{formatPrice(subtotal)}</span>
@@ -199,15 +229,10 @@ export default function CartPage() {
               <span>{formatPrice(estimatedTotal)}</span>
             </div>
 
-            <button
-              className="checkout-btn"
-              type="button"
-              onClick={handleCheckout}
-              disabled={!cartItems.length}
-            >
+            <button className="checkout-btn" type="button" onClick={handleCheckout}>
               Proceed to Checkout
             </button>
-            <p className="muted small">Checkout gathers your delivery and payment details.</p>
+            <p className="shipping-note">Complimentary delivery when you spend $75 or more.</p>
           </aside>
         </div>
       )}

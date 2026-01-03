@@ -1475,6 +1475,14 @@ body {
   border-radius: 20px;
   border: 1px solid rgba(190, 91, 80, 0.2);
   box-shadow: 0 10px 30px rgba(100, 27, 46, 0.08);
+  text-align: left;
+}
+
+.store-hero-content {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  max-width: 600px;
 }
 
 .store-hero h1 {
@@ -2383,7 +2391,12 @@ a:hover {
 
   .store-hero {
     flex-direction: column;
-    text-align: center;
+    align-items: flex-start;
+    text-align: left;
+  }
+
+  .store-hero-content {
+    width: 100%;
   }
 
   .store-hero-badge {

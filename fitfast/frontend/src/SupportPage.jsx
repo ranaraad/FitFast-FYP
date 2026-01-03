@@ -211,7 +211,7 @@ export default function SupportPage() {
               </p>
 
               <form className="new-ticket" onSubmit={handleCreateTicket}>
-                <label>Topic</label>
+               
                 <div className="type-grid">
                   {Object.entries(typeCopy).map(([value, label]) => (
                     <button

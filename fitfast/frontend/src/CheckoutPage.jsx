@@ -91,7 +91,7 @@ const ORDER_STATUS_STORAGE = "fitfast_recent_order";
 const ORDER_HISTORY_PREFIX = "fitfast_account_orders";
 
 function readStoredValue(key, fallback) {
-	if (!isBrowser) return fallback;
+	if (!isBrowser || !key) return fallback;
 
 	try {
 		const raw = window.localStorage.getItem(key);
@@ -103,7 +103,7 @@ function readStoredValue(key, fallback) {
 }
 
 function writeStoredValue(key, value) {
-	if (!isBrowser) return;
+	if (!isBrowser || !key) return;
 
 	try {
 		if (value === null || value === undefined) {
@@ -144,6 +144,13 @@ function resolveOrderHistoryKey(authUser, contact) {
 	return email ? `${ORDER_HISTORY_PREFIX}_${email}` : null;
 }
 
+function resolveStorageKey(baseKey, authUser) {
+	if (!baseKey) return baseKey;
+	if (authUser?.id) return `${baseKey}_${authUser.id}`;
+	const email = (authUser?.email || "").trim().toLowerCase();
+	return email ? `${baseKey}_${email}` : baseKey;
+}
+
 function appendOrderToAccountHistory(orderRecord, authUser) {
 	const key = resolveOrderHistoryKey(authUser, orderRecord.contact);
 	if (!key) return;
@@ -155,32 +162,24 @@ function appendOrderToAccountHistory(orderRecord, authUser) {
 	writeStoredValue(key, next.slice(0, 25));
 }
 
-function loadInitialContact() {
-	const stored = readStoredValue(STORAGE_KEYS.contact, null);
+function loadInitialContact(storageKey, authUser) {
+	const stored = storageKey ? readStoredValue(storageKey, null) : null;
 	if (stored) return { ...DEFAULT_CONTACT, ...stored };
 
-	if (!isBrowser) return DEFAULT_CONTACT;
-
-	try {
-		const rawUser = window.localStorage.getItem("auth_user");
-		const user = rawUser ? JSON.parse(rawUser) : null;
-
-		if (user) {
-			return {
-				fullName: user.name || "",
-				email: user.email || "",
-				phone: user.phone || "",
-			};
-		}
-	} catch (err) {
-		console.error("Failed to hydrate contact from auth_user", err);
+	const user = authUser || readAuthUser();
+	if (user) {
+		return {
+			fullName: user.name || "",
+			email: user.email || "",
+			phone: user.phone || "",
+		};
 	}
 
 	return DEFAULT_CONTACT;
 }
 
-function loadInitialAddress() {
-	const stored = readStoredValue(STORAGE_KEYS.address, null);
+function loadInitialAddress(storageKey) {
+	const stored = storageKey ? readStoredValue(storageKey, null) : null;
 	if (stored) return { ...DEFAULT_ADDRESS, ...stored };
 	return DEFAULT_ADDRESS;
 }
@@ -219,28 +218,65 @@ function estimateDeliveryHours(optionId) {
 export default function CheckoutPage() {
 	const navigate = useNavigate();
 	const [cartItems, setCartItems] = useState(() => getCart());
-	const [contactInfo, setContactInfo] = useState(() => loadInitialContact());
-	const [shippingAddress, setShippingAddress] = useState(() => loadInitialAddress());
+	const [authUser, setAuthUser] = useState(() => readAuthUser());
+	const storageKeys = useMemo(
+		() => ({
+			contact: resolveStorageKey(STORAGE_KEYS.contact, authUser),
+			address: resolveStorageKey(STORAGE_KEYS.address, authUser),
+			delivery: resolveStorageKey(STORAGE_KEYS.delivery, authUser),
+			payment: resolveStorageKey(STORAGE_KEYS.payment, authUser),
+			promo: resolveStorageKey(STORAGE_KEYS.promo, authUser),
+		}),
+		[authUser]
+	);
+	const [contactInfo, setContactInfo] = useState(() => loadInitialContact(storageKeys.contact, authUser));
+	const [shippingAddress, setShippingAddress] = useState(() => loadInitialAddress(storageKeys.address));
 	const [deliveryOption, setDeliveryOption] = useState(() => {
-		const stored = readStoredValue(STORAGE_KEYS.delivery, "standard");
+		const stored = readStoredValue(storageKeys.delivery, "standard");
 		return stored || "standard";
 	});
 	const [paymentMethod, setPaymentMethod] = useState(() => {
-		const stored = readStoredValue(STORAGE_KEYS.payment, "card");
+		const stored = readStoredValue(storageKeys.payment, "card");
 		return stored || "card";
 	});
 	const [promoInput, setPromoInput] = useState(() => {
-		const stored = readStoredValue(STORAGE_KEYS.promo, { input: "", applied: null });
+		const stored = readStoredValue(storageKeys.promo, { input: "", applied: null });
 		return stored?.input || "";
 	});
 	const [appliedPromo, setAppliedPromo] = useState(() => {
-		const stored = readStoredValue(STORAGE_KEYS.promo, { input: "", applied: null });
+		const stored = readStoredValue(storageKeys.promo, { input: "", applied: null });
 		return stored?.applied || null;
 	});
 	const [cardDetails, setCardDetails] = useState(() => ({ ...DEFAULT_CARD }));
 	const [promoFeedback, setPromoFeedback] = useState("");
 	const [isSubmitting, setIsSubmitting] = useState(false);
 	const [orderError, setOrderError] = useState(null);
+
+	useEffect(() => {
+		const syncAuth = () => setAuthUser(readAuthUser());
+		syncAuth();
+		window.addEventListener("storage", syncAuth);
+		return () => window.removeEventListener("storage", syncAuth);
+	}, []);
+
+	useEffect(() => {
+		setContactInfo(loadInitialContact(storageKeys.contact, authUser));
+		setShippingAddress(loadInitialAddress(storageKeys.address));
+		setDeliveryOption(() => {
+			const stored = readStoredValue(storageKeys.delivery, "standard");
+			return stored || "standard";
+		});
+		setPaymentMethod(() => {
+			const stored = readStoredValue(storageKeys.payment, "card");
+			return stored || "card";
+		});
+		const storedPromo = readStoredValue(storageKeys.promo, { input: "", applied: null }) || {
+			input: "",
+			applied: null,
+		};
+		setPromoInput(storedPromo.input || "");
+		setAppliedPromo(storedPromo.applied || null);
+	}, [storageKeys.contact, storageKeys.address, storageKeys.delivery, storageKeys.payment, storageKeys.promo, authUser]);
 
 	useEffect(() => {
 		const syncCart = () => setCartItems(getCart());
@@ -256,27 +292,27 @@ export default function CheckoutPage() {
 	}, []);
 
 	useEffect(() => {
-		writeStoredValue(STORAGE_KEYS.contact, contactInfo);
-	}, [contactInfo]);
+		writeStoredValue(storageKeys.contact, contactInfo);
+	}, [storageKeys.contact, contactInfo]);
 
 	useEffect(() => {
-		writeStoredValue(STORAGE_KEYS.address, shippingAddress);
-	}, [shippingAddress]);
+		writeStoredValue(storageKeys.address, shippingAddress);
+	}, [storageKeys.address, shippingAddress]);
 
 	useEffect(() => {
-		writeStoredValue(STORAGE_KEYS.delivery, deliveryOption);
-	}, [deliveryOption]);
+		writeStoredValue(storageKeys.delivery, deliveryOption);
+	}, [storageKeys.delivery, deliveryOption]);
 
 	useEffect(() => {
-		writeStoredValue(STORAGE_KEYS.payment, paymentMethod);
-	}, [paymentMethod]);
+		writeStoredValue(storageKeys.payment, paymentMethod);
+	}, [storageKeys.payment, paymentMethod]);
 
 	useEffect(() => {
-		writeStoredValue(STORAGE_KEYS.promo, {
+		writeStoredValue(storageKeys.promo, {
 			input: promoInput,
 			applied: appliedPromo,
 		});
-	}, [promoInput, appliedPromo]);
+	}, [storageKeys.promo, promoInput, appliedPromo]);
 
 	useEffect(() => {
 		if (!contactInfo.fullName) return;
@@ -435,15 +471,18 @@ export default function CheckoutPage() {
 	};
 
 	const resetDraft = () => {
-		setContactInfo(loadInitialContact());
-		setShippingAddress(loadInitialAddress());
+		setContactInfo(loadInitialContact(storageKeys.contact, authUser));
+		setShippingAddress(loadInitialAddress(storageKeys.address));
 		setDeliveryOption("standard");
 		setPaymentMethod("card");
 		setPromoInput("");
 		setAppliedPromo(null);
 		setCardDetails({ ...DEFAULT_CARD });
 
-		Object.values(STORAGE_KEYS).forEach((key) => writeStoredValue(key, null));
+		const uniqueKeys = new Set(
+			Object.values(storageKeys).filter(Boolean)
+		);
+		uniqueKeys.forEach((key) => writeStoredValue(key, null));
 	};
 
 	const handlePlaceOrder = (event) => {

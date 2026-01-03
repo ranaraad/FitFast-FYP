@@ -79,6 +79,10 @@ export default function CartPage() {
     }
   };
 
+  const handleCheckout = () => {
+    navigate("/checkout");
+  };
+
   return (
     <div className="cart-page">
       {cartFeedback && <div className="cart-feedback">{cartFeedback}</div>}
@@ -195,10 +199,15 @@ export default function CartPage() {
               <span>{formatPrice(estimatedTotal)}</span>
             </div>
 
-            <button className="checkout-btn" type="button">
+            <button
+              className="checkout-btn"
+              type="button"
+              onClick={handleCheckout}
+              disabled={!cartItems.length}
+            >
               Proceed to Checkout
             </button>
-            <p className="muted small">Checkout experience coming soon.</p>
+            <p className="muted small">Checkout mirrors the CMS payment flow.</p>
           </aside>
         </div>
       )}

@@ -28,7 +28,6 @@ const STORAGE_KEYS = {
 	address: "fitfast_checkout_address",
 	delivery: "fitfast_checkout_delivery",
 	payment: "fitfast_checkout_payment",
-	notes: "fitfast_checkout_notes",
 	promo: "fitfast_checkout_promo",
 };
 
@@ -178,10 +177,6 @@ export default function CheckoutPage() {
 		const stored = readStoredValue(STORAGE_KEYS.payment, "card");
 		return stored || "card";
 	});
-	const [orderNotes, setOrderNotes] = useState(() => {
-		const stored = readStoredValue(STORAGE_KEYS.notes, "");
-		return stored || "";
-	});
 	const [promoInput, setPromoInput] = useState(() => {
 		const stored = readStoredValue(STORAGE_KEYS.promo, { input: "", applied: null });
 		return stored?.input || "";
@@ -224,10 +219,6 @@ export default function CheckoutPage() {
 	useEffect(() => {
 		writeStoredValue(STORAGE_KEYS.payment, paymentMethod);
 	}, [paymentMethod]);
-
-	useEffect(() => {
-		writeStoredValue(STORAGE_KEYS.notes, orderNotes);
-	}, [orderNotes]);
 
 	useEffect(() => {
 		writeStoredValue(STORAGE_KEYS.promo, {
@@ -397,7 +388,6 @@ export default function CheckoutPage() {
 		setShippingAddress(loadInitialAddress());
 		setDeliveryOption("standard");
 		setPaymentMethod("card");
-		setOrderNotes("");
 		setPromoInput("");
 		setAppliedPromo(null);
 		setCardDetails({ ...DEFAULT_CARD });
@@ -537,15 +527,6 @@ export default function CheckoutPage() {
 										onChange={handleContactChange}
 									/>
 								</label>
-								<div className="form-field">
-									<span>Notes for stylist (optional)</span>
-									<textarea
-										rows="3"
-										value={orderNotes}
-										onChange={(event) => setOrderNotes(event.target.value)}
-										placeholder="Share fit preferences or delivery instructions"
-									/>
-								</div>
 							</div>
 						</div>
 

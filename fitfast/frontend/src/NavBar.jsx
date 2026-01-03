@@ -1,15 +1,32 @@
 import { Link, useNavigate } from "react-router-dom";
 import { useEffect, useState } from "react";
 import api from "./api";
+import { getCartCount } from "./cartStorage";
+
 
 export default function Navbar() {
   const [isLoggedIn, setIsLoggedIn] = useState(false);
+   const [cartCount, setCartCount] = useState(0);
   const navigate = useNavigate();
 
   useEffect(() => {
     const token = localStorage.getItem("auth_token");
     setIsLoggedIn(!!token);
   }, []);
+
+  useEffect(() => {
+    const syncCartCount = () => setCartCount(getCartCount());
+
+    syncCartCount();
+    window.addEventListener("cart-updated", syncCartCount);
+    window.addEventListener("storage", syncCartCount);
+
+    return () => {
+      window.removeEventListener("cart-updated", syncCartCount);
+      window.removeEventListener("storage", syncCartCount);
+    };
+  }, []);
+
 
   const handleLogout = async () => {
     try {
@@ -35,7 +52,7 @@ export default function Navbar() {
       {isLoggedIn && (
         <ul className="nav-links">
           <li>
-            <Link to="/home">Browse</Link>
+            <Link to="/">HomePage</Link>
           </li>
 
           <li>
@@ -49,6 +66,7 @@ export default function Navbar() {
           <li>
             <Link to="/cart" className="cart-icon">
               🛒
+                {cartCount > 0 && <span className="cart-count-badge">{cartCount}</span>}
             </Link>
           </li>
 

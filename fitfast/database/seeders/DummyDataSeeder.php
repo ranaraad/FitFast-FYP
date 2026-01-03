@@ -5,8 +5,7 @@ namespace Database\Seeders;
 use Illuminate\Database\Seeder;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
-use Illuminate\Support\Str;
-use Carbon\Carbon;
+use App\Models\Item;
 
 class DummyDataSeeder extends Seeder
 {
@@ -93,61 +92,114 @@ class DummyDataSeeder extends Seeder
         $categories = DB::table('categories')->get();
         $this->command->info('Using existing categories: ' . $categories->count() . ' categories found');
 
-        // Create 500 test items
+        // Create curated test items
         $items = [];
         $stores = DB::table('stores')->get();
 
-        $garmentTypes = ['T-Shirt', 'Jeans', 'Dress', 'Shirt', 'Jacket', 'Sweater', 'Shorts', 'Skirt'];
-        $colors = ['Red', 'Blue', 'Green', 'Black', 'White', 'Gray', 'Navy', 'Beige', 'Brown', 'Pink'];
-        $sizes = ['XS', 'S', 'M', 'L', 'XL', 'XXL'];
+         $placeholderImage = 'items/placeholder.jpg';
+        $categoryItems = [
+            't-shirts' => [
+                ['name' => 'Classic Crew Tee', 'garment_type' => 't_shirt', 'price' => 19.99, 'colors' => ['Black', 'White']],
+                ['name' => 'Performance Training Tee', 'garment_type' => 't_shirt', 'price' => 24.99, 'colors' => ['Navy', 'Gray']],
+            ],
+            'shirts' => [
+                ['name' => 'Oxford Button-Down', 'garment_type' => 'fitted_shirt', 'price' => 39.99],
+                ['name' => 'Executive Dress Shirt', 'garment_type' => 'dress_shirt', 'price' => 49.99, 'colors' => ['White', 'Blue']],
+            ],
+            'pants' => [
+                ['name' => 'Slim Chino Pants', 'garment_type' => 'slim_pants', 'price' => 44.99],
+                ['name' => 'Everyday Trousers', 'garment_type' => 'regular_pants', 'price' => 42.50],
+            ],
+            'jeans' => [
+                ['name' => 'Classic Straight Jeans', 'garment_type' => 'regular_jeans', 'price' => 54.00],
+                ['name' => 'Vintage Slim Jeans', 'garment_type' => 'slim_jeans', 'price' => 58.50],
+            ],
+            'shorts' => [
+                ['name' => 'Weekend Chino Shorts', 'garment_type' => 'casual_shorts', 'price' => 32.00],
+            ],
+            'dresses' => [
+                ['name' => 'Flowy A-Line Dress', 'garment_type' => 'a_line_dress', 'price' => 79.00],
+                ['name' => 'Evening Bodycon Dress', 'garment_type' => 'bodycon_dress', 'price' => 92.50],
+            ],
+            'skirts' => [
+                ['name' => 'Pleated A-Line Skirt', 'garment_type' => 'a_line_skirt', 'price' => 36.75],
+            ],
+            'jackets' => [
+                ['name' => 'Heritage Bomber Jacket', 'garment_type' => 'bomber_jacket', 'price' => 89.99],
+                ['name' => 'Classic Denim Jacket', 'garment_type' => 'denim_jacket', 'price' => 69.50],
+            ],
+            'coats' => [
+                ['name' => 'Storm Trench Coat', 'garment_type' => 'trench_coat', 'price' => 120.00],
+            ],
+            'sweaters' => [
+                ['name' => 'Merino Crewneck Sweater', 'garment_type' => 'crewneck_sweater', 'price' => 74.00],
+            ],
+            'hoodies' => [
+                ['name' => 'Everyday Pullover Hoodie', 'garment_type' => 'pullover_hoodie', 'price' => 55.00],
+            ],
+            'activewear' => [
+                ['name' => 'Studio Yoga Pants', 'garment_type' => 'yoga_pants', 'price' => 48.00],
+                ['name' => 'Mesh Training Shorts', 'garment_type' => 'training_shorts', 'price' => 34.00],
+            ],
+            'swimwear' => [
+                ['name' => 'Triangle Bikini Top', 'garment_type' => 'bikini_top', 'price' => 29.99],
+                ['name' => 'Quick-Dry Swim Trunks', 'garment_type' => 'swim_trunks', 'price' => 33.00],
+            ],
+            'underwear' => [
+                ['name' => 'Soft Cotton Briefs', 'garment_type' => 'briefs', 'price' => 14.00],
+            ],
+            'socks' => [
+                ['name' => 'Cushioned Crew Socks', 'garment_type' => 'crew_socks', 'price' => 9.50],
+            ],
+            'shoes' => [
+                ['name' => 'Everyday Sneakers', 'garment_type' => 'sneakers', 'price' => 79.99],
+                ['name' => 'Polished Dress Shoes', 'garment_type' => 'dress_shoes', 'price' => 110.00],
+            ],
+            'bags' => [
+                ['name' => 'Commute Backpack', 'garment_type' => 'backpack', 'price' => 64.00],
+                ['name' => 'Canvas Tote Bag', 'garment_type' => 'tote_bag', 'price' => 38.00],
+            ],
+            'jewelry' => [
+                ['name' => 'Minimalist Necklace', 'garment_type' => 'necklace', 'price' => 27.50],
+                ['name' => 'Braided Bracelet', 'garment_type' => 'bracelet', 'price' => 21.00],
+            ],
+            'hats' => [
+                ['name' => 'Classic Baseball Cap', 'garment_type' => 'baseball_cap', 'price' => 22.00],
+                ['name' => 'Ribbed Beanie', 'garment_type' => 'beanie', 'price' => 18.00],
+            ],
+        ];
 
-        for ($i = 1; $i <= 500; $i++) {
-            $sizeStock = [];
-            foreach ($sizes as $size) {
-                $sizeStock[$size] = rand(0, 50);
-            }
+          $categoriesBySlug = $categories->keyBy('slug');
 
-            $colorVariants = [];
-            $colorCount = rand(1, 3);
-            $selectedColors = array_rand($colors, $colorCount);
-            if (!is_array($selectedColors)) {
-                $selectedColors = [$selectedColors];
+             foreach ($categoryItems as $categorySlug => $itemDefinitions) {
+            if (!isset($categoriesBySlug[$categorySlug])) {
+                continue;
             }
-            foreach ($selectedColors as $colorIndex) {
-                $colorVariants[] = [
-                    'color' => $colors[$colorIndex],
-                    'hex_code' => $this->getColorHex($colors[$colorIndex]),
-                    'images' => ['items/color_' . strtolower($colors[$colorIndex]) . '_1.jpg']
+              foreach ($itemDefinitions as $definition) {
+                $sizeStock = $this->buildSizeStock();
+
+                $items[] = [
+                    'store_id' => $stores->random()->id,
+                    'category_id' => $categoriesBySlug[$categorySlug]->id,
+                    'name' => $definition['name'],
+                    'description' => $this->buildDescription($definition['name']),
+                    'price' => $definition['price'],
+                    'sizing_data' => json_encode($this->buildSizingData($definition['garment_type'])),
+                    'stock_quantity' => array_sum($sizeStock),
+                    'color_variants' => json_encode($this->buildColorVariants($definition['colors'] ?? ['Black', 'Gray'], $placeholderImage)),
+                    'size_stock' => json_encode($sizeStock),
+                    'garment_type' => $definition['garment_type'],
+                    'created_at' => now()->subDays(rand(1, 180)),
+                    'updated_at' => now(),
                 ];
             }
 
-            $category = $categories->random();
-            $garmentType = $this->getGarmentTypeForCategory($category->name, $garmentTypes);
-
-            $items[] = [
-                'store_id' => $stores->random()->id,
-                'category_id' => $category->id,
-                'name' => ucfirst($garmentType) . ' ' . $i . ' - ' . $colors[array_rand($colors)],
-                'description' => 'High quality ' . strtolower($garmentType) . ' made from premium materials. Perfect for casual and formal occasions. Available in multiple sizes and colors.',
-                'price' => rand(1999, 19999) / 100, // Random price between 19.99 and 199.99
-                'sizing_data' => json_encode([
-                    'fit' => ['Slim', 'Regular', 'Relaxed'][rand(0, 2)],
-                    'material' => ['100% Cotton', 'Polyester Blend', 'Wool', 'Silk', 'Linen'][rand(0, 4)],
-                    'care_instructions' => 'Machine wash cold, tumble dry low',
-                    'country_of_origin' => ['China', 'Bangladesh', 'Vietnam', 'India'][rand(0, 3)]
-                ]),
-                'stock_quantity' => rand(10, 200),
-                'color_variants' => json_encode($colorVariants),
-                'size_stock' => json_encode($sizeStock),
-                'garment_type' => $garmentType,
-                'created_at' => now()->subDays(rand(1, 180)),
-                'updated_at' => now(),
-            ];
+            
         }
 
         DB::table('items')->insert($items);
 
-        $this->command->info('Created 500 items');
+        $this->command->info('Created ' . count($items) . ' curated items');
 
         // Create item_user relationships (wishlist/favorites)
         $itemUser = [];
@@ -252,7 +304,7 @@ class DummyDataSeeder extends Seeder
         $this->command->info('Dummy data created successfully!');
         $this->command->info('- 105 Users (100 customers + 5 store admins)');
         $this->command->info('- 10 Stores');
-        $this->command->info('- 500 Items');
+        $this->command->info('- ' . count($items) . ' Items');
         $this->command->info('- 50 Orders');
         $this->command->info('- Wishlist items');
         $this->command->info('- Order items with proper sizing and color selection');
@@ -276,17 +328,47 @@ class DummyDataSeeder extends Seeder
         return $colorMap[$colorName] ?? '#CCCCCC';
     }
 
-    private function getGarmentTypeForCategory($categoryName, $garmentTypes)
+     private function buildSizeStock(): array
     {
-        $categoryMapping = [
-            'T-Shirts' => 'T-Shirt',
-            'Jeans' => 'Jeans',
-            'Dresses' => 'Dress',
-            'Shirts' => 'Shirt',
-            'Shoes' => 'Shoes',
-            'Accessories' => 'Accessory'
-        ];
+        $sizeStock = [];
 
-        return $categoryMapping[$categoryName] ?? $garmentTypes[array_rand($garmentTypes)];
+        foreach (Item::STANDARD_SIZES as $size) {
+            $sizeStock[$size] = rand(5, 25);
+        }
+
+        return $sizeStock;
+    }
+
+    private function buildSizingData(string $garmentType): array
+    {
+        $measurements = [];
+
+        foreach (Item::getRequiredMeasurements($garmentType) as $measurement) {
+            $measurements[$measurement] = rand(30, 120);
+        }
+
+        return [
+            'fit' => ['Slim', 'Regular', 'Relaxed'][rand(0, 2)],
+            'material' => ['100% Cotton', 'Polyester Blend', 'Wool', 'Silk', 'Linen'][rand(0, 4)],
+            'care_instructions' => 'Machine wash cold, tumble dry low',
+            'country_of_origin' => ['China', 'Bangladesh', 'Vietnam', 'India'][rand(0, 3)],
+            'measurements_cm' => $measurements,
+        ];}
+         private function buildColorVariants(array $colors, string $imagePath): array
+    {
+        return array_map(function ($color) use ($imagePath) {
+            return [
+                'color' => $color,
+                'hex_code' => $this->getColorHex($color),
+                'images' => [$imagePath],
+            ];
+        }, $colors);
+    }
+
+    private function buildDescription(string $itemName): string
+    {
+        return $itemName . ' crafted with premium materials and a comfortable fit. Each piece ships with consistent sizing data and a universal product image for a clean catalog experience.';
+
+        
     }
 }

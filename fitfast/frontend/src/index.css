@@ -3150,6 +3150,33 @@ a:hover {
   gap: 1rem;
 }
 
+.trash-btn {
+  background: transparent;
+  border: none;
+  padding: 0.5rem;
+  cursor: pointer;
+  color: #999;
+  transition: color 0.2s ease, background 0.2s ease, transform 0.2s ease;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 6px;
+}
+
+.trash-btn:hover {
+  color: #d32f2f;
+  background: rgba(211, 47, 47, 0.08);
+  transform: scale(1.1);
+}
+
+.trash-btn:active {
+  transform: scale(0.95);
+}
+
+.trash-btn svg {
+  display: block;
+}
+
 .quantity-control.compact {
   gap: 0.65rem;
   background: #faf7f6;

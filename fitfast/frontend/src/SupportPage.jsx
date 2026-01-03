@@ -151,7 +151,6 @@ export default function SupportPage() {
             <>
               <div className="conversation-header">
                 <div>
-                  <p className="eyebrow">Ticket #{activeTicket.id}</p>
                   <h3>{typeCopy[activeTicket.type]}</h3>
                   <p className="muted small">
                     {statusCopy[activeTicket.status]} • Opened on{" "}
@@ -211,7 +210,7 @@ export default function SupportPage() {
               </p>
 
               <form className="new-ticket" onSubmit={handleCreateTicket}>
-                <label>Topic</label>
+               
                 <div className="type-grid">
                   {Object.entries(typeCopy).map(([value, label]) => (
                     <button

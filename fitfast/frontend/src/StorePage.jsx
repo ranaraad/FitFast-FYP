@@ -122,7 +122,15 @@ export default function StorePage() {
   return (
     <div className="store-page">
       {cartFeedback && <div className="cart-feedback">{cartFeedback}</div>}
-      
+
+      <button
+        type="button"
+        className="back-link"
+        onClick={() => navigate("/")}
+      >
+        ← Back to Stores
+      </button>
+
       <section className="store-hero">
         <div className="store-hero-content">
           <p className="eyebrow">Curated wardrobe</p>

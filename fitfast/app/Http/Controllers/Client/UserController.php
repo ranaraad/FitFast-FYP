@@ -4,6 +4,8 @@ namespace App\Http\Controllers\Client;
 
 use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Hash;
+use Illuminate\Validation\Rules\Password;
 
 class UserController extends Controller
 {
@@ -47,6 +49,31 @@ class UserController extends Controller
         return response()->json([
             'message' => 'User profile updated successfully',
             'user' => $user,
+        ]);
+    }
+
+    /**
+     * Update the authenticated user's password.
+     */
+    public function updatePassword(Request $request)
+    {
+        $validated = $request->validate([
+            'current_password' => ['required', 'current_password'],
+            'new_password' => ['required', 'string', Password::defaults(), 'confirmed'],
+        ], [], [
+            'current_password' => 'current password',
+            'new_password' => 'new password',
+            'new_password_confirmation' => 'new password confirmation',
+        ]);
+
+        $user = $request->user();
+
+        $user->forceFill([
+            'password' => Hash::make($validated['new_password']),
+        ])->save();
+
+        return response()->json([
+            'message' => 'Password updated successfully',
         ]);
     }
 }

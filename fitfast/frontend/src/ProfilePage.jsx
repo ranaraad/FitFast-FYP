@@ -34,27 +34,6 @@ const DEFAULT_ADDRESS = {
   phone: "(212) 555-0113",
 };
 
-const DEFAULT_PAYMENT_FIXTURES = [
-  {
-    id: "pm-visa",
-    brand: "Visa",
-    nickname: "Personal card",
-    last4: "3188",
-    expMonth: "09",
-    expYear: "27",
-    isDefault: true,
-  },
-  {
-    id: "pm-amex",
-    brand: "Amex",
-    nickname: "Work travel",
-    last4: "0025",
-    expMonth: "04",
-    expYear: "28",
-    isDefault: false,
-  },
-];
-
 const readStoredJson = (key, fallback) => {
   if (!isBrowser) return fallback;
   try {
@@ -65,9 +44,6 @@ const readStoredJson = (key, fallback) => {
     return fallback;
   }
 };
-
-const cloneDefaultPaymentMethods = () =>
-  DEFAULT_PAYMENT_FIXTURES.map((method) => ({ ...method }));
 
 const writeStoredJson = (key, value) => {
   if (!isBrowser) return;
@@ -94,6 +70,21 @@ const mapApiPaymentMethod = (method) => ({
 
 const normalizeEmail = (value) =>
   typeof value === "string" ? value.trim().toLowerCase() : "";
+
+const ensureDefaultPayment = (methods) => {
+  if (!Array.isArray(methods) || !methods.length) return [];
+  if (methods.some((method) => method.isDefault)) {
+    return methods.map((method) => ({ ...method }));
+  }
+  return methods.map((method, index) => ({ ...method, isDefault: index === 0 }));
+};
+
+const getPaymentMethodsKey = (user) => {
+  if (!user) return null;
+  if (user.id) return `${PAYMENT_METHODS_STORAGE}_${user.id}`;
+  const emailKey = normalizeEmail(user.email);
+  return emailKey ? `${PAYMENT_METHODS_STORAGE}_${emailKey}` : null;
+};
 
 const computeTrackable = (status, explicit) => {
   if (typeof explicit === "boolean") return explicit;
@@ -296,11 +287,8 @@ export default function ProfilePage() {
   const [wishlistItems, setWishlistItems] = useState([]);
   const [orders, setOrders] = useState([]);
   const [orderStorageKey, setOrderStorageKey] = useState(null);
-  const [paymentMethods, setPaymentMethods] = useState(() => {
-    const stored = readStoredJson(PAYMENT_METHODS_STORAGE, null);
-    if (stored && Array.isArray(stored) && stored.length) return stored;
-    return cloneDefaultPaymentMethods();
-  });
+  const [paymentMethods, setPaymentMethods] = useState([]);
+  const [paymentStorageKey, setPaymentStorageKey] = useState(null);
   const [showPasswordModal, setShowPasswordModal] = useState(false);
   const [passwordForm, setPasswordForm] = useState({
     current: "",
@@ -336,9 +324,46 @@ export default function ProfilePage() {
           ...(fetchedUser?.measurements || {}),
         });
         setWishlistItems(getWishlist());
-        if (Array.isArray(fetchedUser?.payment_methods) && fetchedUser.payment_methods.length) {
-          setPaymentMethods(fetchedUser.payment_methods.map(mapApiPaymentMethod));
+
+        const paymentKey = getPaymentMethodsKey(fetchedUser);
+        setPaymentStorageKey(paymentKey);
+
+        const storedPaymentRaw = paymentKey ? readStoredJson(paymentKey, []) : [];
+        let storedPaymentMethods = Array.isArray(storedPaymentRaw)
+          ? storedPaymentRaw
+              .filter((entry) => entry && typeof entry === "object")
+              .map(mapApiPaymentMethod)
+          : [];
+
+        if (!storedPaymentMethods.length) {
+          const legacyPaymentRaw = readStoredJson(PAYMENT_METHODS_STORAGE, []);
+          if (paymentKey && Array.isArray(legacyPaymentRaw) && legacyPaymentRaw.length) {
+            storedPaymentMethods = legacyPaymentRaw
+              .filter((entry) => entry && typeof entry === "object")
+              .map(mapApiPaymentMethod);
+            writeStoredJson(PAYMENT_METHODS_STORAGE, null);
+          }
         }
+
+        let resolvedPaymentMethods = storedPaymentMethods;
+
+        if (Array.isArray(fetchedUser?.payment_methods) && fetchedUser.payment_methods.length) {
+          const apiPaymentMethods = fetchedUser.payment_methods
+            .filter((entry) => entry && typeof entry === "object")
+            .map(mapApiPaymentMethod);
+
+          const merged = new Map();
+          [...apiPaymentMethods, ...storedPaymentMethods].forEach((method) => {
+            if (!method) return;
+            const dedupeKey = method.id || `${method.brand}-${method.last4}`;
+            const existing = merged.get(dedupeKey);
+            merged.set(dedupeKey, existing ? { ...existing, ...method } : method);
+          });
+
+          resolvedPaymentMethods = Array.from(merged.values());
+        }
+
+        setPaymentMethods(ensureDefaultPayment(resolvedPaymentMethods));
 
         const key = getOrderHistoryKey(fetchedUser);
         setOrderStorageKey(key);
@@ -400,8 +425,9 @@ export default function ProfilePage() {
   }, [user]);
 
   useEffect(() => {
-    writeStoredJson(PAYMENT_METHODS_STORAGE, paymentMethods);
-  }, [paymentMethods]);
+    if (!paymentStorageKey) return;
+    writeStoredJson(paymentStorageKey, paymentMethods);
+  }, [paymentStorageKey, paymentMethods]);
 
 
   const handleChange = (e) => {
@@ -579,11 +605,14 @@ export default function ProfilePage() {
     };
 
     setPaymentMethods((prev) => {
+      const normalized = Array.isArray(prev)
+        ? prev.map((method) => ({ ...method }))
+        : [];
       const next = billingForm.setDefault
-        ? prev.map((method) => ({ ...method, isDefault: false }))
-        : [...prev];
+        ? normalized.map((method) => ({ ...method, isDefault: false }))
+        : normalized;
       next.push(newMethod);
-      return next;
+      return ensureDefaultPayment(next);
     });
 
     setBillingForm({ nickname: "", brand: "Visa", number: "", expMonth: "", expYear: "", setDefault: false });
@@ -598,12 +627,9 @@ export default function ProfilePage() {
     setPaymentMethods((prev) => {
       const remaining = prev.filter((method) => method.id !== id);
       if (!remaining.length) {
-        return cloneDefaultPaymentMethods();
+        return [];
       }
-      if (remaining.some((method) => method.isDefault)) {
-        return remaining.map((method) => ({ ...method }));
-      }
-      return remaining.map((method, index) => ({ ...method, isDefault: index === 0 }));
+      return ensureDefaultPayment(remaining);
     });
   };
 
@@ -619,6 +645,8 @@ export default function ProfilePage() {
       }
       setOrders([]);
       setOrderStorageKey(null);
+      setPaymentMethods([]);
+      setPaymentStorageKey(null);
       navigate("/login");
     }
   };
@@ -1138,28 +1166,36 @@ export default function ProfilePage() {
               <div className="billing-columns">
                 <div className="billing-list">
                   <p className="billing-subtitle">Saved payment methods</p>
-                  {paymentMethods.map((method) => (
-                    <div className="billing-card" key={method.id}>
-                      <div>
-                        <p className="billing-card-name">
-                          {formatCardLabel(method)}
-                          {method.isDefault && <span className="badge">Default</span>}
-                        </p>
-                        <p className="billing-card-meta">Expiry {method.expMonth}/{method.expYear}</p>
-                        {method.nickname && <p className="billing-card-note">{method.nickname}</p>}
-                      </div>
-                      <div className="billing-card-actions">
-                        {!method.isDefault && (
-                          <button type="button" className="ghost-btn small" onClick={() => handleSetDefaultPayment(method.id)}>
-                            Make default
+                  {paymentMethods.length ? (
+                    paymentMethods.map((method) => (
+                      <div className="billing-card" key={method.id}>
+                        <div>
+                          <p className="billing-card-name">
+                            {formatCardLabel(method)}
+                            {method.isDefault && <span className="badge">Default</span>}
+                          </p>
+                          <p className="billing-card-meta">Expiry {method.expMonth}/{method.expYear}</p>
+                          {method.nickname && <p className="billing-card-note">{method.nickname}</p>}
+                        </div>
+                        <div className="billing-card-actions">
+                          {!method.isDefault && (
+                            <button type="button" className="ghost-btn small" onClick={() => handleSetDefaultPayment(method.id)}>
+                              Make default
+                            </button>
+                          )}
+                          <button type="button" className="ghost-btn small" onClick={() => handleRemovePaymentMethod(method.id)}>
+                            Remove
                           </button>
-                        )}
-                        <button type="button" className="ghost-btn small" onClick={() => handleRemovePaymentMethod(method.id)}>
-                          Remove
-                        </button>
+                        </div>
                       </div>
+                    ))
+                  ) : (
+                    <div className="empty-state">
+                      <div className="empty-icon">💳</div>
+                      <div>No saved payment methods yet.</div>
+                      <div className="empty-hint">Add a card to speed up checkout next time.</div>
                     </div>
-                  ))}
+                  )}
                 </div>
                 <form className="billing-form" onSubmit={handleAddPaymentMethod}>
                   <p className="billing-subtitle">Add a new card</p>

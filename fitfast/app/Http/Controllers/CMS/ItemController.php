@@ -10,6 +10,7 @@ use App\Models\Store;
 use App\Models\Category;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Validation\ValidationException;
 
 class ItemController extends Controller
 {
@@ -32,79 +33,189 @@ class ItemController extends Controller
         // Get category to garment type mapping for JavaScript
         $categoryToGarmentTypes = $this->getCategoryToGarmentTypesMapping();
 
+        // Initialize an empty item object for the create form
+        $item = new Item();
+
         return view('cms.pages.items.create', compact(
             'stores',
             'categories',
             'garmentTypes',
             'standardSizes',
             'garmentTypesByCategory',
-            'categoryToGarmentTypes'
+            'categoryToGarmentTypes',
+            'item'
         ));
     }
 
     public function store(Request $request)
     {
-        $validated = $request->validate([
-            'store_id' => 'required|exists:stores,id',
-            'category_id' => 'required|exists:categories,id',
-            'garment_type' => 'required|string|in:' . implode(',', array_keys(Item::GARMENT_TYPES)),
-            'name' => 'required|string|max:255',
-            'description' => 'nullable|string',
-            'price' => 'required|numeric|min:0',
-            'color_variants' => 'required|array',
-            'color_variants.*.name' => 'required|string|max:255',
-            'color_variants.*.stock' => 'required|integer|min:0',
-            'size_stock' => 'required|array',
-            'size_stock.*' => 'required|integer|min:0',
-            'sizes' => 'nullable|array',
-            'sizes.*' => 'nullable|array',
-            'images' => 'nullable|array',
-            'images.*' => 'nullable|image|mimes:jpeg,png,jpg,gif,webp|max:5120',
-        ]);
+        $validated = $this->validateItemRequest($request);
 
-        // Validate stock consistency
-        $totalColorStock = 0;
-        foreach ($request->color_variants as $colorData) {
-            $totalColorStock += $colorData['stock'];
+        // Parse variants JSON if provided, otherwise build from color_variants
+        if ($request->filled('variants')) {
+            $variants = json_decode($request->variants, true);
+            // Validate variants structure
+            $this->validateVariants($variants);
+        } else {
+            // Build variants from color_variants array
+            $variants = $this->buildVariantsFromColorVariants($request->color_variants);
         }
 
-        $totalSizeStock = array_sum($request->size_stock);
+        // Build aggregated data from variants
+        $aggregatedData = $this->buildAggregatedData($variants);
 
-        if ($totalColorStock !== $totalSizeStock) {
-            return redirect()->back()
-                ->with('error', "Total color stock ($totalColorStock) must match total size stock ($totalSizeStock). Please adjust your stock levels.")
-                ->withInput();
-        }
+        // Update validated data
+        $validated['variants'] = $variants;
+        $validated['color_variants'] = $aggregatedData['color_variants'];
+        $validated['size_stock'] = $aggregatedData['size_stock'];
+        $validated['stock_quantity'] = $aggregatedData['total_stock'];
 
-        // Build color variants structure
-        $colorVariants = [];
-        foreach ($request->color_variants as $colorData) {
-            $colorName = $colorData['name'];
-            $colorVariants[$colorName] = [
-                'name' => $colorName,
-                'stock' => $colorData['stock']
-            ];
-        }
-        $validated['color_variants'] = $colorVariants;
-
-        // Build the proper sizing_data structure
+        // Build sizing_data (optional measurements)
         $validated['sizing_data'] = $this->buildSizingData($request);
 
-        // Build size_stock data
-        $validated['size_stock'] = $request->size_stock;
-
-        // Calculate total stock (should be the same from both sources)
-        $validated['stock_quantity'] = $totalColorStock; // or $totalSizeStock, they should be equal
-
+        // Create the item
         $item = Item::create($validated);
 
-        // Handle image uploads if present
+        // Handle image uploads
         if ($request->hasFile('images')) {
             $this->handleImageUploads($item, $request->file('images'));
         }
 
         return redirect()->route('cms.items.index')
             ->with('success', 'Item created successfully.');
+    }
+
+    /**
+     * Validate item creation/update request
+     */
+    private function validateItemRequest(Request $request, $isUpdate = false)
+    {
+        $rules = [
+            'store_id' => 'required|exists:stores,id',
+            'category_id' => 'required|exists:categories,id',
+            'garment_type' => 'required|string|in:' . implode(',', array_keys(Item::GARMENT_TYPES)),
+            'name' => 'required|string|max:255',
+            'description' => 'nullable|string',
+            'price' => 'required|numeric|min:0',
+            'color_variants' => 'required|array|min:1',
+            'color_variants.*.name' => 'required|string|max:255',
+            'color_variants.*.size_stock' => 'required|array',
+            'color_variants.*.size_stock.*' => 'required|integer|min:0',
+            'sizes' => 'nullable|array',
+            'sizes.*' => 'nullable|array',
+            'images' => 'nullable|array',
+            'images.*' => 'nullable|image|mimes:jpeg,png,jpg,gif,webp|max:5120',
+        ];
+
+        // Variants is optional since we can build it from color_variants
+        if ($request->filled('variants')) {
+            $rules['variants'] = 'required|json';
+        }
+
+        // For update, images are optional
+        if ($isUpdate) {
+            $rules['images.*'] = 'nullable|image|mimes:jpeg,png,jpg,gif,webp|max:5120';
+        }
+
+        return $request->validate($rules);
+    }
+
+    /**
+     * Validate variants array structure
+     */
+    private function validateVariants(array $variants)
+    {
+        if (empty($variants)) {
+            throw ValidationException::withMessages([
+                'variants' => ['Please add at least one color-size variant with stock.']
+            ]);
+        }
+
+        foreach ($variants as $variant) {
+            if (empty($variant['color']) || empty($variant['size'])) {
+                throw ValidationException::withMessages([
+                    'variants' => ['Each variant must have both color and size specified.']
+                ]);
+            }
+
+            if (!isset($variant['stock']) || $variant['stock'] < 0) {
+                throw ValidationException::withMessages([
+                    'variants' => ['Stock quantity must be 0 or greater.']
+                ]);
+            }
+        }
+    }
+
+    /**
+     * Build variants array from color_variants input
+     */
+    private function buildVariantsFromColorVariants(array $colorVariants)
+    {
+        $variants = [];
+
+        foreach ($colorVariants as $colorData) {
+            $colorName = $colorData['name'];
+            $sizeStock = $colorData['size_stock'] ?? [];
+
+            foreach ($sizeStock as $size => $stock) {
+                if ($stock > 0) {
+                    $variants[] = [
+                        'color' => $colorName,
+                        'size' => $size,
+                        'stock' => $stock
+                    ];
+                }
+            }
+        }
+
+        if (empty($variants)) {
+            throw ValidationException::withMessages([
+                'color_variants' => ['Please add stock for at least one color-size combination.']
+            ]);
+        }
+
+        return $variants;
+    }
+
+    /**
+     * Build aggregated data (color_variants, size_stock, total_stock) from variants
+     */
+    private function buildAggregatedData(array $variants)
+    {
+        $colorVariants = [];
+        $sizeStock = [];
+        $totalStock = 0;
+
+        foreach ($variants as $variant) {
+            if (isset($variant['stock']) && $variant['stock'] > 0) {
+                $color = $variant['color'];
+                $size = $variant['size'];
+                $stock = $variant['stock'];
+
+                // Build color_variants (total per color)
+                if (!isset($colorVariants[$color])) {
+                    $colorVariants[$color] = [
+                        'name' => $color,
+                        'stock' => 0
+                    ];
+                }
+                $colorVariants[$color]['stock'] += $stock;
+
+                // Build size_stock (total per size)
+                if (!isset($sizeStock[$size])) {
+                    $sizeStock[$size] = 0;
+                }
+                $sizeStock[$size] += $stock;
+
+                $totalStock += $stock;
+            }
+        }
+
+        return [
+            'color_variants' => $colorVariants,
+            'size_stock' => $sizeStock,
+            'total_stock' => $totalStock
+        ];
     }
 
     public function show(Item $item)
@@ -126,6 +237,30 @@ class ItemController extends Controller
         // Get category to garment type mapping for JavaScript
         $categoryToGarmentTypes = $this->getCategoryToGarmentTypesMapping();
 
+        // Prepare existing variants data for the view
+        $existingVariants = $item->variants ?? [];
+        $colorVariantsData = [];
+
+        // Group variants by color for easier template rendering
+        if (!empty($existingVariants)) {
+            foreach ($existingVariants as $variant) {
+                if (isset($variant['color']) && isset($variant['size']) && isset($variant['stock'])) {
+                    $color = $variant['color'];
+                    $size = $variant['size'];
+                    $stock = $variant['stock'];
+
+                    if (!isset($colorVariantsData[$color])) {
+                        $colorVariantsData[$color] = [
+                            'name' => $color,
+                            'size_stock' => []
+                        ];
+                    }
+
+                    $colorVariantsData[$color]['size_stock'][$size] = $stock;
+                }
+            }
+        }
+
         $item->load('images');
 
         return view('cms.pages.items.edit', compact(
@@ -135,54 +270,38 @@ class ItemController extends Controller
             'garmentTypes',
             'standardSizes',
             'garmentTypesByCategory',
-            'categoryToGarmentTypes'
+            'categoryToGarmentTypes',
+            'colorVariantsData' // Pass this to the view
         ));
     }
 
     public function update(Request $request, Item $item)
     {
-        $validated = $request->validate([
-            'store_id' => 'required|exists:stores,id',
-            'category_id' => 'required|exists:categories,id',
-            'garment_type' => 'required|string|in:' . implode(',', array_keys(Item::GARMENT_TYPES)),
-            'name' => 'required|string|max:255',
-            'description' => 'nullable|string',
-            'price' => 'required|numeric|min:0',
-            'color_variants' => 'required|array',
-            'color_variants.*.name' => 'required|string|max:255',
-            'color_variants.*.stock' => 'required|integer|min:0',
-            'size_stock' => 'required|array',
-            'size_stock.*' => 'required|integer|min:0',
-            'sizes' => 'nullable|array',
-            'sizes.*' => 'nullable|array',
-            'images' => 'nullable|array',
-            'images.*' => 'nullable|image|mimes:jpeg,png,jpg,gif,webp|max:5120',
-        ]);
+        $validated = $this->validateItemRequest($request, true);
 
-        // Build color variants structure
-        $colorVariants = [];
-        foreach ($request->color_variants as $colorData) {
-            $colorName = $colorData['name'];
-            $colorVariants[$colorName] = [
-                'name' => $colorName,
-                'stock' => $colorData['stock']
-            ];
+        // Parse variants JSON if provided, otherwise build from color_variants
+        if ($request->filled('variants')) {
+            $variants = json_decode($request->variants, true);
+            // Validate variants structure
+            $this->validateVariants($variants);
+        } else {
+            // Build variants from color_variants array
+            $variants = $this->buildVariantsFromColorVariants($request->color_variants);
         }
-        $validated['color_variants'] = $colorVariants;
 
-        // Build the proper sizing_data structure (optional now)
+        // Build aggregated data from variants
+        $aggregatedData = $this->buildAggregatedData($variants);
+
+        // Update validated data
+        $validated['variants'] = $variants;
+        $validated['color_variants'] = $aggregatedData['color_variants'];
+        $validated['size_stock'] = $aggregatedData['size_stock'];
+        $validated['stock_quantity'] = $aggregatedData['total_stock'];
+
+        // Build sizing_data (optional measurements)
         $validated['sizing_data'] = $this->buildSizingData($request);
 
-        // Build size_stock data
-        $validated['size_stock'] = $request->size_stock;
-
-        // Calculate total stock from color variants
-        $totalStock = 0;
-        foreach ($colorVariants as $colorData) {
-            $totalStock += $colorData['stock'];
-        }
-        $validated['stock_quantity'] = $totalStock;
-
+        // Update the item
         $item->update($validated);
 
         // Handle image uploads if present
@@ -359,7 +478,6 @@ class ItemController extends Controller
             $item->images()->createMany($uploadedImages);
         }
     }
-
 
     /**
      * Delete physical image file

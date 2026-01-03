@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import api from "./api";
 import {
@@ -55,130 +55,6 @@ const DEFAULT_PAYMENT_FIXTURES = [
   },
 ];
 
-const DEFAULT_ORDER_FIXTURES = [
-  {
-    id: "FF-10294",
-    placedAt: "2025-11-11T14:20:00.000Z",
-    eta: "2025-11-14T14:20:00.000Z",
-    status: "Processing",
-    total: 160.81,
-    items: [
-      {
-        id: "look-61",
-        name: "Silk wrap dress",
-        quantity: 1,
-        price: 108.9,
-        size: "M",
-        color: "Ivory",
-      },
-      {
-        id: "belt-21",
-        name: "Leather waist belt",
-        quantity: 1,
-        price: 39,
-        size: "M",
-        color: "Chestnut",
-      },
-      {
-        id: "earrings-04",
-        name: "Gold drop earrings",
-        quantity: 1,
-        price: 12.91,
-      },
-    ],
-    delivery: {
-      id: "standard",
-      label: "Standard delivery",
-      description: "Arrives in 3-5 business days",
-    },
-    shippingAddress: { ...DEFAULT_ADDRESS },
-    payment: { label: "Visa", cardLast4: "3188" },
-    contact: {},
-    totals: {
-      subtotal: 160.81,
-      shipping: 0,
-      tax: 12.84,
-      discount: 0,
-      total: 160.81,
-    },
-    trackable: true,
-  },
-  {
-    id: "FF-10172",
-    placedAt: "2025-10-26T10:45:00.000Z",
-    eta: "2025-10-29T10:45:00.000Z",
-    status: "Shipped",
-    total: 212.4,
-    items: [
-      {
-        id: "jacket-18",
-        name: "Tailored wool blazer",
-        quantity: 1,
-        price: 172.4,
-        size: "S",
-        color: "Charcoal",
-      },
-      {
-        id: "heels-07",
-        name: "Pointed-toe heels",
-        quantity: 1,
-        price: 40,
-        size: "38",
-        color: "Black",
-      },
-    ],
-    delivery: {
-      id: "express",
-      label: "Express courier",
-      description: "Guaranteed next-day in major cities",
-    },
-    shippingAddress: { ...DEFAULT_ADDRESS, line2: "Penthouse 2B" },
-    payment: { label: "Amex", cardLast4: "0025" },
-    contact: {},
-    totals: {
-      subtotal: 212.4,
-      shipping: 16,
-      tax: 15.32,
-      discount: 0,
-      total: 212.4,
-    },
-    trackable: true,
-  },
-  {
-    id: "FF-09788",
-    placedAt: "2025-09-14T18:10:00.000Z",
-    eta: "2025-09-17T18:10:00.000Z",
-    status: "Delivered",
-    total: 98.5,
-    items: [
-      {
-        id: "knit-33",
-        name: "Cashmere turtleneck",
-        quantity: 1,
-        price: 98.5,
-        size: "L",
-        color: "Forest",
-      },
-    ],
-    delivery: {
-      id: "pickup",
-      label: "In-store pickup",
-      description: "Ready in under 2 hours",
-    },
-    shippingAddress: { ...DEFAULT_ADDRESS, line2: "" },
-    payment: { label: "Visa", cardLast4: "3188" },
-    contact: {},
-    totals: {
-      subtotal: 98.5,
-      shipping: 0,
-      tax: 7.88,
-      discount: 10,
-      total: 98.5,
-    },
-    trackable: false,
-  },
-];
-
 const readStoredJson = (key, fallback) => {
   if (!isBrowser) return fallback;
   try {
@@ -189,19 +65,6 @@ const readStoredJson = (key, fallback) => {
     return fallback;
   }
 };
-
-const cloneDefaultOrders = () =>
-  DEFAULT_ORDER_FIXTURES.map((order) => ({
-    ...order,
-    items: Array.isArray(order.items)
-      ? order.items.map((item) => ({ ...item }))
-      : [],
-    delivery: order.delivery ? { ...order.delivery } : null,
-    shippingAddress: order.shippingAddress ? { ...order.shippingAddress } : { ...DEFAULT_ADDRESS },
-    payment: order.payment ? { ...order.payment } : null,
-    contact: order.contact ? { ...order.contact } : {},
-    totals: order.totals ? { ...order.totals } : {},
-  }));
 
 const cloneDefaultPaymentMethods = () =>
   DEFAULT_PAYMENT_FIXTURES.map((method) => ({ ...method }));
@@ -229,10 +92,32 @@ const mapApiPaymentMethod = (method) => ({
   isDefault: Boolean(method.is_default ?? method.isDefault ?? false),
 });
 
+const normalizeEmail = (value) =>
+  typeof value === "string" ? value.trim().toLowerCase() : "";
+
+const computeTrackable = (status, explicit) => {
+  if (typeof explicit === "boolean") return explicit;
+  const normalized = (status || "").toString().toLowerCase();
+  const terminal = ["delivered", "cancelled", "canceled", "refunded", "returned"];
+  return !terminal.some((term) => normalized.includes(term));
+};
+
+const getOrderHistoryKey = (user) => {
+  if (!user) return null;
+  if (user.id) return `${ORDER_HISTORY_STORAGE}_${user.id}`;
+  const emailKey = normalizeEmail(user.email);
+  return emailKey ? `${ORDER_HISTORY_STORAGE}_${emailKey}` : null;
+};
+
 const mapApiOrder = (order) => {
+  if (!order || typeof order !== "object") return null;
+
+  const orderCode = order.code || order.reference || `ORDER-${order.id}`;
+  const statusLabel = (order.status?.label || order.status || "Processing").toString();
+
   const items = Array.isArray(order.items)
     ? order.items.map((item) => ({
-        id: item.id || item.code || `${order.id}-item`,
+        id: item.id || item.code || `${orderCode}-item`,
         name: item.name || item.title || "Ordered item",
         quantity: item.quantity || item.qty || 1,
         price: Number(item.price || item.unit_price || 0),
@@ -242,45 +127,162 @@ const mapApiOrder = (order) => {
       }))
     : [];
 
-  const totals = order.totals || {
-    subtotal: Number(order.subtotal || 0),
-    shipping: Number(order.shipping_total || 0),
-    tax: Number(order.tax_total || 0),
-    discount: Number(order.discount_total || 0),
-    total: Number(order.total || order.grand_total || 0),
+  const totalsSource = order.totals || {};
+  const totals = {
+    subtotal: Number(totalsSource.subtotal ?? order.subtotal ?? 0),
+    shipping: Number(totalsSource.shipping ?? order.shipping_total ?? 0),
+    tax: Number(totalsSource.tax ?? order.tax_total ?? 0),
+    discount: Number(totalsSource.discount ?? order.discount_total ?? 0),
+    total: Number(totalsSource.total ?? order.total ?? order.grand_total ?? 0),
   };
 
+  const contact = order.contact || {
+    fullName: order.contact_name || "",
+    email: order.contact_email || "",
+    phone: order.contact_phone || "",
+  };
+
+  const normalizedEmail = normalizeEmail(contact.email || order.email);
+
   return {
-    id: order.code || order.reference || `ORDER-${order.id}`,
-    placedAt: order.placed_at || order.created_at || new Date().toISOString(),
+    id: orderCode,
+    code: orderCode,
+    placedAt: order.placed_at || order.created_at || order.createdAt || new Date().toISOString(),
     eta:
       order.eta ||
       order.estimated_delivery ||
+      order.estimatedArrival ||
       new Date(Date.now() + 72 * 60 * 60 * 1000).toISOString(),
-    status: (order.status?.label || order.status || "Processing").toString(),
-    total: Number(totals.total || order.total || 0),
+    status: statusLabel,
+    total: Number(totals.total || 0),
     items,
     delivery: order.delivery || {
       id: order.delivery_method || "standard",
       label: order.delivery_label || "Standard delivery",
-      description: "Arrives in 3-5 business days",
+      description: order.delivery_description || "Arrives in 3-5 business days",
     },
     shippingAddress:
       order.shipping_address || order.shippingAddress || { ...DEFAULT_ADDRESS },
-    payment: order.payment || order.payment_method || {
-      label: order.payment_label || "Card",
-      cardLast4: order.payment_last4 || "0000",
-    },
-    contact: order.contact || {
-      fullName: order.contact_name || "",
-      email: order.contact_email || "",
-      phone: order.contact_phone || "",
-    },
+    payment:
+      order.payment || order.payment_method || {
+        label: order.payment_label || "Card",
+        cardLast4: order.payment_last4 || "0000",
+      },
+    contact,
     totals,
-    trackable: !["Cancelled", "Canceled"].includes(
-      (order.status?.label || order.status || "").toString()
-    ),
+    trackable: computeTrackable(statusLabel, order.trackable),
+    userId: order.user_id ?? order.userId ?? null,
+    userEmail: normalizedEmail,
   };
+};
+
+const mapRecentOrder = (order) => {
+  if (!order || typeof order !== "object") return null;
+
+  const orderCode = order.code || order.id || order.reference || `ORDER-${Date.now()}`;
+  const statusLabel = (order.status || "Processing").toString();
+  const contact = order.contact || {
+    fullName: order.fullName || "",
+    email: order.email || "",
+    phone: order.phone || "",
+  };
+
+  const items = Array.isArray(order.items)
+    ? order.items.map((item, index) => ({
+        id: item.id || item.code || `${orderCode}-item-${index + 1}`,
+        name: item.name || "Ordered item",
+        quantity: item.quantity || 1,
+        price: Number(item.price || 0),
+        image: item.image || null,
+        size: item.size || null,
+        color: item.color || null,
+      }))
+    : [];
+
+  const totalsSource = order.totals || {};
+  const totals = {
+    subtotal: Number(totalsSource.subtotal ?? order.subtotal ?? 0),
+    shipping: Number(totalsSource.shipping ?? order.shipping ?? 0),
+    tax: Number(totalsSource.tax ?? order.tax ?? 0),
+    discount: Number(totalsSource.discount ?? order.discount ?? 0),
+    total: Number(totalsSource.total ?? order.total ?? 0),
+  };
+
+  return {
+    id: orderCode,
+    code: orderCode,
+    placedAt: order.placedAt || order.created_at || order.createdAt || new Date().toISOString(),
+    eta:
+      order.eta ||
+      order.estimatedArrival ||
+      order.estimated_delivery ||
+      new Date(Date.now() + 72 * 60 * 60 * 1000).toISOString(),
+    status: statusLabel,
+    total: Number(totals.total || 0),
+    items,
+    delivery:
+      order.delivery || {
+        id: order.deliveryId || "standard",
+        label: order.deliveryLabel || "Standard delivery",
+        description: order.delivery?.description || "Arrives in 3-5 business days",
+      },
+    shippingAddress: order.shippingAddress || { ...DEFAULT_ADDRESS },
+    payment:
+      order.payment || {
+        label: order.paymentLabel || "Card",
+        cardLast4: order.payment?.cardLast4 || order.cardLast4 || "0000",
+      },
+    contact,
+    totals,
+    trackable: computeTrackable(statusLabel, order.trackable),
+    userId: order.userId ?? order.user_id ?? null,
+    userEmail: normalizeEmail(order.userEmail || order.user_email || contact.email),
+  };
+};
+
+const mergeOrders = (...sources) => {
+  const flattened = [];
+  sources.forEach((source) => {
+    if (!source) return;
+    if (Array.isArray(source)) {
+      source.forEach((item) => flattened.push(item));
+    } else {
+      flattened.push(source);
+    }
+  });
+
+  const merged = new Map();
+
+  flattened.forEach((order) => {
+    if (!order || !order.id) return;
+
+    const normalized = mapRecentOrder(order) || order;
+    const existing = merged.get(normalized.id);
+
+    if (!existing) {
+      merged.set(normalized.id, normalized);
+      return;
+    }
+
+    const currentPlacedAt = Date.parse(existing.placedAt || 0);
+    const incomingPlacedAt = Date.parse(normalized.placedAt || 0);
+    const latest = incomingPlacedAt > currentPlacedAt ? normalized : existing;
+    const mergedOrder = { ...existing, ...normalized, ...latest };
+    mergedOrder.trackable = computeTrackable(mergedOrder.status, mergedOrder.trackable);
+    merged.set(normalized.id, mergedOrder);
+  });
+
+  return Array.from(merged.values()).sort(
+    (a, b) => Date.parse(b.placedAt || 0) - Date.parse(a.placedAt || 0)
+  );
+};
+
+const orderBelongsToUser = (order, user) => {
+  if (!order || !user) return false;
+  if (order.userId && user.id && order.userId === user.id) return true;
+  const orderEmail = normalizeEmail(order.userEmail || order.contact?.email);
+  const userEmail = normalizeEmail(user.email);
+  return Boolean(orderEmail && userEmail && orderEmail === userEmail);
 };
 
 export default function ProfilePage() {
@@ -292,11 +294,8 @@ export default function ProfilePage() {
   const [messageType, setMessageType] = useState("success"); // "success" | "error"
   const [loading, setLoading] = useState(true);
   const [wishlistItems, setWishlistItems] = useState([]);
-  const [orders, setOrders] = useState(() => {
-    const stored = readStoredJson(ORDER_HISTORY_STORAGE, null);
-    if (stored && Array.isArray(stored) && stored.length) return stored;
-    return cloneDefaultOrders();
-  });
+  const [orders, setOrders] = useState([]);
+  const [orderStorageKey, setOrderStorageKey] = useState(null);
   const [paymentMethods, setPaymentMethods] = useState(() => {
     const stored = readStoredJson(PAYMENT_METHODS_STORAGE, null);
     if (stored && Array.isArray(stored) && stored.length) return stored;
@@ -330,18 +329,36 @@ export default function ProfilePage() {
     async function fetchUser() {
       try {
         const res = await api.get("/user");
-        setUser(res.data);
+        const fetchedUser = res.data;
+        setUser(fetchedUser);
         setMeasurements({
           ...DEFAULT_MEASUREMENTS,
-          ...(res.data?.measurements || {}),
+          ...(fetchedUser?.measurements || {}),
         });
         setWishlistItems(getWishlist());
-        if (Array.isArray(res.data?.orders) && res.data.orders.length) {
-          setOrders(res.data.orders.map(mapApiOrder));
+        if (Array.isArray(fetchedUser?.payment_methods) && fetchedUser.payment_methods.length) {
+          setPaymentMethods(fetchedUser.payment_methods.map(mapApiPaymentMethod));
         }
-        if (Array.isArray(res.data?.payment_methods) && res.data.payment_methods.length) {
-          setPaymentMethods(res.data.payment_methods.map(mapApiPaymentMethod));
-        }
+
+        const key = getOrderHistoryKey(fetchedUser);
+        setOrderStorageKey(key);
+
+        const storedOrdersRaw = key ? readStoredJson(key, []) : [];
+        const storedOrders = Array.isArray(storedOrdersRaw)
+          ? storedOrdersRaw.map(mapRecentOrder).filter(Boolean)
+          : [];
+
+        const apiOrders = Array.isArray(fetchedUser?.orders)
+          ? fetchedUser.orders.map(mapApiOrder).filter(Boolean)
+          : [];
+
+        const recentSnapshot = mapRecentOrder(readStoredJson(ORDER_STATUS_STORAGE, null));
+        const hydratedRecent =
+          recentSnapshot && orderBelongsToUser(recentSnapshot, fetchedUser)
+            ? [recentSnapshot]
+            : [];
+
+        setOrders(mergeOrders(apiOrders, storedOrders, hydratedRecent));
       } catch (error) {
         console.error(error);
         setMessageType("error");
@@ -360,8 +377,27 @@ export default function ProfilePage() {
   }, []);
 
   useEffect(() => {
-    writeStoredJson(ORDER_HISTORY_STORAGE, orders);
-  }, [orders]);
+    if (!orderStorageKey) return;
+    writeStoredJson(orderStorageKey, orders);
+  }, [orderStorageKey, orders]);
+
+  useEffect(() => {
+    if (!isBrowser || !user) return undefined;
+
+    const syncRecentOrder = () => {
+      const snapshot = mapRecentOrder(readStoredJson(ORDER_STATUS_STORAGE, null));
+      if (!snapshot || !orderBelongsToUser(snapshot, user)) return;
+      setOrders((prev) => mergeOrders(prev, [snapshot]));
+    };
+
+    window.addEventListener("fitfast-order-updated", syncRecentOrder);
+    window.addEventListener("storage", syncRecentOrder);
+
+    return () => {
+      window.removeEventListener("fitfast-order-updated", syncRecentOrder);
+      window.removeEventListener("storage", syncRecentOrder);
+    };
+  }, [user]);
 
   useEffect(() => {
     writeStoredJson(PAYMENT_METHODS_STORAGE, paymentMethods);
@@ -412,7 +448,12 @@ export default function ProfilePage() {
   const statusClassName = (status = "") =>
     `status-badge status-${status.toLowerCase().replace(/[^a-z]+/g, "-")}`;
 
-  const hasOrders = orders.length > 0;
+  const resolvedOrders = useMemo(
+    () => (Array.isArray(orders) ? orders.filter((entry) => entry && entry.id) : []),
+    [orders]
+  );
+
+  const hasOrders = resolvedOrders.length > 0;
 
   const formatCardLabel = (method) => {
     if (!method) return "Saved card";
@@ -576,6 +617,8 @@ export default function ProfilePage() {
         window.localStorage.removeItem("auth_token");
         window.localStorage.removeItem("auth_user");
       }
+      setOrders([]);
+      setOrderStorageKey(null);
       navigate("/login");
     }
   };
@@ -608,6 +651,9 @@ export default function ProfilePage() {
         discount: 0,
         total: order.total || 0,
       },
+      trackable: order.trackable,
+      userId: user?.id ?? order.userId ?? null,
+      userEmail: normalizeEmail(user?.email || order.contact?.email || order.userEmail || ""),
     };
 
     // Persist a snapshot so the order status page has context even without a fresh API call.
@@ -841,7 +887,7 @@ export default function ProfilePage() {
       <div className="profile-section">
         <div className="section-header">
           <h3>Order History</h3>
-          {hasOrders && <span className="pill-count">{orders.length} orders</span>}
+          {hasOrders && <span className="pill-count">{resolvedOrders.length} orders</span>}
         </div>
 
         {!hasOrders ? (
@@ -854,7 +900,7 @@ export default function ProfilePage() {
           </div>
         ) : (
           <div className="orders-timeline">
-            {orders.map((order) => (
+            {resolvedOrders.map((order) => (
               <div className="order-card" key={order.id}>
                 <div className="order-row">
                   <div>

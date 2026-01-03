@@ -88,6 +88,7 @@ const PROMO_CODES = {
 
 const isBrowser = typeof window !== "undefined";
 const ORDER_STATUS_STORAGE = "fitfast_recent_order";
+const ORDER_HISTORY_PREFIX = "fitfast_account_orders";
 
 function readStoredValue(key, fallback) {
 	if (!isBrowser) return fallback;
@@ -124,6 +125,34 @@ function persistLatestOrder(payload) {
 	} catch (err) {
 		console.error("Failed to persist latest order", err);
 	}
+}
+
+function readAuthUser() {
+	if (!isBrowser) return null;
+	try {
+		const raw = window.localStorage.getItem("auth_user");
+		return raw ? JSON.parse(raw) : null;
+	} catch (err) {
+		console.error("Failed to parse auth_user", err);
+		return null;
+	}
+}
+
+function resolveOrderHistoryKey(authUser, contact) {
+	if (authUser?.id) return `${ORDER_HISTORY_PREFIX}_${authUser.id}`;
+	const email = (authUser?.email || contact?.email || "").trim().toLowerCase();
+	return email ? `${ORDER_HISTORY_PREFIX}_${email}` : null;
+}
+
+function appendOrderToAccountHistory(orderRecord, authUser) {
+	const key = resolveOrderHistoryKey(authUser, orderRecord.contact);
+	if (!key) return;
+	const existing = readStoredValue(key, []);
+	const next = Array.isArray(existing)
+		? existing.filter((entry) => entry && entry.code !== orderRecord.code)
+		: [];
+	next.unshift(orderRecord);
+	writeStoredValue(key, next.slice(0, 25));
 }
 
 function loadInitialContact() {
@@ -428,6 +457,7 @@ export default function CheckoutPage() {
 		const confirmationCode = generateConfirmationCode();
 		const sanitizedNumber = paymentMethod === "card" ? cardDetails.number.replace(/\D/g, "") : "";
 		const cardLast4 = sanitizedNumber ? sanitizedNumber.slice(-4) : null;
+		const authUser = readAuthUser();
 
 		setTimeout(() => {
 			const selectedShipping = SHIPPING_OPTIONS.find((entry) => entry.id === deliveryOption) || SHIPPING_OPTIONS[0];
@@ -439,6 +469,7 @@ export default function CheckoutPage() {
 				code: confirmationCode,
 				placedAt: placedAt.toISOString(),
 				eta: estimatedArrival.toISOString(),
+				status: "Processing",
 				delivery: {
 					id: selectedShipping.id,
 					label: selectedShipping.label,
@@ -469,9 +500,13 @@ export default function CheckoutPage() {
 					total: estimatedTotal,
 				},
 				promoCode: appliedPromo?.code || null,
+				trackable: selectedShipping.id !== "pickup",
+				userId: authUser?.id ?? null,
+				userEmail: (authUser?.email || contactInfo.email || "").trim().toLowerCase(),
 			};
 
 			persistLatestOrder(orderRecord);
+			appendOrderToAccountHistory(orderRecord, authUser);
 			clearCart();
 			setCartItems([]);
 			setIsSubmitting(false);

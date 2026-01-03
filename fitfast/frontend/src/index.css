@@ -3745,9 +3745,10 @@ a:hover {
 }
 
 .browse-items-carousel .best-fit-badge {
-  bottom: 0.75rem;
-  padding: 0.45rem 1rem;
-  font-size: 0.75rem;
+  bottom: 0.9rem;
+  padding: 0.55rem 1.25rem;
+  font-size: 0.8rem;
+  border-radius: 24px;
 }
 
 .browse-items-carousel .add-to-cart-btn {

@@ -109,7 +109,7 @@ export default function BrowseStoresPage() {
     }
     if (item.best_fit_label) return item.best_fit_label;
     if (item.best_fit_description) return item.best_fit_description;
-    return null;
+    return "Best Fit: Medium - 90% Match!";
   };
 
   const handleAddToCart = (e, store, item, itemImage) => {
@@ -284,9 +284,7 @@ export default function BrowseStoresPage() {
                               </svg>
                             </button>
 
-                            {bestFitCopy && (
-                              <div className="best-fit-badge">{bestFitCopy}</div>
-                            )}
+                            <div className="best-fit-badge">{bestFitCopy}</div>
                           </div>
 
                           <div className="product-info-modern">

@@ -538,23 +538,20 @@ export default function ProfilePage() {
 
         .wishlist-heart-btn {
           align-self: flex-start;
-          width: 40px;
-          height: 40px;
-          border-radius: 50%;
           border: none;
           background: transparent;
-          color: #942341ff;
+          color: #641b2e;
           display: grid;
           place-items: center;
           transition: all 0.2s ease;
           cursor: pointer;
           padding: 0;
           flex-shrink: 0;
+          line-height: 1;
         }
 
         .wishlist-heart-btn:hover {
           transform: scale(1.1);
-          background: rgba(233, 30, 99, 0.08);
         }
 
         .wishlist-heart-btn:active {
@@ -564,6 +561,16 @@ export default function ProfilePage() {
         .wishlist-heart-btn svg {
           display: block;
           filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.1));
+        }
+
+        .wishlist-heart-btn svg path {
+          fill: #ffffff;
+          stroke: currentColor;
+          transition: fill 0.2s ease, stroke 0.2s ease;
+        }
+
+        .wishlist-heart-btn.filled svg path {
+          fill: currentColor;
         }
 
         .measurements-form {

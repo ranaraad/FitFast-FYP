@@ -346,7 +346,7 @@ export default function ProductDetailPage() {
                 width="28"
                 height="28"
                 viewBox="0 0 24 24"
-                fill={isWishlisted ? "currentColor" : "none"}
+                fill={isWishlisted ? "currentColor" : "#ffffff"}
                 stroke="currentColor"
                 strokeWidth="1.8"
                 xmlns="http://www.w3.org/2000/svg"

@@ -217,7 +217,7 @@ export default function StorePage() {
                             width="24"
                             height="24"
                             viewBox="0 0 24 24"
-                            fill={isWishlisted ? "currentColor" : "none"}
+                            fill={isWishlisted ? "currentColor" : "#ffffff"}
                             stroke="currentColor"
                             strokeWidth="1.8"
                             xmlns="http://www.w3.org/2000/svg"

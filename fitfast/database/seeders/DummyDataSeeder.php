@@ -5,16 +5,147 @@ namespace Database\Seeders;
 use Illuminate\Database\Seeder;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Str;
 use App\Models\Item;
 
 class DummyDataSeeder extends Seeder
 {
+    private const CATEGORY_IMAGE_LIBRARY = [
+        't-shirts' => [
+            'https://images.unsplash.com/photo-1521572163474-6864f9cf17ab?auto=format&fit=crop&w=900&q=80',
+            'https://images.unsplash.com/photo-1512436991641-6745cdb1723f?auto=format&fit=crop&w=900&q=80',
+            'https://images.unsplash.com/photo-1503341455253-b2e723bb3dbb?auto=format&fit=crop&w=900&q=80',
+        ],
+        'shirts' => [
+            'https://images.unsplash.com/photo-1521572267360-ee0c2909d518?auto=format&fit=crop&w=900&q=80',
+            'https://images.unsplash.com/photo-1514996937319-344454492b37?auto=format&fit=crop&w=900&q=80',
+            'https://images.unsplash.com/photo-1523381210434-271e8be1f52b?auto=format&fit=crop&w=900&q=80',
+        ],
+        'pants' => [
+            'https://images.unsplash.com/photo-1514996937319-344454492b37?auto=format&fit=crop&w=900&q=80',
+            'https://images.unsplash.com/photo-1503341455253-b2e723bb3dbb?auto=format&fit=crop&w=900&q=80',
+            'https://images.unsplash.com/photo-1469395446868-fb6a048d5ca3?auto=format&fit=crop&w=900&q=80',
+        ],
+        'jeans' => [
+            'https://images.unsplash.com/photo-1514996937319-344454492b37?auto=format&fit=crop&w=900&q=80',
+            'https://images.unsplash.com/photo-1526170375885-4d8ecf77b99f?auto=format&fit=crop&w=900&q=80',
+            'https://images.unsplash.com/photo-1523381210434-271e8be1f52b?auto=format&fit=crop&w=900&q=80',
+        ],
+        'shorts' => [
+            'https://images.unsplash.com/photo-1523381210434-271e8be1f52b?auto=format&fit=crop&w=900&q=80',
+            'https://images.unsplash.com/photo-1489987707025-afc232f7ea0f?auto=format&fit=crop&w=900&q=80',
+            'https://images.unsplash.com/photo-1524504388940-b1c1722653e1?auto=format&fit=crop&w=900&q=80',
+        ],
+        'dresses' => [
+            'https://images.unsplash.com/photo-1524504388940-b1c1722653e1?auto=format&fit=crop&w=900&q=80',
+            'https://images.unsplash.com/photo-1524504388940-0c3a3074e0b2?auto=format&fit=crop&w=900&q=80',
+            'https://images.unsplash.com/photo-1521572163474-6864f9cf17ab?auto=format&fit=crop&w=900&q=80',
+        ],
+        'skirts' => [
+            'https://images.unsplash.com/photo-1490111718993-d98654ce6cf7?auto=format&fit=crop&w=900&q=80',
+            'https://images.unsplash.com/photo-1516762689617-e1cffcef479d?auto=format&fit=crop&w=900&q=80',
+            'https://images.unsplash.com/photo-1487412720507-e7ab37603c6f?auto=format&fit=crop&w=900&q=80',
+        ],
+        'jackets' => [
+            'https://images.unsplash.com/photo-1487412947147-5cebf100ffc2?auto=format&fit=crop&w=900&q=80',
+            'https://images.unsplash.com/photo-1523380666135-d8effd30d60e?auto=format&fit=crop&w=900&q=80',
+            'https://images.unsplash.com/photo-1514996937319-344454492b37?auto=format&fit=crop&w=900&q=80',
+        ],
+        'coats' => [
+            'https://images.unsplash.com/photo-1495385794356-15371f348c31?auto=format&fit=crop&w=900&q=80',
+            'https://images.unsplash.com/photo-1512436991641-6745cdb1723f?auto=format&fit=crop&w=900&q=80',
+            'https://images.unsplash.com/photo-1487412720507-e7ab37603c6f?auto=format&fit=crop&w=900&q=80',
+        ],
+        'sweaters' => [
+            'https://images.unsplash.com/photo-1475180098004-ca77a66827be?auto=format&fit=crop&w=900&q=80',
+            'https://images.unsplash.com/photo-1512436991641-6745cdb1723f?auto=format&fit=crop&w=900&q=80',
+            'https://images.unsplash.com/photo-1514996937319-344454492b37?auto=format&fit=crop&w=900&q=80',
+        ],
+        'hoodies' => [
+            'https://images.unsplash.com/photo-1523381210434-271e8be1f52b?auto=format&fit=crop&w=900&q=80',
+            'https://images.unsplash.com/photo-1521572163474-6864f9cf17ab?auto=format&fit=crop&w=900&q=80',
+            'https://images.unsplash.com/photo-1523380666135-d8effd30d60e?auto=format&fit=crop&w=900&q=80',
+        ],
+        'activewear' => [
+            'https://images.unsplash.com/photo-1542291026-7eec264c27ff?auto=format&fit=crop&w=900&q=80',
+            'https://images.unsplash.com/photo-1526402466671-4aa1ebf42c34?auto=format&fit=crop&w=900&q=80',
+            'https://images.unsplash.com/photo-1514996937319-344454492b37?auto=format&fit=crop&w=900&q=80',
+        ],
+        'swimwear' => [
+            'https://images.unsplash.com/photo-1524504388940-0c3a3074e0b2?auto=format&fit=crop&w=900&q=80',
+            'https://images.unsplash.com/photo-1499793983690-e29da59ef1c2?auto=format&fit=crop&w=900&q=80',
+            'https://images.unsplash.com/photo-1524504388940-b1c1722653e1?auto=format&fit=crop&w=900&q=80',
+        ],
+        'underwear' => [
+            'https://images.unsplash.com/photo-1524504388940-0c3a3074e0b2?auto=format&fit=crop&w=900&q=80',
+            'https://images.unsplash.com/photo-1523381210434-271e8be1f52b?auto=format&fit=crop&w=900&q=80',
+            'https://images.unsplash.com/photo-1514996937319-344454492b37?auto=format&fit=crop&w=900&q=80',
+        ],
+        'socks' => [
+            'https://images.unsplash.com/photo-1503342217505-b0a15ec3261c?auto=format&fit=crop&w=900&q=80',
+            'https://images.unsplash.com/photo-1514996937319-344454492b37?auto=format&fit=crop&w=900&q=80',
+            'https://images.unsplash.com/photo-1523381210434-271e8be1f52b?auto=format&fit=crop&w=900&q=80',
+        ],
+        'shoes' => [
+            'https://images.unsplash.com/photo-1528701800489-20be3c6c9460?auto=format&fit=crop&w=900&q=80',
+            'https://images.unsplash.com/photo-1491553895911-0055eca6402d?auto=format&fit=crop&w=900&q=80',
+            'https://images.unsplash.com/photo-1523381294911-8d3cead13475?auto=format&fit=crop&w=900&q=80',
+        ],
+        'bags' => [
+            'https://images.unsplash.com/photo-1524504388940-0c3a3074e0b2?auto=format&fit=crop&w=900&q=80',
+            'https://images.unsplash.com/photo-1521572163474-6864f9cf17ab?auto=format&fit=crop&w=900&q=80',
+            'https://images.unsplash.com/photo-1487412720507-e7ab37603c6f?auto=format&fit=crop&w=900&q=80',
+        ],
+        'jewelry' => [
+            'https://images.unsplash.com/photo-1523381210434-271e8be1f52b?auto=format&fit=crop&w=900&q=80',
+            'https://images.unsplash.com/photo-1522312346375-d1a52e2b99b3?auto=format&fit=crop&w=900&q=80',
+            'https://images.unsplash.com/photo-1505159940484-eb2b9f2588e2?auto=format&fit=crop&w=900&q=80',
+        ],
+        'hats' => [
+            'https://images.unsplash.com/photo-1521572163474-6864f9cf17ab?auto=format&fit=crop&w=900&q=80',
+            'https://images.unsplash.com/photo-1514996937319-344454492b37?auto=format&fit=crop&w=900&q=80',
+            'https://images.unsplash.com/photo-1512436991641-6745cdb1723f?auto=format&fit=crop&w=900&q=80',
+        ],
+        'default' => [
+            'https://images.unsplash.com/photo-1487412947147-5cebf100ffc2?auto=format&fit=crop&w=900&q=80',
+            'https://images.unsplash.com/photo-1521572163474-6864f9cf17ab?auto=format&fit=crop&w=900&q=80',
+            'https://images.unsplash.com/photo-1523381210434-271e8be1f52b?auto=format&fit=crop&w=900&q=80',
+        ],
+    ];
+
+    private const STORE_BRANDING_LIBRARY = [
+        ['logo' => 'https://images.unsplash.com/photo-1512436991641-6745cdb1723f?auto=format&fit=crop&w=240&q=80', 'banner' => 'https://images.unsplash.com/photo-1521572163474-6864f9cf17ab?auto=format&fit=crop&w=1400&q=80'],
+        ['logo' => 'https://images.unsplash.com/photo-1524504388940-0c3a3074e0b2?auto=format&fit=crop&w=240&q=80', 'banner' => 'https://images.unsplash.com/photo-1524504388940-b1c1722653e1?auto=format&fit=crop&w=1400&q=80'],
+        ['logo' => 'https://images.unsplash.com/photo-1495385794356-15371f348c31?auto=format&fit=crop&w=240&q=80', 'banner' => 'https://images.unsplash.com/photo-1523380666135-d8effd30d60e?auto=format&fit=crop&w=1400&q=80'],
+        ['logo' => 'https://images.unsplash.com/photo-1542291026-7eec264c27ff?auto=format&fit=crop&w=240&q=80', 'banner' => 'https://images.unsplash.com/photo-1526402466671-4aa1ebf42c34?auto=format&fit=crop&w=1400&q=80'],
+        ['logo' => 'https://images.unsplash.com/photo-1521572267360-ee0c2909d518?auto=format&fit=crop&w=240&q=80', 'banner' => 'https://images.unsplash.com/photo-1523381210434-271e8be1f52b?auto=format&fit=crop&w=1400&q=80'],
+        ['logo' => 'https://images.unsplash.com/photo-1499793983690-e29da59ef1c2?auto=format&fit=crop&w=240&q=80', 'banner' => 'https://images.unsplash.com/photo-1524504388940-b1c1722653e1?auto=format&fit=crop&w=1400&q=80'],
+        ['logo' => 'https://images.unsplash.com/photo-1522312346375-d1a52e2b99b3?auto=format&fit=crop&w=240&q=80', 'banner' => 'https://images.unsplash.com/photo-1505159940484-eb2b9f2588e2?auto=format&fit=crop&w=1400&q=80'],
+        ['logo' => 'https://images.unsplash.com/photo-1526170375885-4d8ecf77b99f?auto=format&fit=crop&w=240&q=80', 'banner' => 'https://images.unsplash.com/photo-1521572163474-6864f9cf17ab?auto=format&fit=crop&w=1400&q=80'],
+        ['logo' => 'https://images.unsplash.com/photo-1503341455253-b2e723bb3dbb?auto=format&fit=crop&w=240&q=80', 'banner' => 'https://images.unsplash.com/photo-1512436991641-6745cdb1723f?auto=format&fit=crop&w=1400&q=80'],
+        ['logo' => 'https://images.unsplash.com/photo-1523380666135-d8effd30d60e?auto=format&fit=crop&w=240&q=80', 'banner' => 'https://images.unsplash.com/photo-1469395446868-fb6a048d5ca3?auto=format&fit=crop&w=1400&q=80'],
+        ['logo' => 'https://images.unsplash.com/photo-1524504388940-b1c1722653e1?auto=format&fit=crop&w=240&q=80', 'banner' => 'https://images.unsplash.com/photo-1524504388940-0c3a3074e0b2?auto=format&fit=crop&w=1400&q=80'],
+        ['logo' => 'https://images.unsplash.com/photo-1514996937319-344454492b37?auto=format&fit=crop&w=240&q=80', 'banner' => 'https://images.unsplash.com/photo-1523381210434-271e8be1f52b?auto=format&fit=crop&w=1400&q=80'],
+        ['logo' => 'https://images.unsplash.com/photo-1475180098004-ca77a66827be?auto=format&fit=crop&w=240&q=80', 'banner' => 'https://images.unsplash.com/photo-1512436991641-6745cdb1723f?auto=format&fit=crop&w=1400&q=80'],
+        ['logo' => 'https://images.unsplash.com/photo-1523381294911-8d3cead13475?auto=format&fit=crop&w=240&q=80', 'banner' => 'https://images.unsplash.com/photo-1491553895911-0055eca6402d?auto=format&fit=crop&w=1400&q=80'],
+        ['logo' => 'https://images.unsplash.com/photo-1521572163475-b1b1cc1d82d8?auto=format&fit=crop&w=240&q=80', 'banner' => 'https://images.unsplash.com/photo-1521572163474-6864f9cf17ab?auto=format&fit=crop&w=1400&q=80'],
+        ['logo' => 'https://images.unsplash.com/photo-1523275335684-37898b6baf30?auto=format&fit=crop&w=240&q=80', 'banner' => 'https://images.unsplash.com/photo-1487412720507-e7ab37603c6f?auto=format&fit=crop&w=1400&q=80'],
+        ['logo' => 'https://images.unsplash.com/photo-1503342217505-b0a15ec3261c?auto=format&fit=crop&w=240&q=80', 'banner' => 'https://images.unsplash.com/photo-1489987707025-afc232f7ea0f?auto=format&fit=crop&w=1400&q=80'],
+        ['logo' => 'https://images.unsplash.com/photo-1523381210434-271e8be1f52b?auto=format&fit=crop&w=240&q=80', 'banner' => 'https://images.unsplash.com/photo-1523380666135-d8effd30d60e?auto=format&fit=crop&w=1400&q=80'],
+        ['logo' => 'https://images.unsplash.com/photo-1491553895911-0055eca6402d?auto=format&fit=crop&w=240&q=80', 'banner' => 'https://images.unsplash.com/photo-1523381294911-8d3cead13475?auto=format&fit=crop&w=1400&q=80'],
+        ['logo' => 'https://images.unsplash.com/photo-1521572163474-6864f9cf17ab?auto=format&fit=crop&w=240&q=80', 'banner' => 'https://images.unsplash.com/photo-1512436991641-6745cdb1723f?auto=format&fit=crop&w=1400&q=80'],
+        ['logo' => 'https://images.unsplash.com/photo-1503341455253-b2e723bb3dbb?auto=format&fit=crop&w=240&q=80', 'banner' => 'https://images.unsplash.com/photo-1521572163474-6864f9cf17ab?auto=format&fit=crop&w=1400&q=80'],
+    ];
     public function run()
     {
+        $this->resetSeededData();
+
         // Get existing roles (already seeded in migration)
         $adminRole = DB::table('roles')->where('name', 'Admin')->first();
         $storeAdminRole = DB::table('roles')->where('name', 'Store Admin')->first();
         $userRole = DB::table('roles')->where('name', 'User')->first();
+
+        $storeAdminTotal = 20;
 
         // Create 100 test users (customers)
         $users = [];
@@ -40,8 +171,8 @@ class DummyDataSeeder extends Seeder
             ];
         }
 
-        // Create 5 store admins
-        for ($i = 1; $i <= 5; $i++) {
+        // Create 20 store admins for curated stores
+        for ($i = 1; $i <= $storeAdminTotal; $i++) {
             $users[] = [
                 'name' => 'Store Admin ' . $i,
                 'email' => 'storeadmin' . $i . '@example.com',
@@ -59,44 +190,54 @@ class DummyDataSeeder extends Seeder
 
         DB::table('users')->insert($users);
 
-        $this->command->info('Created 105 users');
+        $this->command->info('Created ' . count($users) . ' users');
 
-        // Create 10 test stores
-        $stores = [];
-        $storeAdmins = DB::table('users')->where('role_id', $storeAdminRole->id)->get();
+        $storeCatalog = $this->curatedStores();
+        $storeAdmins = DB::table('users')
+            ->where('role_id', $storeAdminRole->id)
+            ->orderBy('id')
+            ->get()
+            ->values();
 
-        for ($i = 1; $i <= 10; $i++) {
-            $stores[] = [
-                'user_id' => $storeAdmins->random()->id,
-                'name' => 'Fashion Store ' . $i,
-                'description' => 'A great fashion store offering quality clothing and accessories. We provide the latest trends and best quality products.',
-                'logo' => 'stores/logo' . $i . '.jpg',
-                'banner_image' => 'stores/banner' . $i . '.jpg',
+        $curatedStores = [];
+
+        foreach ($storeCatalog as $index => $storeDefinition) {
+            [$logoUrl, $bannerUrl] = $this->resolveStoreBranding($index + 1);
+            $storeAdmin = $storeAdmins->get($index) ?? $storeAdmins->random();
+            $slug = Str::slug($storeDefinition['name']);
+
+            $storeId = DB::table('stores')->insertGetId([
+                'user_id' => $storeAdmin->id,
+                'name' => $storeDefinition['name'],
+                'description' => $storeDefinition['tagline'],
+                'logo' => $logoUrl,
+                'banner_image' => $bannerUrl,
                 'contact_info' => json_encode([
-                    'phone' => '+123456789' . $i,
-                    'email' => 'store' . $i . '@example.com',
-                    'website' => 'https://store' . $i . '.com'
+                    'phone' => '+123456' . str_pad((string) ($index + 1), 4, '0', STR_PAD_LEFT),
+                    'email' => $slug . '@example.com',
+                    'website' => 'https://' . $slug . '.example.com',
                 ]),
-                'address' => $i . ' Fashion Avenue, Shopping District, City, Country',
+                'address' => ($index + 1) . ' Fashion Avenue, Trend District, City, Country',
                 'status' => 'active',
                 'created_at' => now()->subDays(rand(30, 365)),
                 'updated_at' => now(),
+            ]);
+
+            $curatedStores[] = [
+                'id' => $storeId,
+                'definition' => $storeDefinition,
             ];
         }
 
-        DB::table('stores')->insert($stores);
-
-        $this->command->info('Created 10 stores');
+        $this->command->info('Created ' . count($curatedStores) . ' curated stores');
 
         // Get existing categories
         $categories = DB::table('categories')->get();
         $this->command->info('Using existing categories: ' . $categories->count() . ' categories found');
 
-        // Create curated test items
+        // Create curated test items per store
         $items = [];
-        $stores = DB::table('stores')->get();
 
-         $placeholderImage = 'items/placeholder.jpg';
         $categoryItems = [
             't-shirts' => [
                 ['name' => 'Classic Crew Tee', 'garment_type' => 't_shirt', 'price' => 19.99, 'colors' => ['Black', 'White']],
@@ -169,32 +310,42 @@ class DummyDataSeeder extends Seeder
             ],
         ];
 
-          $categoriesBySlug = $categories->keyBy('slug');
+        $categoriesBySlug = $categories->keyBy('slug');
 
-             foreach ($categoryItems as $categorySlug => $itemDefinitions) {
-            if (!isset($categoriesBySlug[$categorySlug])) {
-                continue;
+        foreach ($curatedStores as $storeEntry) {
+            $storeDefinition = $storeEntry['definition'];
+            $storeId = $storeEntry['id'];
+            $label = $storeDefinition['style_prefix'] ?? $storeDefinition['name'];
+            $focusCategories = $storeDefinition['focus_categories'] ?? [];
+
+            foreach ($focusCategories as $categorySlug) {
+                if (!isset($categoriesBySlug[$categorySlug])) {
+                    continue;
+                }
+
+                $itemDefinitions = $categoryItems[$categorySlug] ?? [];
+
+                foreach ($itemDefinitions as $definition) {
+                    $sizeStock = $this->buildSizeStock();
+                    $imageSet = $this->resolveItemImages($categorySlug);
+                    $price = max(5, round($definition['price'] * (1 + rand(-5, 10) / 100), 2));
+
+                    $items[] = [
+                        'store_id' => $storeId,
+                        'category_id' => $categoriesBySlug[$categorySlug]->id,
+                        'name' => $definition['name'] . ' - ' . $label,
+                        'description' => $this->buildDescription($definition['name']),
+                        'price' => $price,
+                        'sizing_data' => json_encode($this->buildSizingData($definition['garment_type'])),
+                        'stock_quantity' => array_sum($sizeStock),
+                        'color_variants' => json_encode($this->buildColorVariants($definition['colors'] ?? ['Black', 'Gray'], $imageSet)),
+                        'size_stock' => json_encode($sizeStock),
+                        'garment_type' => $definition['garment_type'],
+                        'created_at' => now()->subDays(rand(1, 120)),
+                        'updated_at' => now(),
+                    ];
+                }
             }
-              foreach ($itemDefinitions as $definition) {
-                $sizeStock = $this->buildSizeStock();
-
-                $items[] = [
-                    'store_id' => $stores->random()->id,
-                    'category_id' => $categoriesBySlug[$categorySlug]->id,
-                    'name' => $definition['name'],
-                    'description' => $this->buildDescription($definition['name']),
-                    'price' => $definition['price'],
-                    'sizing_data' => json_encode($this->buildSizingData($definition['garment_type'])),
-                    'stock_quantity' => array_sum($sizeStock),
-                    'color_variants' => json_encode($this->buildColorVariants($definition['colors'] ?? ['Black', 'Gray'], $placeholderImage)),
-                    'size_stock' => json_encode($sizeStock),
-                    'garment_type' => $definition['garment_type'],
-                    'created_at' => now()->subDays(rand(1, 180)),
-                    'updated_at' => now(),
-                ];
-            }
-
-            
         }
 
         DB::table('items')->insert($items);
@@ -302,12 +453,138 @@ class DummyDataSeeder extends Seeder
         $this->command->info('Created order items');
 
         $this->command->info('Dummy data created successfully!');
-        $this->command->info('- 105 Users (100 customers + 5 store admins)');
-        $this->command->info('- 10 Stores');
+        $this->command->info('- ' . count($users) . ' Users (100 customers + ' . $storeAdminTotal . ' store admins)');
+        $this->command->info('- ' . count($curatedStores) . ' Stores');
         $this->command->info('- ' . count($items) . ' Items');
         $this->command->info('- 50 Orders');
         $this->command->info('- Wishlist items');
         $this->command->info('- Order items with proper sizing and color selection');
+    }
+
+    private function curatedStores(): array
+    {
+        return [
+            [
+                'name' => 'Urban Threads Collective',
+                'tagline' => 'Streetwear staples built for city living with eco-conscious fabrics.',
+                'focus_categories' => ['t-shirts', 'hoodies', 'jeans'],
+                'style_prefix' => 'Urban Threads',
+            ],
+            [
+                'name' => 'Coastal Linen House',
+                'tagline' => 'Breezy resort silhouettes and flowing linens inspired by coastal getaways.',
+                'focus_categories' => ['dresses', 'skirts', 'bags'],
+                'style_prefix' => 'Coastal Linen',
+            ],
+            [
+                'name' => 'Alpine Outerwear Co.',
+                'tagline' => 'Layered insulation and weatherproof shells for alpine adventures.',
+                'focus_categories' => ['jackets', 'coats', 'sweaters'],
+                'style_prefix' => 'Alpine Outerwear',
+            ],
+            [
+                'name' => 'MetroFit Active Lab',
+                'tagline' => 'Performance gear engineered for studio sessions and urban workouts.',
+                'focus_categories' => ['activewear', 'shorts', 't-shirts'],
+                'style_prefix' => 'MetroFit',
+            ],
+            [
+                'name' => 'Luxe Formals Studio',
+                'tagline' => 'Tailored suiting and refined separates for elevated occasions.',
+                'focus_categories' => ['shirts', 'pants', 'shoes'],
+                'style_prefix' => 'Luxe Formals',
+            ],
+            [
+                'name' => 'Soleil Swim Club',
+                'tagline' => 'Bold swim sets and sunny accessories for the poolside.',
+                'focus_categories' => ['swimwear', 'hats', 'bags'],
+                'style_prefix' => 'Soleil Swim',
+            ],
+            [
+                'name' => 'Velvet Evening Atelier',
+                'tagline' => 'Evening-ready silhouettes with velvet textures and luminous accents.',
+                'focus_categories' => ['dresses', 'jewelry', 'coats'],
+                'style_prefix' => 'Velvet Atelier',
+            ],
+            [
+                'name' => 'Heritage Denim Supply',
+                'tagline' => 'Selvage denim and timeless workwear built to last.',
+                'focus_categories' => ['jeans', 'shirts', 'jackets'],
+                'style_prefix' => 'Heritage Denim',
+            ],
+            [
+                'name' => 'Canvas Casual Co.',
+                'tagline' => 'Weekender essentials and relaxed basics for everyday comfort.',
+                'focus_categories' => ['t-shirts', 'pants', 'socks'],
+                'style_prefix' => 'Canvas Casual',
+            ],
+            [
+                'name' => 'Summit Trail Outfitters',
+                'tagline' => 'Trail-tested outerwear and traction footwear for summit seekers.',
+                'focus_categories' => ['jackets', 'activewear', 'shoes'],
+                'style_prefix' => 'Summit Trail',
+            ],
+            [
+                'name' => 'Bloom Boutique',
+                'tagline' => 'Floral-inspired collections and feminine details for every occasion.',
+                'focus_categories' => ['dresses', 'skirts', 'jewelry'],
+                'style_prefix' => 'Bloom Boutique',
+            ],
+            [
+                'name' => 'Pulse Streetwear Hub',
+                'tagline' => 'Graphic-driven drops blending sport heritage with street culture.',
+                'focus_categories' => ['hoodies', 't-shirts', 'hats'],
+                'style_prefix' => 'Pulse Streetwear',
+            ],
+            [
+                'name' => 'Crafted Comfort Knits',
+                'tagline' => 'Soft knits and cozy layers spun for restorative days indoors.',
+                'focus_categories' => ['sweaters', 'hoodies', 'pants'],
+                'style_prefix' => 'Comfort Knits',
+            ],
+            [
+                'name' => 'Midnight Accessories Bar',
+                'tagline' => 'Statement accessories that elevate late-night looks instantly.',
+                'focus_categories' => ['bags', 'jewelry', 'hats'],
+                'style_prefix' => 'Midnight Bar',
+            ],
+            [
+                'name' => 'Aero Performance Lab',
+                'tagline' => 'Aerodynamic training essentials tuned for intense movement.',
+                'focus_categories' => ['activewear', 'shirts', 'socks'],
+                'style_prefix' => 'Aero Lab',
+            ],
+            [
+                'name' => 'Serene Basics Lounge',
+                'tagline' => 'Everyday intimates and plush layers for unhurried mornings.',
+                'focus_categories' => ['underwear', 't-shirts', 'sweaters'],
+                'style_prefix' => 'Serene Basics',
+            ],
+            [
+                'name' => 'Terra Boot Co.',
+                'tagline' => 'Rugged boots and earthy staples built for terrain shifts.',
+                'focus_categories' => ['shoes', 'pants', 'jackets'],
+                'style_prefix' => 'Terra Boot',
+            ],
+            [
+                'name' => 'Radiant Resort Wear',
+                'tagline' => 'Resort-ready dresses and luxe swim looks for endless vacations.',
+                'focus_categories' => ['swimwear', 'dresses', 'hats'],
+                'style_prefix' => 'Radiant Resort',
+            ],
+            [
+                'name' => 'Ember Leatherworks',
+                'tagline' => 'Handcrafted leather staples with burnished finishes.',
+                'focus_categories' => ['jackets', 'bags', 'jewelry'],
+                'style_prefix' => 'Ember Leather',
+            ],
+            [
+                'name' => 'Wanderlite Travel Gear',
+                'tagline' => 'Travel-smart layers and carryalls made for lighter journeys.',
+                'focus_categories' => ['bags', 'shoes', 'coats'],
+                'style_prefix' => 'Wanderlite',
+            ],
+        ];
     }
 
     private function getColorHex($colorName)
@@ -328,7 +605,7 @@ class DummyDataSeeder extends Seeder
         return $colorMap[$colorName] ?? '#CCCCCC';
     }
 
-     private function buildSizeStock(): array
+    private function buildSizeStock(): array
     {
         $sizeStock = [];
 
@@ -353,22 +630,90 @@ class DummyDataSeeder extends Seeder
             'care_instructions' => 'Machine wash cold, tumble dry low',
             'country_of_origin' => ['China', 'Bangladesh', 'Vietnam', 'India'][rand(0, 3)],
             'measurements_cm' => $measurements,
-        ];}
-         private function buildColorVariants(array $colors, string $imagePath): array
+        ];
+    }
+
+    private function buildColorVariants(array $colors, array $imageSet): array
     {
-        return array_map(function ($color) use ($imagePath) {
-            return [
+        $images = $imageSet ?: self::CATEGORY_IMAGE_LIBRARY['default'];
+        $variants = [];
+        $imageCount = count($images);
+
+        foreach (array_values($colors) as $index => $color) {
+            $rotated = $images;
+            if ($imageCount > 1) {
+                $rotation = $index % $imageCount;
+                $rotated = array_slice(array_merge($images, $images), $rotation, $imageCount);
+            }
+
+            $variants[] = [
                 'color' => $color,
                 'hex_code' => $this->getColorHex($color),
-                'images' => [$imagePath],
+                'images' => $rotated,
             ];
-        }, $colors);
+        }
+
+        return $variants;
+    }
+
+    private function resolveItemImages(string $categorySlug): array
+    {
+        $library = self::CATEGORY_IMAGE_LIBRARY[$categorySlug] ?? self::CATEGORY_IMAGE_LIBRARY['default'];
+        $pool = $library ?: self::CATEGORY_IMAGE_LIBRARY['default'];
+        $pool = array_values(array_unique($pool));
+        $count = count($pool);
+
+        if ($count === 0) {
+            return self::CATEGORY_IMAGE_LIBRARY['default'];
+        }
+
+        $take = min(3, $count);
+        if ($count <= $take) {
+            return $pool;
+        }
+
+        $start = rand(0, $count - $take);
+        return array_slice($pool, $start, $take);
+    }
+
+    private function resolveStoreBranding(int $index): array
+    {
+        if (empty(self::STORE_BRANDING_LIBRARY)) {
+            return [
+                'https://images.unsplash.com/photo-1523275335684-37898b6baf30?auto=format&fit=crop&w=240&q=80',
+                'https://images.unsplash.com/photo-1524504388940-b1c1722653e1?auto=format&fit=crop&w=1400&q=80',
+            ];
+        }
+
+        $libraryIndex = ($index - 1) % count(self::STORE_BRANDING_LIBRARY);
+        $selected = self::STORE_BRANDING_LIBRARY[$libraryIndex];
+
+        return [$selected['logo'], $selected['banner']];
     }
 
     private function buildDescription(string $itemName): string
     {
-        return $itemName . ' crafted with premium materials and a comfortable fit. Each piece ships with consistent sizing data and a universal product image for a clean catalog experience.';
+        return $itemName . ' crafted with premium materials and a comfortable fit. Each piece ships with consistent sizing data and a curated gallery so the catalog feels real.';
+    }
 
-        
+    private function resetSeededData(): void
+    {
+        DB::statement('SET FOREIGN_KEY_CHECKS=0;');
+
+        try {
+            DB::table('order_items')->truncate();
+            DB::table('orders')->truncate();
+            DB::table('item_user')->truncate();
+            DB::table('items')->truncate();
+            DB::table('stores')->truncate();
+
+            DB::table('users')
+                ->where(fn ($query) => $query
+                    ->where('email', 'like', 'customer%@example.com')
+                    ->orWhere('email', 'like', 'storeadmin%@example.com'))
+                ->delete();
+        } finally {
+            DB::statement('SET FOREIGN_KEY_CHECKS=1;');
+        }
     }
 }

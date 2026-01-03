@@ -23,7 +23,7 @@ export default function App() {
     <>
       {!shouldHideNavbar && <Navbar />} {/* ✅ Conditionally show navbar */}
 
-      <div style={{ marginTop: shouldHideNavbar ? "0" : "5rem" }}>
+      <div style={{ marginTop: shouldHideNavbar ? "0" : "3.25rem" }}>
         <Routes>
           <Route path="/" element={<HomePage />} />
           <Route path="/register" element={<RegisterPage />} />

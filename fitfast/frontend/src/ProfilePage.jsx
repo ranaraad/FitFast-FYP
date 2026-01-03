@@ -98,6 +98,44 @@ export default function ProfilePage() {
     return `$${value.toFixed(2)}`;
   };
 
+  const statusClassName = (status = "") =>
+    `status-badge status-${status.toLowerCase().replace(/[^a-z]+/g, "-")}`;
+
+  const defaultOrders = [
+    {
+      id: "FF-10294",
+      date: "Nov 11, 2025",
+      total: 148.9,
+      items: 3,
+      status: "Processing",
+      trackable: true,
+    },
+    {
+      id: "FF-10172",
+      date: "Oct 26, 2025",
+      total: 212.4,
+      items: 2,
+      status: "Shipped",
+      trackable: true,
+    },
+    {
+      id: "FF-09788",
+      date: "Sep 14, 2025",
+      total: 98.5,
+      items: 1,
+      status: "Delivered",
+      trackable: false,
+    },
+  ];
+
+  const orders = Array.isArray(user?.orders) && user.orders.length ? user.orders : defaultOrders;
+  const hasOrders = orders.length > 0;
+
+  const handleLogout = () => navigate("/logout");
+  const handleChangePassword = () => navigate("/account/security");
+  const handleDeleteAccount = () => navigate("/support/delete-account");
+  const handleManageBilling = () => navigate("/account/billing");
+
 
   const initials = user?.name
     ? user.name
@@ -264,6 +302,112 @@ export default function ProfilePage() {
       </div>
 
       <div className="profile-section">
+        <div className="section-header">
+          <h3>Order History</h3>
+          {hasOrders && <span className="pill-count">{orders.length} orders</span>}
+        </div>
+
+        {!hasOrders ? (
+          <div className="measurements-display">
+            <div className="empty-state">
+              <div className="empty-icon">🛍️</div>
+              <div>No orders yet.</div>
+              <div className="empty-hint">When you shop, your order timeline will appear here.</div>
+            </div>
+          </div>
+        ) : (
+          <div className="orders-timeline">
+            {orders.map((order) => (
+              <div className="order-card" key={order.id}>
+                <div className="order-row">
+                  <div>
+                    <p className="order-id">{order.id}</p>
+                    <p className="order-details">{order.items} items • {order.date}</p>
+                  </div>
+                  <div className="order-status-stack">
+                    <span className={statusClassName(order.status)}>{order.status}</span>
+                    <span className="order-total">{formatPrice(order.total)}</span>
+                  </div>
+                </div>
+
+                <div className="order-actions">
+                  {order.trackable && (
+                    <button
+                      type="button"
+                      className="secondary-btn small"
+                      onClick={() => navigate(`/orders/${order.id}/track`)}
+                    >
+                      Track order
+                    </button>
+                  )}
+                  <button
+                    type="button"
+                    className="ghost-btn small"
+                    onClick={() => navigate(`/orders/${order.id}`)}
+                  >
+                    View details
+                  </button>
+                  <button
+                    type="button"
+                    className="ghost-btn small"
+                    onClick={() => navigate(`/support`) }
+                  >
+                    Get support
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
+      <div className="profile-section">
+        <div className="section-header">
+          <h3>Account Settings</h3>
+        </div>
+
+        <div className="settings-grid">
+          <div className="setting-card">
+            <div>
+              <p className="setting-title">Security</p>
+              <p className="setting-description">Update your password to keep your account protected.</p>
+            </div>
+            <button type="button" className="secondary-btn" onClick={handleChangePassword}>
+              Change password
+            </button>
+          </div>
+          <div className="setting-card">
+            <div>
+              <p className="setting-title">Billing</p>
+              <p className="setting-description">Manage your saved cards and billing contacts.</p>
+            </div>
+            <button type="button" className="ghost-btn" onClick={handleManageBilling}>
+              Manage billing
+            </button>
+          </div>
+          <div className="setting-card critical">
+            <div>
+              <p className="setting-title">Delete account</p>
+              <p className="setting-description">Remove your profile permanently, including orders and measurements.</p>
+            </div>
+            <button type="button" className="danger-btn" onClick={handleDeleteAccount}>
+              Delete account
+            </button>
+          </div>
+        </div>
+
+        <div className="logout-card">
+          <div className="logout-copy">
+            <p className="logout-title">Ready to head out?</p>
+            <p className="logout-description">Sign out safely — we’ll be here when you return.</p>
+          </div>
+          <button type="button" className="primary-btn" onClick={handleLogout}>
+            Log out
+          </button>
+        </div>
+      </div>
+
+      <div className="profile-section">
         <div className="section-header wishlist-header">
           <h3>Wishlist</h3>
           {hasWishlist && (
@@ -402,6 +546,175 @@ export default function ProfilePage() {
           border-radius: 12px;
           padding: 1.5rem;
           border: 1px solid rgba(100, 27, 46, 0.1);
+        }
+
+        .orders-timeline {
+          display: flex;
+          flex-direction: column;
+          gap: 1rem;
+        }
+
+        .order-card {
+          background: white;
+          border-radius: 12px;
+          border: 1px solid rgba(100, 27, 46, 0.12);
+          padding: 1.25rem 1.5rem;
+          box-shadow: 0 8px 20px rgba(0, 0, 0, 0.05);
+          display: flex;
+          flex-direction: column;
+          gap: 1rem;
+        }
+
+        .order-row {
+          display: flex;
+          justify-content: space-between;
+          align-items: flex-start;
+          gap: 1rem;
+        }
+
+        .order-id {
+          margin: 0;
+          font-weight: 700;
+          color: #1d1d1f;
+          font-size: 1.05rem;
+        }
+
+        .order-details {
+          margin: 0.35rem 0 0;
+          color: #666;
+          font-size: 0.9rem;
+        }
+
+        .order-status-stack {
+          display: flex;
+          flex-direction: column;
+          align-items: flex-end;
+          gap: 0.45rem;
+        }
+
+        .status-badge {
+          padding: 0.35rem 0.8rem;
+          border-radius: 999px;
+          font-weight: 600;
+          font-size: 0.78rem;
+          text-transform: uppercase;
+          letter-spacing: 0.05em;
+        }
+
+        .status-processing {
+          background: rgba(255, 189, 67, 0.2);
+          color: #8c540a;
+        }
+
+        .status-shipped {
+          background: rgba(89, 126, 247, 0.18);
+          color: #2941a8;
+        }
+
+        .status-delivered {
+          background: rgba(76, 175, 80, 0.18);
+          color: #2e7d32;
+        }
+
+        .status-cancelled {
+          background: rgba(229, 57, 53, 0.18);
+          color: #c62828;
+        }
+
+        .order-total {
+          font-weight: 700;
+          color: #1d1d1f;
+        }
+
+        .order-actions {
+          display: flex;
+          gap: 0.6rem;
+          flex-wrap: wrap;
+        }
+
+        .secondary-btn.small,
+        .ghost-btn.small {
+          padding: 0.45rem 0.85rem;
+          font-size: 0.85rem;
+        }
+
+        .settings-grid {
+          display: grid;
+          grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+          gap: 1rem;
+          margin-bottom: 1.5rem;
+        }
+
+        .setting-card {
+          background: white;
+          border-radius: 12px;
+          border: 1px solid rgba(100, 27, 46, 0.12);
+          padding: 1.5rem;
+          display: flex;
+          flex-direction: column;
+          gap: 1rem;
+          box-shadow: 0 12px 24px rgba(0, 0, 0, 0.05);
+        }
+
+        .setting-card.critical {
+          border-color: rgba(198, 40, 40, 0.32);
+        }
+
+        .setting-title {
+          margin: 0;
+          font-weight: 700;
+          color: #1d1d1f;
+          font-size: 1rem;
+        }
+
+        .setting-description {
+          margin: 0.35rem 0 0;
+          color: #666;
+          font-size: 0.9rem;
+          line-height: 1.5;
+        }
+
+        .danger-btn {
+          background: linear-gradient(135deg, #c62828, #e53935);
+          color: #fff;
+          border: none;
+          padding: 0.65rem 1.2rem;
+          border-radius: 999px;
+          font-weight: 600;
+          cursor: pointer;
+          transition: opacity 0.2s ease;
+        }
+
+        .danger-btn:hover {
+          opacity: 0.9;
+        }
+
+        .logout-card {
+          background: white;
+          border-radius: 12px;
+          border: 1px solid rgba(100, 27, 46, 0.12);
+          padding: 1.5rem;
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          gap: 1rem;
+          box-shadow: 0 12px 30px rgba(0, 0, 0, 0.06);
+        }
+
+        .logout-title {
+          margin: 0;
+          font-weight: 700;
+          font-size: 1.05rem;
+        }
+
+        .logout-description {
+          margin: 0.3rem 0 0;
+          color: #666;
+          font-size: 0.88rem;
+        }
+
+        .logout-copy {
+          flex: 1;
         }
 
         .measurements-list {

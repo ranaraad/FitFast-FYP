@@ -207,7 +207,7 @@ export default function CartPage() {
             >
               Proceed to Checkout
             </button>
-            <p className="muted small">Checkout mirrors the CMS payment flow.</p>
+            <p className="muted small">Checkout gathers your delivery and payment details.</p>
           </aside>
         </div>
       )}

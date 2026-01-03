@@ -325,7 +325,7 @@ export default function CheckoutPage() {
 	const handleApplyPromo = () => {
 		const normalized = promoInput.trim().toUpperCase();
 		if (!normalized) {
-			setPromoFeedback("Enter a promo code from your CMS campaigns");
+			setPromoFeedback("Enter a promo code to see potential savings.");
 			setAppliedPromo(null);
 			return;
 		}
@@ -336,7 +336,7 @@ export default function CheckoutPage() {
 			setPromoFeedback(`${match.label} applied`);
 		} else {
 			setAppliedPromo(null);
-			setPromoFeedback("Promo code not recognized. Double check the CMS settings.");
+			setPromoFeedback("Promo code not recognized. Please check the code and try again.");
 		}
 	};
 
@@ -457,7 +457,7 @@ export default function CheckoutPage() {
 					<p className="eyebrow">Finalize your fit</p>
 					<h1>Checkout</h1>
 					<p className="muted">
-						Confirm your delivery and finalize payment details. Everything here mirrors the CMS order flow.
+						Confirm your delivery preferences and finalize payment details.
 					</p>
 				</div>
 
@@ -486,7 +486,7 @@ export default function CheckoutPage() {
 						<strong>Order confirmed</strong>
 						<p className="muted small">
 							Reference {orderSuccess.code}. Payment via {successPaymentOption.label}
-							{successCardLast4 ? ` ending in ${successCardLast4}` : ""}. {successDeliveryOption.id === "pickup" ? "We will notify you when your order is ready for pickup." : "Tracking will sync to the CMS timeline."}
+							{successCardLast4 ? ` ending in ${successCardLast4}` : ""}. {successDeliveryOption.id === "pickup" ? "We will notify you when your order is ready for pickup." : "Tracking updates will arrive shortly by email."}
 						</p>
 					</div>
 				</div>
@@ -498,8 +498,8 @@ export default function CheckoutPage() {
 						<div className="checkout-section">
 							<div className="section-heading">
 								<div>
-									<h2>Contact details</h2>
-									<p className="muted small">This information feeds directly into the CMS customer profile.</p>
+									  <h2>Contact details</h2>
+									  <p className="muted small">We will use this information for confirmations and delivery updates.</p>
 								</div>
 								<button type="button" className="link-btn" onClick={handleNavigateBackToCart}>
 									← Back to cart
@@ -552,8 +552,8 @@ export default function CheckoutPage() {
 						<div className="checkout-section">
 							<div className="section-heading">
 								<div>
-									<h2>Shipping</h2>
-									<p className="muted small">Keep addresses consistent with CMS fulfilment records.</p>
+									  <h2>Shipping</h2>
+									  <p className="muted small">Tell us where to send your order.</p>
 								</div>
 							</div>
 
@@ -618,8 +618,8 @@ export default function CheckoutPage() {
 						<div className="checkout-section">
 							<div className="section-heading">
 								<div>
-									<h2>Delivery speed</h2>
-									<p className="muted small">Mirror the logistics options configured in the CMS.</p>
+									  <h2>Delivery speed</h2>
+									  <p className="muted small">Choose the option that suits your schedule.</p>
 								</div>
 							</div>
 
@@ -822,23 +822,13 @@ export default function CheckoutPage() {
 								type="text"
 								value={promoInput}
 								onChange={(event) => setPromoInput(event.target.value)}
-								placeholder="Enter code from CMS"
+								placeholder="Enter promo code"
 							/>
 							<button type="button" onClick={handleApplyPromo}>
 								Apply
 							</button>
 						</div>
 						{promoFeedback && <p className="muted x-small">{promoFeedback}</p>}
-					</div>
-
-					<div className="cms-ref-card">
-						<h4>CMS sync</h4>
-						<p className="muted x-small">
-							Confirmed orders appear in the CMS Orders module. Update fulfilment stages from the dashboard to keep users in the loop.
-						</p>
-						<button type="button" className="secondary-btn" onClick={() => navigate("/support")}>
-							Need adjustments?
-						</button>
 					</div>
 				</aside>
 			</div>

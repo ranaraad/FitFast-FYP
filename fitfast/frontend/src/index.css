@@ -2958,8 +2958,7 @@ a:hover {
 }
 
 .summary-card,
-.promo-card,
-.cms-ref-card {
+.promo-card {
   background: white;
   border: 1px solid #f0e9e7;
   border-radius: 18px;
@@ -3033,8 +3032,7 @@ a:hover {
   gap: 0.5rem;
 }
 
-.promo-card h4,
-.cms-ref-card h4 {
+.promo-card h4 {
   margin: 0;
   color: #641b2e;
 }
@@ -3066,15 +3064,6 @@ a:hover {
 
 .promo-form button:hover {
   background: #be5b50;
-}
-
-.cms-ref-card {
-  display: grid;
-  gap: 0.8rem;
-}
-
-.cms-ref-card .secondary-btn {
-  justify-content: center;
 }
 
 .checkout-btn:disabled {

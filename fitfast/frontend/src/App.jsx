@@ -9,6 +9,8 @@ import StorePage from "./StorePage.jsx";
 import ProductDetailPage from "./ProductDetailPage.jsx";
 import SupportPage from "./SupportPage.jsx";
 import CartPage from "./CartPage.jsx";
+import CheckoutPage from "./CheckoutPage.jsx";
+import OrderStatusPage from "./OrderStatusPage.jsx";
 
 export default function App() {
   const location = useLocation();
@@ -32,6 +34,8 @@ export default function App() {
           <Route path="/stores/:storeId/product/:productId" element={<ProductDetailPage />} />
           <Route path="/support" element={<SupportPage />} />
           <Route path="/cart" element={<CartPage />} />
+          <Route path="/checkout" element={<CheckoutPage />} />
+          <Route path="/order-status" element={<OrderStatusPage />} />
         </Routes>
       </div>
     </>

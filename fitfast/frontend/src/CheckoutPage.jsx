@@ -87,6 +87,7 @@ const PROMO_CODES = {
 };
 
 const isBrowser = typeof window !== "undefined";
+const ORDER_STATUS_STORAGE = "fitfast_recent_order";
 
 function readStoredValue(key, fallback) {
 	if (!isBrowser) return fallback;
@@ -111,6 +112,17 @@ function writeStoredValue(key, value) {
 		}
 	} catch (err) {
 		console.error(`Failed to persist checkout data for ${key}`, err);
+	}
+}
+
+function persistLatestOrder(payload) {
+	if (!isBrowser) return;
+
+	try {
+		window.localStorage.setItem(ORDER_STATUS_STORAGE, JSON.stringify(payload));
+		window.dispatchEvent(new Event("fitfast-order-updated"));
+	} catch (err) {
+		console.error("Failed to persist latest order", err);
 	}
 }
 
@@ -164,6 +176,17 @@ function generateConfirmationCode() {
 	return `FF${year}-${dayOfYear}-${random}`;
 }
 
+function estimateDeliveryHours(optionId) {
+	switch (optionId) {
+		case "express":
+			return 24;
+		case "pickup":
+			return 4;
+		default:
+			return 60;
+	}
+}
+
 export default function CheckoutPage() {
 	const navigate = useNavigate();
 	const [cartItems, setCartItems] = useState(() => getCart());
@@ -188,7 +211,6 @@ export default function CheckoutPage() {
 	const [cardDetails, setCardDetails] = useState(() => ({ ...DEFAULT_CARD }));
 	const [promoFeedback, setPromoFeedback] = useState("");
 	const [isSubmitting, setIsSubmitting] = useState(false);
-	const [orderSuccess, setOrderSuccess] = useState(null);
 	const [orderError, setOrderError] = useState(null);
 
 	useEffect(() => {
@@ -402,23 +424,59 @@ export default function CheckoutPage() {
 		if (!validatePayload()) return;
 
 		setIsSubmitting(true);
-		setOrderSuccess(null);
 
 		const confirmationCode = generateConfirmationCode();
 		const sanitizedNumber = paymentMethod === "card" ? cardDetails.number.replace(/\D/g, "") : "";
 		const cardLast4 = sanitizedNumber ? sanitizedNumber.slice(-4) : null;
 
 		setTimeout(() => {
+			const selectedShipping = SHIPPING_OPTIONS.find((entry) => entry.id === deliveryOption) || SHIPPING_OPTIONS[0];
+			const selectedPayment = PAYMENT_METHODS.find((entry) => entry.id === paymentMethod) || PAYMENT_METHODS[0];
+			const placedAt = new Date();
+			const etaHours = estimateDeliveryHours(selectedShipping.id);
+			const estimatedArrival = new Date(placedAt.getTime() + etaHours * 60 * 60 * 1000);
+			const orderRecord = {
+				code: confirmationCode,
+				placedAt: placedAt.toISOString(),
+				eta: estimatedArrival.toISOString(),
+				delivery: {
+					id: selectedShipping.id,
+					label: selectedShipping.label,
+					description: selectedShipping.description,
+				},
+				payment: {
+					id: selectedPayment.id,
+					label: selectedPayment.label,
+					cardLast4,
+				},
+				contact: { ...contactInfo },
+				shippingAddress: { ...shippingAddress, country: "United States" },
+				items: cartItems.map((item) => ({
+					id: item.id,
+					name: item.name,
+					quantity: item.quantity || 1,
+					price: Number(item.price) || 0,
+					image: item.image || null,
+					storeName: item.storeName || null,
+					size: item.size || null,
+					color: item.color || null,
+				})),
+				totals: {
+					subtotal,
+					shipping: shippingCost,
+					tax: taxEstimate,
+					discount,
+					total: estimatedTotal,
+				},
+				promoCode: appliedPromo?.code || null,
+			};
+
+			persistLatestOrder(orderRecord);
 			clearCart();
 			setCartItems([]);
 			setIsSubmitting(false);
-			setOrderSuccess({
-				code: confirmationCode,
-				paymentMethod,
-				deliveryOption,
-				cardLast4,
-			});
 			resetDraft();
+			navigate("/order-status");
 		}, 1200);
 	};
 
@@ -429,16 +487,6 @@ export default function CheckoutPage() {
 	const handleBrowseStores = () => {
 		navigate("/");
 	};
-
-	const activeShippingOption = SHIPPING_OPTIONS.find((entry) => entry.id === deliveryOption) || SHIPPING_OPTIONS[0];
-	const activePaymentOption = PAYMENT_METHODS.find((entry) => entry.id === paymentMethod) || PAYMENT_METHODS[0];
-	const successPaymentOption = orderSuccess
-		? PAYMENT_METHODS.find((entry) => entry.id === orderSuccess.paymentMethod) || activePaymentOption
-		: activePaymentOption;
-	const successDeliveryOption = orderSuccess
-		? SHIPPING_OPTIONS.find((entry) => entry.id === orderSuccess.deliveryOption) || activeShippingOption
-		: activeShippingOption;
-	const successCardLast4 = orderSuccess?.cardLast4;
 
 	return (
 		<div className="checkout-page">
@@ -469,18 +517,6 @@ export default function CheckoutPage() {
 			</div>
 
 			{orderError && <div className="checkout-banner error-banner">{orderError}</div>}
-			{orderSuccess && (
-				<div className="checkout-banner success-banner">
-					<span className="banner-icon">🎉</span>
-					<div>
-						<strong>Order confirmed</strong>
-						<p className="muted small">
-							Reference {orderSuccess.code}. Payment via {successPaymentOption.label}
-							{successCardLast4 ? ` ending in ${successCardLast4}` : ""}. {successDeliveryOption.id === "pickup" ? "We will notify you when your order is ready for pickup." : "Tracking updates will arrive shortly by email."}
-						</p>
-					</div>
-				</div>
-			)}
 
 			<div className="checkout-grid">
 				<section className="checkout-main">

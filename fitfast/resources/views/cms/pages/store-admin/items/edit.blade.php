@@ -24,6 +24,7 @@
                     @csrf
                     @method('PUT')
 
+                    <!-- Basic Information -->
                     <div class="row">
                         <div class="col-md-6">
                             <div class="form-group">
@@ -96,7 +97,7 @@
                         @enderror
                     </div>
 
-                    <!-- Image Upload Section - Dropzone Style -->
+                    <!-- Image Upload Section -->
                     <div class="row mb-4">
                         <div class="col-12">
                             <h5 class="text-primary">Item Images</h5>
@@ -176,96 +177,10 @@
                         </div>
                     </div>
 
-                    <!-- Color Variants Section -->
-                    <div class="row mb-4">
-                        <div class="col-12">
-                            <h5 class="text-primary">Color Variants *</h5>
-                            <small class="text-muted">Add all available colors for this item with their stock quantities.</small>
-                            <div id="color-variants-container">
-                                @php
-                                    $colorVariants = old('color_variants', $item->color_variants ?? []);
-                                    $colorIndex = 0;
-                                @endphp
+                    <!-- Include Color & Size Variants Partial -->
+                    @include('cms.pages.items.partials.color-size-variants')
 
-                                @if(!empty($colorVariants) && is_array($colorVariants))
-                                    @foreach($colorVariants as $colorKey => $colorData)
-                                        <div class="color-variant-row card mb-3">
-                                            <div class="card-body">
-                                                <div class="row">
-                                                    <div class="col-md-6">
-                                                        <div class="form-group">
-                                                            <label>Color Name *</label>
-                                                            <input type="text" class="form-control color-name"
-                                                                   name="color_variants[{{ $colorIndex }}][name]"
-                                                                   value="{{ old("color_variants.$colorIndex.name", $colorData['name'] ?? $colorKey) }}"
-                                                                   placeholder="e.g., Red, Blue, Black" required>
-                                                        </div>
-                                                    </div>
-                                                    <div class="col-md-4">
-                                                        <div class="form-group">
-                                                            <label>Stock Quantity *</label>
-                                                            <input type="number" class="form-control color-stock"
-                                                                   name="color_variants[{{ $colorIndex }}][stock]"
-                                                                   value="{{ old("color_variants.$colorIndex.stock", $colorData['stock'] ?? 0) }}"
-                                                                   min="0" required>
-                                                        </div>
-                                                    </div>
-                                                    <div class="col-md-2">
-                                                        <div class="form-group">
-                                                            <label>&nbsp;</label>
-                                                            <button type="button" class="btn btn-danger btn-block remove-color" {{ $colorIndex == 0 ? 'style="display: none;"' : '' }}>
-                                                                <i class="fas fa-times"></i>
-                                                            </button>
-                                                        </div>
-                                                    </div>
-                                                </div>
-                                            </div>
-                                        </div>
-                                        @php $colorIndex++; @endphp
-                                    @endforeach
-                                @else
-                                    <div class="color-variant-row card mb-3">
-                                        <div class="card-body">
-                                            <div class="row">
-                                                <div class="col-md-6">
-                                                    <div class="form-group">
-                                                        <label>Color Name *</label>
-                                                        <input type="text" class="form-control color-name"
-                                                               name="color_variants[0][name]"
-                                                               value="{{ old('color_variants.0.name', $item->color ?? '') }}"
-                                                               placeholder="e.g., Red, Blue, Black" required>
-                                                    </div>
-                                                </div>
-                                                <div class="col-md-4">
-                                                    <div class="form-group">
-                                                        <label>Stock Quantity *</label>
-                                                        <input type="number" class="form-control color-stock"
-                                                               name="color_variants[0][stock]"
-                                                               value="{{ old('color_variants.0.stock', $item->stock_quantity ?? 0) }}"
-                                                               min="0" required>
-                                                    </div>
-                                                </div>
-                                                <div class="col-md-2">
-                                                    <div class="form-group">
-                                                        <label>&nbsp;</label>
-                                                        <button type="button" class="btn btn-danger btn-block remove-color" style="display: none;">
-                                                            <i class="fas fa-times"></i>
-                                                        </button>
-                                                    </div>
-                                                </div>
-                                            </div>
-                                        </div>
-                                    </div>
-                                @endif
-                            </div>
-
-                            <button type="button" class="btn btn-sm btn-secondary" id="add-color">
-                                <i class="fas fa-plus"></i> Add Another Color
-                            </button>
-                        </div>
-                    </div>
-
-                    <!-- Include the partial that contains Garment Type, Stock by Size, and Measurements -->
+                    <!-- Include Sizing Data Partial (Garment Types & Measurements Only) -->
                     @include('cms.pages.items.partials.sizing-data')
 
                     <div class="row mt-4">
@@ -290,6 +205,7 @@
 
 @push('styles')
 <style>
+/* Keep existing styles but add/edit for color-size variants */
 .dropzone-container {
     margin-top: 10px;
 }
@@ -468,13 +384,20 @@
     padding: 5px;
 }
 
-/* Color variants styling */
-.color-variant-row {
-    border: 1px solid #e3e6f0;
+/* Color-Size Variants specific styling */
+.color-size-variant-row .card-header {
+    background-color: #f8f9fa !important;
+    border-bottom: 1px solid #dee2e6;
 }
 
-.color-variant-row .card-body {
-    padding: 1rem;
+.size-stock-input {
+    text-align: center;
+    min-width: 80px;
+}
+
+.color-total-stock {
+    background-color: #f8f9fa;
+    font-weight: bold;
 }
 
 /* Drag and drop styling */
@@ -491,180 +414,667 @@
 
 @push('scripts')
 <script>
-const garmentTypesByCategory = @json($categoryToGarmentTypes);
-let colorCounter = {{ $colorIndex ?? 1 }};
+// Standard sizes array from PHP
+const standardSizes = @json($standardSizes);
+const garmentTypes = @json($garmentTypes);
+const categoryToGarmentTypes = @json($categoryToGarmentTypes);
+const existingMeasurements = @json($item->sizing_data ? $item->garment_measurements : []);
+
+// Get existing color count from rendered HTML
+let colorVariantCounter = document.querySelectorAll('.color-size-variant-row').length;
 let draggedImage = null;
 
-// Dropzone functionality
+// ========== INITIALIZATION ==========
+document.addEventListener('DOMContentLoaded', function() {
+    // Initialize stock calculations
+    updateStockCalculations();
+
+    // Initialize garment types if needed
+    const garmentTypeSelect = document.getElementById('garment_type');
+    if (garmentTypeSelect && garmentTypeSelect.value) {
+        updateSizingSection();
+    }
+
+    // Set up category change listener for garment types
+    const categorySelect = document.getElementById('category_id');
+    if (categorySelect) {
+        categorySelect.addEventListener('change', updateGarmentTypeOptions);
+
+        // Initialize garment types based on current category selection
+        if (categorySelect.value) {
+            updateGarmentTypeOptions();
+        }
+    }
+
+    // Initialize image reordering
+    initializeImageReordering();
+
+    // Add event listeners to all existing color name and size inputs
+    initializeExistingColorVariantListeners();
+});
+
+// Initialize event listeners for existing color variants
+function initializeExistingColorVariantListeners() {
+    document.querySelectorAll('.color-name').forEach(input => {
+        input.addEventListener('input', updateStockCalculations);
+    });
+
+    document.querySelectorAll('.size-stock-input').forEach(input => {
+        input.addEventListener('input', updateStockCalculations);
+    });
+
+    // Add remove button listeners for non-first color variants
+    document.querySelectorAll('.remove-color-size-variant').forEach((btn, index) => {
+        if (index > 0) { // Skip first button
+            btn.addEventListener('click', function() {
+                const variantRow = btn.closest('.color-size-variant-row');
+                const sizeInput = variantRow.querySelector('.size-stock-input');
+                const colorIndex = sizeInput ? parseInt(sizeInput.getAttribute('data-color-index')) : index;
+                removeColorSizeVariant(colorIndex);
+            });
+        }
+    });
+}
+
+// ========== COLOR-SIZE VARIANT MANAGEMENT ==========
+document.getElementById('add-color-size-variant').addEventListener('click', function() {
+    addColorSizeVariant();
+});
+
+function addColorSizeVariant() {
+    const container = document.getElementById('color-size-variants-container');
+    const newIndex = colorVariantCounter++;
+
+    // Clone the first color variant as template
+    const firstVariant = container.querySelector('.color-size-variant-row');
+    const newVariant = firstVariant.cloneNode(true);
+
+    // Update indices in the new variant
+    newVariant.innerHTML = newVariant.innerHTML.replace(/color_variants\[0\]/g, `color_variants[${newIndex}]`);
+    newVariant.innerHTML = newVariant.innerHTML.replace(/data-color-index="0"/g, `data-color-index="${newIndex}"`);
+    newVariant.innerHTML = newVariant.innerHTML.replace(/status-0-/g, `status-${newIndex}-`);
+
+    // Update header
+    const header = newVariant.querySelector('.card-header h6');
+    if (header) {
+        header.textContent = `Color #${newIndex + 1}`;
+    }
+
+    // Update remove button
+    const removeBtn = newVariant.querySelector('.remove-color-size-variant');
+    if (removeBtn) {
+        removeBtn.style.display = 'block';
+        const smallElement = removeBtn.closest('.text-right')?.querySelector('small');
+        if (smallElement) {
+            smallElement.remove();
+        }
+    }
+
+    // Clear values
+    newVariant.querySelector('.color-name').value = '';
+    const sizeInputs = newVariant.querySelectorAll('.size-stock-input');
+    sizeInputs.forEach(input => {
+        input.value = 0;
+    });
+
+    // Add event listeners
+    newVariant.querySelector('.color-name').addEventListener('input', updateStockCalculations);
+    sizeInputs.forEach(input => {
+        input.addEventListener('input', updateStockCalculations);
+    });
+
+    // Add remove button listener
+    if (removeBtn) {
+        removeBtn.addEventListener('click', function() {
+            removeColorSizeVariant(newIndex);
+        });
+    }
+
+    container.appendChild(newVariant);
+    updateStockCalculations();
+}
+
+function removeColorSizeVariant(index) {
+    const variant = document.querySelector(`[data-color-index="${index}"]`)?.closest('.color-size-variant-row');
+    if (variant) {
+        variant.remove();
+        updateStockCalculations();
+
+        // Re-index remaining variants
+        const variants = document.querySelectorAll('.color-size-variant-row');
+        variants.forEach((variant, newIndex) => {
+            const colorNameInput = variant.querySelector('.color-name');
+            const sizeInputs = variant.querySelectorAll('.size-stock-input');
+
+            // Update name attribute
+            colorNameInput.name = `color_variants[${newIndex}][name]`;
+
+            // Update size inputs
+            sizeInputs.forEach((input, sizeIndex) => {
+                const size = standardSizes[sizeIndex];
+                input.name = `color_variants[${newIndex}][size_stock][${size}]`;
+                input.setAttribute('data-color-index', newIndex);
+            });
+
+            // Update status element IDs
+            sizeInputs.forEach(input => {
+                const size = input.getAttribute('data-size');
+                const statusElement = variant.querySelector(`#status-${index}-${size}`);
+                if (statusElement) {
+                    statusElement.id = `status-${newIndex}-${size}`;
+                }
+            });
+
+            // Update header
+            const header = variant.querySelector('.card-header h6');
+            if (header) {
+                header.textContent = `Color #${newIndex + 1}`;
+            }
+        });
+
+        colorVariantCounter = variants.length;
+    }
+}
+
+// ========== STOCK CALCULATIONS ==========
+function updateStockCalculations() {
+    let totalStock = 0;
+    const colorBreakdown = {};
+    const sizeBreakdown = {};
+
+    // Initialize size breakdown
+    standardSizes.forEach(size => {
+        sizeBreakdown[size] = 0;
+    });
+
+    // Collect all color variants
+    const colorVariants = document.querySelectorAll('.color-size-variant-row');
+
+    colorVariants.forEach((variant, colorIndex) => {
+        const colorNameInput = variant.querySelector('.color-name');
+        const colorName = colorNameInput.value.trim();
+        const sizeInputs = variant.querySelectorAll('.size-stock-input');
+        let colorTotal = 0;
+
+        // Calculate color total
+        sizeInputs.forEach(input => {
+            const stock = parseInt(input.value) || 0;
+            const size = input.getAttribute('data-size');
+
+            colorTotal += stock;
+            sizeBreakdown[size] += stock;
+
+            // Update status badge
+            const statusElement = document.getElementById(`status-${colorIndex}-${size}`);
+            if (statusElement) {
+                if (stock > 10) {
+                    statusElement.innerHTML = '<span class="badge badge-success">In Stock</span>';
+                } else if (stock > 0) {
+                    statusElement.innerHTML = '<span class="badge badge-warning">Low Stock</span>';
+                } else {
+                    statusElement.innerHTML = '<span class="badge badge-secondary">Out of Stock</span>';
+                }
+            }
+        });
+
+        // Update color total display
+        const colorTotalInput = variant.querySelector('.color-total-stock');
+        if (colorTotalInput) {
+            colorTotalInput.value = colorTotal;
+        }
+
+        // Add to color breakdown
+        if (colorName) {
+            colorBreakdown[colorName] = colorTotal;
+        }
+
+        totalStock += colorTotal;
+    });
+
+    // Build aggregated variants array for hidden input
+    const variantsArray = [];
+    colorVariants.forEach((variant, colorIndex) => {
+        const colorName = variant.querySelector('.color-name').value.trim();
+        if (colorName) {
+            const sizeInputs = variant.querySelectorAll('.size-stock-input');
+            sizeInputs.forEach(input => {
+                const stock = parseInt(input.value) || 0;
+                const size = input.getAttribute('data-size');
+                if (stock > 0) {
+                    variantsArray.push({
+                        color: colorName,
+                        size: size,
+                        stock: stock
+                    });
+                }
+            });
+        }
+    });
+
+    // Update hidden inputs
+    document.getElementById('variants-input').value = JSON.stringify(variantsArray);
+    document.getElementById('total-stock-input').value = totalStock;
+
+    // Update summary displays
+    const totalStockElement = document.getElementById('total-stock-summary');
+    if (totalStockElement) {
+        totalStockElement.textContent = totalStock.toLocaleString();
+    }
+
+    // Update color breakdown
+    const colorSummary = document.getElementById('color-breakdown-summary');
+    if (colorSummary) {
+        if (Object.keys(colorBreakdown).length > 0) {
+            let colorHtml = '';
+            for (const [color, qty] of Object.entries(colorBreakdown)) {
+                colorHtml += `<div><small>${color}: <strong>${qty.toLocaleString()}</strong></small></div>`;
+            }
+            colorSummary.innerHTML = colorHtml;
+        } else {
+            colorSummary.innerHTML = '<small class="text-muted">No colors added</small>';
+        }
+    }
+
+    // Update size breakdown
+    const sizeSummary = document.getElementById('size-breakdown-summary');
+    if (sizeSummary) {
+        let hasSizeStock = false;
+        let sizeHtml = '';
+
+        for (const [size, qty] of Object.entries(sizeBreakdown)) {
+            if (qty > 0) {
+                hasSizeStock = true;
+                sizeHtml += `<div><small>${size}: <strong>${qty.toLocaleString()}</strong></small></div>`;
+            }
+        }
+
+        if (hasSizeStock) {
+            sizeSummary.innerHTML = sizeHtml;
+        } else {
+            sizeSummary.innerHTML = '<small class="text-muted">No stock allocated</small>';
+        }
+    }
+
+    // Update validation message
+    const validationMsg = document.getElementById('stock-validation-message');
+    if (validationMsg) {
+        if (totalStock === 0) {
+            validationMsg.innerHTML = '<small class="text-warning"><i class="fas fa-exclamation-triangle"></i> No stock added yet</small>';
+        } else if (totalStock > 1000) {
+            validationMsg.innerHTML = `<small class="text-warning"><i class="fas fa-exclamation-triangle"></i> High stock quantity (${totalStock.toLocaleString()} units)</small>`;
+        } else {
+            validationMsg.innerHTML = `<small class="text-success"><i class="fas fa-check-circle"></i> Stock management ready (${totalStock.toLocaleString()} units)</small>`;
+        }
+    }
+}
+
+// ========== GARMENT TYPE FUNCTIONS ==========
+function updateGarmentTypeOptions() {
+    const categorySelect = document.getElementById('category_id');
+    const garmentTypeSelect = document.getElementById('garment_type');
+    const categoryId = categorySelect.value;
+
+    if (!garmentTypeSelect) return;
+
+    garmentTypeSelect.innerHTML = '<option value="">Select Garment Type</option>';
+
+    if (!categoryId) {
+        garmentTypeSelect.innerHTML += '<option value="" disabled>Select a category first</option>';
+        return;
+    }
+
+    // Get garment types for the selected category
+    const availableGarmentTypes = categoryToGarmentTypes[categoryId] || {};
+
+    if (Object.keys(availableGarmentTypes).length === 0) {
+        garmentTypeSelect.innerHTML += '<option value="" disabled>No garment types available for this category</option>';
+        return;
+    }
+
+    // Add available garment types
+    for (const [key, name] of Object.entries(availableGarmentTypes)) {
+        const option = document.createElement('option');
+        option.value = key;
+        option.textContent = name;
+
+        // Preselect if previously selected
+        const currentGarmentType = '{{ old('garment_type', $item->garment_type ?? '') }}';
+        if (key === currentGarmentType) {
+            option.selected = true;
+        }
+
+        garmentTypeSelect.appendChild(option);
+    }
+
+    // Trigger sizing section update if a garment type is selected
+    if (garmentTypeSelect.value) {
+        updateSizingSection();
+    }
+}
+
+function updateSizingSection() {
+    const garmentTypeSelect = document.getElementById('garment_type');
+    const garmentType = garmentTypeSelect.value;
+    const measurementGrid = document.getElementById('measurement-grid');
+    const fitCharacteristics = document.getElementById('fit-characteristics');
+
+    if (!garmentType || !measurementGrid || !fitCharacteristics) return;
+
+    if (!garmentType) {
+        measurementGrid.style.display = 'none';
+        fitCharacteristics.style.display = 'none';
+        return;
+    }
+
+    const garmentData = garmentTypes[garmentType];
+    if (!garmentData) return;
+
+    // Show measurement sections if garment type has measurements
+    if (garmentData.measurements && garmentData.measurements.length > 0) {
+        measurementGrid.style.display = 'block';
+        fitCharacteristics.style.display = 'block';
+
+        // Update measurement table header
+        const tableHead = document.querySelector('#measurement-grid thead tr');
+        if (tableHead) {
+            tableHead.innerHTML = '<th>Size</th>';
+
+            garmentData.measurements.forEach(measurement => {
+                const th = document.createElement('th');
+                th.textContent = formatMeasurementName(measurement);
+                th.title = getMeasurementDescription(measurement);
+                tableHead.appendChild(th);
+            });
+
+            // Update measurement table rows
+            const tableBody = document.getElementById('measurement-rows');
+            if (tableBody) {
+                tableBody.innerHTML = '';
+
+                standardSizes.forEach(size => {
+                    const row = document.createElement('tr');
+
+                    // Size column
+                    const sizeCell = document.createElement('td');
+                    sizeCell.innerHTML = `<strong>${size}</strong>`;
+                    row.appendChild(sizeCell);
+
+                    // Measurement columns
+                    garmentData.measurements.forEach(measurement => {
+                        const cell = document.createElement('td');
+                        const input = document.createElement('input');
+                        input.type = 'number';
+                        input.step = '0.1';
+                        input.min = '0';
+                        input.className = 'form-control form-control-sm';
+                        input.name = `sizes[${size}][${measurement}]`;
+                        input.placeholder = 'cm';
+
+                        // Set existing value if editing - check both old form data and existing item data
+                        const oldValue = getOldMeasurementValue(size, measurement);
+                        if (oldValue !== null && oldValue !== '') {
+                            input.value = oldValue;
+                        }
+
+                        cell.appendChild(input);
+                        row.appendChild(cell);
+                    });
+
+                    tableBody.appendChild(row);
+                });
+            }
+        }
+    } else {
+        measurementGrid.style.display = 'none';
+        fitCharacteristics.style.display = 'none';
+    }
+}
+
+// Helper function to get measurement value from old form data or existing item data
+function getOldMeasurementValue(size, measurement) {
+    // First check for old form data (in case of validation errors)
+    const oldDataKey = `sizes.${size}.${measurement}`;
+    const oldFormValue = getNestedValue(@json(old()), oldDataKey);
+    if (oldFormValue !== null && oldFormValue !== '') {
+        return oldFormValue;
+    }
+
+    // Then check existing item measurements
+    if (existingMeasurements && existingMeasurements[size] && existingMeasurements[size][measurement]) {
+        return existingMeasurements[size][measurement];
+    }
+
+    return null;
+}
+
+// Helper function to get nested values from object using dot notation
+function getNestedValue(obj, path) {
+    return path.split('.').reduce((current, key) => {
+        return current && current[key] !== undefined ? current[key] : null;
+    }, obj);
+}
+
+function formatMeasurementName(measurement) {
+    return measurement.split('_')
+        .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+        .join(' ');
+}
+
+function getMeasurementDescription(measurement) {
+    const descriptions = {
+        'chest_circumference': 'Measure around the fullest part of chest',
+        'waist_circumference': 'Measure around natural waistline',
+        'hips_circumference': 'Measure around the fullest part of hips',
+        'garment_length': 'Measure from highest point of shoulder to bottom hem',
+        'sleeve_length': 'Measure from shoulder seam to cuff',
+        'shoulder_width': 'Measure from shoulder seam to shoulder seam',
+        'inseam_length': 'Measure from crotch to bottom of leg',
+        'thigh_circumference': 'Measure around fullest part of thigh',
+        'leg_opening': 'Measure circumference of leg opening',
+        'rise': 'Measure from crotch to top of waistband',
+        'collar_size': 'Measure around neck where collar sits',
+        'short_length': 'Measure from waist to bottom of shorts',
+        'dress_length': 'Measure from shoulder to bottom hem of dress',
+        'shoulder_to_hem': 'Measure from shoulder to hem of dress',
+        'skirt_length': 'Measure from waist to bottom hem of skirt',
+        'bicep_circumference': 'Measure around fullest part of bicep',
+        'hood_height': 'Measure from neckline to top of hood',
+        'underbust_circumference': 'Measure around chest under bust',
+        'cup_size': 'Bra cup size (A, B, C, etc.)',
+        'foot_length': 'Measure length of foot',
+        'foot_width': 'Measure width of foot',
+        'calf_circumference': 'Measure around fullest part of calf',
+        'sock_height': 'Measure height of sock from ankle',
+        'bag_width': 'Measure width of bag',
+        'bag_height': 'Measure height of bag',
+        'bag_depth': 'Measure depth of bag',
+        'strap_length': 'Measure length of strap',
+        'handle_length': 'Measure length of handle',
+        'chain_length': 'Measure length of chain',
+        'bracelet_circumference': 'Measure around wrist for bracelet',
+        'head_circumference': 'Measure around head',
+        'brim_width': 'Measure width of hat brim',
+        'hat_height': 'Measure height of hat'
+    };
+
+    return descriptions[measurement] || 'Garment measurement';
+}
+
+// ========== IMAGE UPLOAD FUNCTIONALITY ==========
 const dropzoneArea = document.getElementById('dropzone-area');
 const dropzoneInput = document.getElementById('images');
 const previewContainer = document.getElementById('image-preview-container');
 const previewsContainer = document.getElementById('image-previews');
 
-// Drag and drop events for dropzone
-['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
-    dropzoneArea.addEventListener(eventName, preventDefaults, false);
-});
+// Only initialize if elements exist
+if (dropzoneArea && dropzoneInput) {
+    // Drag and drop events
+    ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
+        dropzoneArea.addEventListener(eventName, preventDefaults, false);
+    });
 
-function preventDefaults(e) {
-    e.preventDefault();
-    e.stopPropagation();
-}
+    function preventDefaults(e) {
+        e.preventDefault();
+        e.stopPropagation();
+    }
 
-['dragenter', 'dragover'].forEach(eventName => {
-    dropzoneArea.addEventListener(eventName, highlight, false);
-});
+    ['dragenter', 'dragover'].forEach(eventName => {
+        dropzoneArea.addEventListener(eventName, highlight, false);
+    });
 
-['dragleave', 'drop'].forEach(eventName => {
-    dropzoneArea.addEventListener(eventName, unhighlight, false);
-});
+    ['dragleave', 'drop'].forEach(eventName => {
+        dropzoneArea.addEventListener(eventName, unhighlight, false);
+    });
 
-function highlight() {
-    dropzoneArea.classList.add('dragover');
-}
+    function highlight() {
+        dropzoneArea.classList.add('dragover');
+    }
 
-function unhighlight() {
-    dropzoneArea.classList.remove('dragover');
-}
+    function unhighlight() {
+        dropzoneArea.classList.remove('dragover');
+    }
 
-// Handle drop
-dropzoneArea.addEventListener('drop', handleDrop, false);
+    // Handle drop
+    dropzoneArea.addEventListener('drop', handleDrop, false);
 
-function handleDrop(e) {
-    const dt = e.dataTransfer;
-    const files = dt.files;
-    handleFiles(files);
-}
+    function handleDrop(e) {
+        const dt = e.dataTransfer;
+        const files = dt.files;
+        handleFiles(files);
+    }
 
-// Handle file input change
-dropzoneInput.addEventListener('change', function() {
-    handleFiles(this.files);
-});
+    // Handle file input change
+    dropzoneInput.addEventListener('change', function() {
+        handleFiles(this.files);
+    });
 
-// Handle click on dropzone area
-dropzoneArea.addEventListener('click', function() {
-    dropzoneInput.click();
-});
+    // Handle click on dropzone area
+    dropzoneArea.addEventListener('click', function() {
+        dropzoneInput.click();
+    });
 
-// Process selected files - Appends files instead of replacing
-function handleFiles(newFiles) {
-    if (newFiles.length > 0) {
-        // Get existing files
-        const existingFiles = Array.from(dropzoneInput.files);
+    // Process selected files
+    function handleFiles(newFiles) {
+        if (newFiles.length > 0) {
+            // Get existing files
+            const existingFiles = Array.from(dropzoneInput.files);
 
-        // Combine existing and new files
-        const allFiles = [...existingFiles, ...newFiles];
+            // Combine existing and new files
+            const allFiles = [...existingFiles, ...newFiles];
 
-        // Update the file input
+            // Update the file input
+            const dataTransfer = new DataTransfer();
+            allFiles.forEach(file => dataTransfer.items.add(file));
+            dropzoneInput.files = dataTransfer.files;
+
+            updatePreviews(allFiles);
+        }
+    }
+
+    // Update image previews
+    function updatePreviews(files) {
+        if (!previewsContainer) return;
+
+        // Clear existing previews
+        previewsContainer.innerHTML = '';
+
+        if (files.length > 0) {
+            if (previewContainer) previewContainer.style.display = 'block';
+
+            // Update dropzone appearance
+            dropzoneArea.classList.add('has-files');
+
+            // Add or update file count badge
+            let fileCountBadge = dropzoneArea.querySelector('.file-count');
+            if (!fileCountBadge) {
+                fileCountBadge = document.createElement('div');
+                fileCountBadge.className = 'file-count';
+                dropzoneArea.appendChild(fileCountBadge);
+            }
+            fileCountBadge.textContent = files.length;
+
+            Array.from(files).forEach((file, index) => {
+                if (file.type.startsWith('image/')) {
+                    const reader = new FileReader();
+
+                    reader.onload = function(e) {
+                        const col = document.createElement('div');
+                        col.className = 'col-lg-2 col-md-3 col-sm-4 col-6 preview-col';
+
+                        const preview = document.createElement('div');
+                        preview.className = 'image-preview';
+
+                        const img = document.createElement('img');
+                        img.src = e.target.result;
+                        img.alt = 'Preview ' + (index + 1);
+                        img.className = 'img-thumbnail';
+
+                        const removeBtn = document.createElement('button');
+                        removeBtn.type = 'button';
+                        removeBtn.className = 'remove-image';
+                        removeBtn.innerHTML = '×';
+                        removeBtn.title = 'Remove image';
+
+                        const primaryBadge = document.createElement('div');
+                        primaryBadge.className = 'primary-badge';
+                        primaryBadge.textContent = 'New';
+
+                        const info = document.createElement('div');
+                        info.className = 'image-info';
+                        info.textContent = file.name.length > 15 ? file.name.substring(0, 12) + '...' : file.name;
+                        info.title = file.name + ' (' + (file.size / 1024).toFixed(1) + ' KB)';
+
+                        // Remove image functionality
+                        removeBtn.addEventListener('click', function() {
+                            removeImageFromInput(file, col);
+                        });
+
+                        preview.appendChild(img);
+                        preview.appendChild(removeBtn);
+                        preview.appendChild(primaryBadge);
+                        preview.appendChild(info);
+                        col.appendChild(preview);
+                        previewsContainer.appendChild(col);
+                    };
+
+                    reader.readAsDataURL(file);
+                }
+            });
+        } else {
+            if (previewContainer) previewContainer.style.display = 'none';
+            dropzoneArea.classList.remove('has-files');
+            const fileCountBadge = dropzoneArea.querySelector('.file-count');
+            if (fileCountBadge) {
+                fileCountBadge.remove();
+            }
+        }
+    }
+
+    // Remove image from file input and preview
+    function removeImageFromInput(fileToRemove, previewElement) {
+        const files = Array.from(dropzoneInput.files);
+        const updatedFiles = files.filter(file => file !== fileToRemove);
+
+        // Create new FileList
         const dataTransfer = new DataTransfer();
-        allFiles.forEach(file => dataTransfer.items.add(file));
+        updatedFiles.forEach(file => dataTransfer.items.add(file));
         dropzoneInput.files = dataTransfer.files;
 
-        updatePreviews(allFiles);
-    }
-}
-
-// Update image previews
-function updatePreviews(files) {
-    // Clear existing previews
-    previewsContainer.innerHTML = '';
-
-    if (files.length > 0) {
-        previewContainer.style.display = 'block';
-
-        // Update dropzone appearance
-        dropzoneArea.classList.add('has-files');
-
-        // Add or update file count badge
-        let fileCountBadge = dropzoneArea.querySelector('.file-count');
-        if (!fileCountBadge) {
-            fileCountBadge = document.createElement('div');
-            fileCountBadge.className = 'file-count';
-            dropzoneArea.appendChild(fileCountBadge);
-        }
-        fileCountBadge.textContent = files.length;
-
-        Array.from(files).forEach((file, index) => {
-            if (file.type.startsWith('image/')) {
-                const reader = new FileReader();
-
-                reader.onload = function(e) {
-                    const col = document.createElement('div');
-                    col.className = 'col-lg-2 col-md-3 col-sm-4 col-6 preview-col';
-
-                    const preview = document.createElement('div');
-                    preview.className = 'image-preview';
-
-                    const img = document.createElement('img');
-                    img.src = e.target.result;
-                    img.alt = 'Preview ' + (index + 1);
-                    img.className = 'img-thumbnail';
-
-                    const removeBtn = document.createElement('button');
-                    removeBtn.type = 'button';
-                    removeBtn.className = 'remove-image';
-                    removeBtn.innerHTML = '×';
-                    removeBtn.title = 'Remove image';
-
-                    const primaryBadge = document.createElement('div');
-                    primaryBadge.className = 'primary-badge';
-                    primaryBadge.textContent = 'New';
-
-                    const info = document.createElement('div');
-                    info.className = 'image-info';
-                    info.textContent = file.name.length > 15 ? file.name.substring(0, 12) + '...' : file.name;
-                    info.title = file.name + ' (' + (file.size / 1024).toFixed(1) + ' KB)';
-
-                    // Remove image functionality
-                    removeBtn.addEventListener('click', function() {
-                        removeImageFromInput(file, col);
-                    });
-
-                    preview.appendChild(img);
-                    preview.appendChild(removeBtn);
-                    preview.appendChild(primaryBadge);
-                    preview.appendChild(info);
-                    col.appendChild(preview);
-                    previewsContainer.appendChild(col);
-                };
-
-                reader.readAsDataURL(file);
+        // Update previews
+        if (updatedFiles.length > 0) {
+            updatePreviews(updatedFiles);
+        } else {
+            if (previewContainer) previewContainer.style.display = 'none';
+            dropzoneArea.classList.remove('has-files');
+            const fileCountBadge = dropzoneArea.querySelector('.file-count');
+            if (fileCountBadge) {
+                fileCountBadge.remove();
             }
-        });
-    } else {
-        previewContainer.style.display = 'none';
-        dropzoneArea.classList.remove('has-files');
-        const fileCountBadge = dropzoneArea.querySelector('.file-count');
-        if (fileCountBadge) {
-            fileCountBadge.remove();
         }
     }
 }
 
-// Remove image from file input and preview
-function removeImageFromInput(fileToRemove, previewElement) {
-    const files = Array.from(dropzoneInput.files);
-    const updatedFiles = files.filter(file => file !== fileToRemove);
-
-    // Create new FileList
-    const dataTransfer = new DataTransfer();
-    updatedFiles.forEach(file => dataTransfer.items.add(file));
-    dropzoneInput.files = dataTransfer.files;
-
-    // Update previews
-    if (updatedFiles.length > 0) {
-        updatePreviews(updatedFiles);
-    } else {
-        previewContainer.style.display = 'none';
-        dropzoneArea.classList.remove('has-files');
-        const fileCountBadge = dropzoneArea.querySelector('.file-count');
-        if (fileCountBadge) {
-            fileCountBadge.remove();
-        }
-    }
-}
-
-// Image reordering functionality
+// ========== IMAGE REORDERING FUNCTIONALITY ==========
 function initializeImageReordering() {
     const existingImages = document.querySelectorAll('.existing-image');
 
@@ -720,6 +1130,8 @@ function initializeImageReordering() {
 // Update image order via AJAX
 function updateImageOrder() {
     const container = document.getElementById('existing-images-container');
+    if (!container) return;
+
     const imageElements = container.querySelectorAll('.existing-image');
     const imageIds = Array.from(imageElements).map(el => el.dataset.imageId);
 
@@ -756,10 +1168,10 @@ function updateImageOrder() {
 
 // Remove existing image via AJAX
 document.addEventListener('click', function(e) {
-    if (e.target.classList.contains('remove-existing-image') || e.target.closest('.remove-existing-image')) {
-        const button = e.target.classList.contains('remove-existing-image') ? e.target : e.target.closest('.remove-existing-image');
-        const imageId = button.dataset.imageId;
-        const itemId = button.dataset.itemId;
+    const target = e.target.classList.contains('remove-existing-image') ? e.target : e.target.closest('.remove-existing-image');
+    if (target) {
+        const imageId = target.dataset.imageId;
+        const itemId = target.dataset.itemId;
 
         Swal.fire({
             title: 'Are you sure?',
@@ -781,7 +1193,7 @@ document.addEventListener('click', function(e) {
                 .then(response => response.json())
                 .then(data => {
                     if (data.success) {
-                        button.closest('.preview-col').remove();
+                        target.closest('.preview-col').remove();
                         showToast('Image deleted successfully', 'success');
                         // Reinitialize reordering after removal
                         initializeImageReordering();
@@ -800,10 +1212,10 @@ document.addEventListener('click', function(e) {
 
 // Set primary image via AJAX
 document.addEventListener('click', function(e) {
-    if (e.target.classList.contains('set-primary-image') || e.target.closest('.set-primary-image')) {
-        const button = e.target.classList.contains('set-primary-image') ? e.target : e.target.closest('.set-primary-image');
-        const imageId = button.dataset.imageId;
-        const itemId = button.dataset.itemId;
+    const target = e.target.classList.contains('set-primary-image') ? e.target : e.target.closest('.set-primary-image');
+    if (target) {
+        const imageId = target.dataset.imageId;
+        const itemId = target.dataset.itemId;
 
         fetch(`/store-admin/items/${itemId}/images/${imageId}/set-primary`, {
             method: 'POST',
@@ -824,8 +1236,10 @@ document.addEventListener('click', function(e) {
                 });
 
                 // Add primary badge to the new primary image and hide its set-primary button
-                const primaryImageContainer = button.closest('.image-preview');
-                primaryImageContainer.querySelector('.set-primary-image').style.display = 'none';
+                const primaryImageContainer = target.closest('.image-preview');
+                const setPrimaryBtn = primaryImageContainer.querySelector('.set-primary-image');
+                if (setPrimaryBtn) setPrimaryBtn.style.display = 'none';
+
                 const primaryBadge = document.createElement('div');
                 primaryBadge.className = 'primary-badge';
                 primaryBadge.textContent = 'Primary';
@@ -843,51 +1257,40 @@ document.addEventListener('click', function(e) {
     }
 });
 
-// Color variants management
-document.getElementById('add-color').addEventListener('click', function() {
-    const container = document.getElementById('color-variants-container');
-    const newColor = document.querySelector('.color-variant-row').cloneNode(true);
-
-    // Update indices
-    const newIndex = colorCounter++;
-    newColor.innerHTML = newColor.innerHTML.replace(/color_variants\[\d+\]/g, `color_variants[${newIndex}]`);
-
-    // Clear values
-    newColor.querySelector('.color-name').value = '';
-    newColor.querySelector('.color-stock').value = 0;
-
-    // Show remove button
-    newColor.querySelector('.remove-color').style.display = 'block';
-
-    container.appendChild(newColor);
-});
-
-// Remove color variant
-document.addEventListener('click', function(e) {
-    if (e.target.classList.contains('remove-color') || e.target.closest('.remove-color')) {
-        const colorRow = e.target.closest('.color-variant-row');
-        if (document.querySelectorAll('.color-variant-row').length > 1) {
-            colorRow.remove();
-            // Trigger stock calculation update after removal
-            if (typeof updateStockCalculations === 'function') {
-                updateStockCalculations();
-            }
-        }
-    }
-});
-
-// Form validation
+// ========== FORM VALIDATION ==========
 document.getElementById('itemForm').addEventListener('submit', function(e) {
+    // Validate color names
     const colorNames = new Set();
     let hasDuplicateColors = false;
+    let hasValidColors = false;
+    let hasEmptyColorName = false;
 
     document.querySelectorAll('.color-name').forEach(input => {
-        const colorName = input.value.trim().toLowerCase();
-        if (colorName && colorNames.has(colorName)) {
-            hasDuplicateColors = true;
+        const colorName = input.value.trim();
+        if (colorName) {
+            hasValidColors = true;
+            const lowerColor = colorName.toLowerCase();
+            if (colorNames.has(lowerColor)) {
+                hasDuplicateColors = true;
+            }
+            colorNames.add(lowerColor);
+        } else {
+            hasEmptyColorName = true;
         }
-        colorNames.add(colorName);
     });
+
+    // Color validation
+    if (!hasValidColors) {
+        e.preventDefault();
+        Swal.fire('Error', 'Please add at least one color with a name.', 'error');
+        return;
+    }
+
+    if (hasEmptyColorName) {
+        e.preventDefault();
+        Swal.fire('Error', 'All colors must have a name.', 'error');
+        return;
+    }
 
     if (hasDuplicateColors) {
         e.preventDefault();
@@ -895,42 +1298,88 @@ document.getElementById('itemForm').addEventListener('submit', function(e) {
         return;
     }
 
-    // Check if at least one color has stock
-    let hasStock = false;
-    document.querySelectorAll('.color-stock').forEach(input => {
-        if (parseInt(input.value) > 0) {
-            hasStock = true;
-        }
-    });
-
-    if (!hasStock) {
+    // Stock validation
+    const totalStock = parseInt(document.getElementById('total-stock-input').value) || 0;
+    if (totalStock === 0) {
         e.preventDefault();
-        Swal.fire('Error', 'Please add stock for at least one color variant.', 'error');
+        Swal.fire('Error', 'Please add stock for at least one color-size combination.', 'error');
         return;
     }
 
-    // Validate stock consistency - use functions from the partial
-    if (typeof calculateTotalColorStock === 'function' && typeof calculateTotalSizeStock === 'function') {
-        const totalColorStock = calculateTotalColorStock();
-        const totalSizeStock = calculateTotalSizeStock();
-
-        if (totalColorStock !== totalSizeStock) {
-            e.preventDefault();
-            Swal.fire('Error', `Total color stock (${totalColorStock}) must match total size stock (${totalSizeStock}). Please adjust your stock levels.`, 'error');
-            return;
+    // Check if any size has negative stock (shouldn't happen with min=0 but just in case)
+    let hasNegativeStock = false;
+    document.querySelectorAll('.size-stock-input').forEach(input => {
+        if (parseInt(input.value) < 0) {
+            hasNegativeStock = true;
         }
+    });
+
+    if (hasNegativeStock) {
+        e.preventDefault();
+        Swal.fire('Error', 'Stock quantities cannot be negative.', 'error');
+        return;
+    }
+
+    // Garment type validation
+    const garmentTypeSelect = document.getElementById('garment_type');
+    if (!garmentTypeSelect || !garmentTypeSelect.value) {
+        e.preventDefault();
+        Swal.fire('Error', 'Please select a garment type.', 'error');
+        return;
+    }
+
+    // Store and category validation
+    const storeSelect = document.getElementById('store_id');
+    const categorySelect = document.getElementById('category_id');
+    if (!storeSelect || !storeSelect.value || !categorySelect || !categorySelect.value) {
+        e.preventDefault();
+        Swal.fire('Error', 'Please select both store and category.', 'error');
+        return;
+    }
+
+    // Price validation
+    const priceInput = document.getElementById('price');
+    if (!priceInput || !priceInput.value || parseFloat(priceInput.value) < 0) {
+        e.preventDefault();
+        Swal.fire('Error', 'Please enter a valid price (0 or greater).', 'error');
+        return;
+    }
+
+    // Name validation
+    const nameInput = document.getElementById('name');
+    if (!nameInput || !nameInput.value.trim()) {
+        e.preventDefault();
+        Swal.fire('Error', 'Please enter an item name.', 'error');
+        return;
+    }
+
+    // If all validations pass, show loading state
+    const submitBtn = this.querySelector('button[type="submit"]');
+    if (submitBtn) {
+        submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Updating Item...';
+        submitBtn.disabled = true;
     }
 });
 
-// Listen for color stock changes and update calculations
+// ========== DYNAMIC EVENT LISTENERS ==========
+// Add event listeners for dynamic updates
 document.addEventListener('input', function(e) {
-    if (e.target.classList.contains('color-stock')) {
-        // Trigger stock calculation update
-        if (typeof updateStockCalculations === 'function') {
-            updateStockCalculations();
-        }
+    if (e.target.classList.contains('color-name') || e.target.classList.contains('size-stock-input')) {
+        updateStockCalculations();
     }
 });
+
+// Add event listeners for garment type change
+const garmentTypeSelect = document.getElementById('garment_type');
+if (garmentTypeSelect) {
+    garmentTypeSelect.addEventListener('change', updateSizingSection);
+}
+
+// Add event listeners for category change
+const categorySelect = document.getElementById('category_id');
+if (categorySelect) {
+    categorySelect.addEventListener('change', updateGarmentTypeOptions);
+}
 
 // Helper function for toast messages
 function showToast(message, type = 'info') {
@@ -947,16 +1396,5 @@ function showToast(message, type = 'info') {
         title: message
     });
 }
-
-// Initialize on page load
-document.addEventListener('DOMContentLoaded', function() {
-    // Initialize image reordering
-    initializeImageReordering();
-
-    // Initialize stock calculations if the function exists
-    if (typeof updateStockCalculations === 'function') {
-        updateStockCalculations();
-    }
-});
 </script>
 @endpush

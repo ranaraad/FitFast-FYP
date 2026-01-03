@@ -1422,6 +1422,17 @@ export default function ProfilePage() {
           font-size: 1.25rem;
           cursor: pointer;
           line-height: 1;
+          color: #1f1f1f;
+          transition: color 0.2s ease;
+        }
+
+        .modal-close:focus-visible {
+          outline: 2px solid rgba(100, 27, 46, 0.5);
+          outline-offset: 4px;
+        }
+
+        .modal-close:hover {
+          color: #641b2e;
         }
 
         .modal-body {

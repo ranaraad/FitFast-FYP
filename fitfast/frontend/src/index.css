@@ -3157,17 +3157,16 @@ a:hover {
 
 .cart-hero {
   display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  text-align: center;
-  gap: 1.75rem;
+  justify-content: space-between;
+  align-items: stretch;
+  gap: 2rem;
   padding: 2.25rem 2.5rem;
   border-radius: 22px;
   border: 1px solid rgba(100, 27, 46, 0.12);
   background: linear-gradient(140deg, #fff8f6, #f4e6e5);
   position: relative;
   overflow: hidden;
+  text-align: left;
 }
 
 .cart-hero::after {
@@ -3189,9 +3188,8 @@ a:hover {
   flex-direction: column;
   gap: 0.75rem;
   max-width: 560px;
-  align-items: center;
-  text-align: center;
-  margin: 0 auto;
+  align-items: flex-start;
+  text-align: left;
 }
 
 .cart-hero-copy h1 {
@@ -3205,8 +3203,6 @@ a:hover {
   z-index: 1;
   display: flex;
   align-items: center;
-  justify-content: center;
-  flex-wrap: wrap;
   gap: 1rem;
 }
 
@@ -3537,9 +3533,6 @@ a:hover {
   flex-direction: column;
   gap: 1rem;
   max-width: 420px;
-  align-items: center;
-  text-align: center;
-  margin: 0 auto;
 }
 
 .empty-cart-copy h3 {
@@ -3570,15 +3563,14 @@ a:hover {
 
 @media (max-width: 768px) {
   .cart-hero {
+    flex-direction: column;
+    align-items: flex-start;
     padding: 1.9rem;
   }
 
-  .cart-layout {
-    gap: 1.25rem;
-  }
-
-  .order-summary {
-    padding: 2rem 1.6rem;
+  .cart-hero-meta {
+    align-self: stretch;
+    justify-content: space-between;
   }
 
   .cart-item-card {
@@ -3611,7 +3603,7 @@ a:hover {
 
   .cart-hero-meta {
     flex-direction: column;
-    align-items: center;
+    align-items: flex-start;
     gap: 0.6rem;
   }
 

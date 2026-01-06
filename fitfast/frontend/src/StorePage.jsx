@@ -7,6 +7,8 @@ import {
   toggleWishlistEntry,
 } from "./wishlistStorage";
 import { addToCart } from "./cartStorage";
+import ItemCard from "./components/cards/ItemCard";
+import { getItemId, getItemImage, getBestFitCopy } from "./utils/item";
 
 export default function StorePage() {
   const { storeId } = useParams();
@@ -68,21 +70,14 @@ export default function StorePage() {
     (category) => (category.id ?? category.name) === selectedCategoryId
   );
 
-  const getItemImage = (item) =>
-    item.image_url ||
-    item.image ||
-    item.imagePath ||
-    item.image_path ||
-    item.primary_image_url ||
-    item.primary_image?.image_path;
-
   const handleItemClick = (item) => {
-    navigate(`/stores/${storeId}/product/${item.id || item.name}`);
+    const itemId = getItemId(item) ?? item.name;
+
+    navigate(`/stores/${storeId}/product/${itemId}`);
   };
 
-  const handleAddToCart = (e, item) => {
-    e.stopPropagation();
-    const itemId = item.id || item.name;
+  const handleAddToCart = (item) => {
+    const itemId = getItemId(item) ?? item.name;
 
     addToCart({
       id: itemId,
@@ -96,9 +91,8 @@ export default function StorePage() {
     setCartFeedback(`${item.name || "Item"} added to cart`);
   };
 
-  const handleToggleWishlist = (e, item) => {
-    e.stopPropagation();
-    const itemId = item.id || item.name;
+  const handleToggleWishlist = (item) => {
+    const itemId = getItemId(item) ?? item.name;
 
     const { items, added } = toggleWishlistEntry({
       id: itemId,
@@ -110,13 +104,6 @@ export default function StorePage() {
     });
     setWishlistItems(items);
     setCartFeedback(added ? "Added to wishlist" : "Removed from wishlist");
-  };
-
-  const formatPrice = (price) => {
-    if (!price && price !== 0) return "";
-    const amount = Number(price);
-    if (Number.isNaN(amount)) return price;
-    return `$${amount.toFixed(2)}`;
   };
 
   return (
@@ -190,97 +177,23 @@ export default function StorePage() {
             {selectedCategory?.items?.length ? (
               <div className="product-grid">
                 {selectedCategory.items.map((item) => {
-                  const itemId = item.id || item.name;
-                  const isWishlisted = isItemWishlisted(
+                  const itemId = getItemId(item) ?? item.name;
+                  const wishlisted = isItemWishlisted(
                     wishlistItems,
                     itemId,
                     storeId
                   );
 
                   return (
-                    <article
+                    <ItemCard
                       key={itemId}
-                      className="product-card-modern"
-                      onClick={() => handleItemClick(item)}
-                    >
-                      <div className="product-image-container">
-                        {getItemImage(item) ? (
-                          <img
-                            src={getItemImage(item)}
-                            alt={item.name || "Item"}
-                            loading="lazy"
-                          />
-                        ) : (
-                          <div className="image-placeholder">
-                            {item.name?.slice(0, 1) || ""}
-                          </div>
-                        )}
-                        
-                        <button
-                          onClick={(e) => handleToggleWishlist(e, item)}
-                          aria-label="Add to wishlist"
-                          style={{
-                            position: 'absolute',
-                            top: '12px',
-                            right: '12px',
-                            width: '40px',
-                            height: '40px',
-                            borderRadius: '50%',
-                            border: 'none',
-                            background: 'transparent',
-                            color: '#942341',
-                            display: 'grid',
-                            placeItems: 'center',
-                            transition: 'all 0.2s ease',
-                            cursor: 'pointer',
-                            padding: 0,
-                            zIndex: 10,
-                          }}
-                          onMouseEnter={(e) => {
-                            e.currentTarget.style.transform = 'scale(1.1)';
-                            e.currentTarget.style.background = 'rgba(233, 30, 99, 0.08)';
-                          }}
-                          onMouseLeave={(e) => {
-                            e.currentTarget.style.transform = 'scale(1)';
-                            e.currentTarget.style.background = 'transparent';
-                          }}
-                        >
-                          <svg
-                            width="24"
-                            height="24"
-                            viewBox="0 0 24 24"
-                            fill={isWishlisted ? "currentColor" : "#ffffff"}
-                            stroke="currentColor"
-                            strokeWidth="1.8"
-                            xmlns="http://www.w3.org/2000/svg"
-                            style={{
-                              display: 'block',
-                              filter: 'drop-shadow(0 2px 4px rgba(0,0,0,0.2))'
-                            }}
-                          >
-                            <path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z" />
-                          </svg>
-                        </button>
-
-                        <div className="best-fit-badge">Best Fit: Medium - 90% Match!</div>
-                      </div>
-
-                      <div className="product-info-modern">
-                        <h3>{item.name}</h3>
-                        <div className="product-footer">
-                          {item.price && (
-                            <span className="price-modern">{formatPrice(item.price)}</span>
-                          )}
-                          <button
-                            type="button"
-                            className="add-to-cart-btn"
-                            onClick={(e) => handleAddToCart(e, item)}
-                          >
-                            Add to Cart
-                          </button>
-                        </div>
-                      </div>
-                    </article>
+                      item={item}
+                      badgeContent={getBestFitCopy(item)}
+                      wishlisted={wishlisted}
+                      onClick={handleItemClick}
+                      onAddToCart={handleAddToCart}
+                      onWishlistToggle={handleToggleWishlist}
+                    />
                   );
                 })}
               </div>

@@ -1,6 +1,6 @@
 import { useState } from "react";
-import api from "./api";
 import { Link } from "react-router-dom";
+import api from "../api";
 
 export default function LoginPage() {
   const [email, setEmail] = useState("");
@@ -8,8 +8,8 @@ export default function LoginPage() {
   const [error, setError] = useState("");
   const [message, setMessage] = useState("");
 
-  async function handleLogin(e) {
-    e.preventDefault();
+  async function handleLogin(event) {
+    event.preventDefault();
     setError("");
     setMessage("");
 
@@ -18,7 +18,9 @@ export default function LoginPage() {
       localStorage.setItem("auth_token", res.data.token);
       localStorage.setItem("auth_user", JSON.stringify(res.data.user));
       setMessage("Welcome back to FitFast!");
-      setTimeout(() => (window.location.href = "/"), 1200);
+      setTimeout(() => {
+        window.location.href = "/";
+      }, 1200);
     } catch {
       setError("Invalid credentials. Please try again.");
     }
@@ -44,7 +46,7 @@ export default function LoginPage() {
             <input
               type="email"
               value={email}
-              onChange={(e) => setEmail(e.target.value)}
+              onChange={(event) => setEmail(event.target.value)}
               placeholder="johndoe@email.com"
               required
             />
@@ -55,7 +57,7 @@ export default function LoginPage() {
             <input
               type="password"
               value={password}
-              onChange={(e) => setPassword(e.target.value)}
+              onChange={(event) => setPassword(event.target.value)}
               placeholder="********"
               required
             />

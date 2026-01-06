@@ -4,7 +4,7 @@ import {
   getCart,
   removeFromCart,
   updateCartItemQuantity,
-} from "./cartStorage";
+} from "../cartStorage";
 
 export default function CartPage() {
   const navigate = useNavigate();

@@ -1,17 +1,17 @@
 import { Routes, Route, useLocation } from "react-router-dom";
-import Navbar from "./NavBar.jsx";
-import RegisterPage from "./RegisterPage.jsx";
-import LoginPage from "./LoginPage.jsx";
-import ProfilePage from "./ProfilePage.jsx";
-import MeasurementsPage from "./MeasurementsPage.jsx";
-import HomePage from "./HomePage.jsx";
-import BrowseStoresPage from "./BrowseStoresPage.jsx";
-import StorePage from "./StorePage.jsx";
-import ProductDetailPage from "./ProductDetailPage.jsx";
-import SupportPage from "./SupportPage.jsx";
-import CartPage from "./CartPage.jsx";
-import CheckoutPage from "./CheckoutPage.jsx";
-import OrderStatusPage from "./OrderStatusPage.jsx";
+import Navbar from "./components/layout/NavBar.jsx";
+import RegisterPage from "./pages/RegisterPage.jsx";
+import LoginPage from "./pages/LoginPage.jsx";
+import ProfilePage from "./pages/ProfilePage.jsx";
+import MeasurementsPage from "./pages/MeasurementsPage.jsx";
+import HomePage from "./pages/HomePage.jsx";
+import BrowseStoresPage from "./pages/BrowseStoresPage.jsx";
+import StorePage from "./pages/StorePage.jsx";
+import ProductDetailPage from "./pages/ProductDetailPage.jsx";
+import SupportPage from "./pages/SupportPage.jsx";
+import CartPage from "./pages/CartPage.jsx";
+import CheckoutPage from "./pages/CheckoutPage.jsx";
+import OrderStatusPage from "./pages/OrderStatusPage.jsx";
 
 export default function App() {
   const location = useLocation();
@@ -22,7 +22,7 @@ export default function App() {
 
   return (
     <>
-      {!shouldHideNavbar && <Navbar />} {/* ✅ Conditionally show navbar */}
+      {!shouldHideNavbar && <Navbar />}
 
       <div style={{ marginTop: shouldHideNavbar ? "0" : "3.25rem" }}>
         <Routes>

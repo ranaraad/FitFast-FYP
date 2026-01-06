@@ -1,6 +1,6 @@
 import { useState } from "react";
-import api from "./api";
 import { Link } from "react-router-dom";
+import api from "../api";
 
 export default function RegisterPage() {
   const [name, setName] = useState("");
@@ -10,8 +10,8 @@ export default function RegisterPage() {
   const [error, setError] = useState("");
   const [message, setMessage] = useState("");
 
-  async function handleRegister(e) {
-    e.preventDefault();
+  async function handleRegister(event) {
+    event.preventDefault();
     setError("");
     setMessage("");
 
@@ -24,8 +24,10 @@ export default function RegisterPage() {
       });
       localStorage.setItem("auth_token", res.data.token);
       localStorage.setItem("auth_user", JSON.stringify(res.data.user));
-      setMessage("Welcome to FitFast, " + res.data.user.name + "!");
-      setTimeout(() => (window.location.href = "/measurements"), 1200);
+      setMessage(`Welcome to FitFast, ${res.data.user.name}!`);
+      setTimeout(() => {
+        window.location.href = "/measurements";
+      }, 1200);
     } catch {
       setError("Registration failed. Please check your details.");
     }
@@ -50,7 +52,7 @@ export default function RegisterPage() {
             <label>Full Name</label>
             <input
               value={name}
-              onChange={(e) => setName(e.target.value)}
+              onChange={(event) => setName(event.target.value)}
               placeholder="John Doe"
               required
             />
@@ -61,7 +63,7 @@ export default function RegisterPage() {
             <input
               type="email"
               value={email}
-              onChange={(e) => setEmail(e.target.value)}
+              onChange={(event) => setEmail(event.target.value)}
               placeholder="johndoe@email.com"
               required
             />
@@ -72,7 +74,7 @@ export default function RegisterPage() {
             <input
               type="password"
               value={password}
-              onChange={(e) => setPassword(e.target.value)}
+              onChange={(event) => setPassword(event.target.value)}
               placeholder="********"
               required
             />
@@ -83,7 +85,7 @@ export default function RegisterPage() {
             <input
               type="password"
               value={passwordConfirmation}
-              onChange={(e) => setPasswordConfirmation(e.target.value)}
+              onChange={(event) => setPasswordConfirmation(event.target.value)}
               placeholder="********"
               required
             />

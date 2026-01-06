@@ -243,7 +243,7 @@ class DummyDataSeeder extends Seeder
         // Create 250 test items
         $items = [];
         $stores = DB::table('stores')->get();
-
+        
         // Expanded category items for 250 items total
         $categoryItems = [
             't-shirts' => [
@@ -415,7 +415,7 @@ class DummyDataSeeder extends Seeder
                     'created_at' => now()->subDays(rand(1, 180)),
                     'updated_at' => now(),
                 ];
-
+                
                 $createdItems++;
             }
         }
@@ -424,10 +424,10 @@ class DummyDataSeeder extends Seeder
         if ($createdItems < $targetItemCount) {
             $additionalNeeded = $targetItemCount - $createdItems;
             $this->command->info("Creating {$additionalNeeded} additional random items...");
-
+            
             // List of all possible garment types
             $allGarmentTypes = array_keys($this->garmentMeasurementTemplates);
-
+            
             // List of color combinations
             $colorCombinations = [
                 ['Black', 'White'],
@@ -441,7 +441,7 @@ class DummyDataSeeder extends Seeder
                 ['Black', 'Red'],
                 ['Navy', 'Gray'],
             ];
-
+            
             // Item name templates by category
             $nameTemplates = [
                 't-shirt' => ['Basic Tee', 'Cotton Tee', 'Essential Tee', 'Premium Tee'],
@@ -455,13 +455,13 @@ class DummyDataSeeder extends Seeder
             for ($i = 0; $i < $additionalNeeded; $i++) {
                 // Pick a random category
                 $category = $categories->random();
-
+                
                 // Pick a random garment type
                 $garmentType = $allGarmentTypes[array_rand($allGarmentTypes)];
-
+                
                 // Pick random colors
                 $colors = $colorCombinations[array_rand($colorCombinations)];
-
+                
                 // Generate name based on garment type
                 $namePrefix = '';
                 if (strpos($garmentType, 't_shirt') !== false) $namePrefix = 't-shirt';
@@ -470,13 +470,13 @@ class DummyDataSeeder extends Seeder
                 elseif (strpos($garmentType, 'dress') !== false) $namePrefix = 'dress';
                 elseif (strpos($garmentType, 'jacket') !== false || strpos($garmentType, 'coat') !== false) $namePrefix = 'jacket';
                 else $namePrefix = 'item';
-
+                
                 $nameTemplate = $nameTemplates[$namePrefix] ?? ['Essential Item', 'Classic Item', 'Modern Item'];
                 $name = $nameTemplate[array_rand($nameTemplate)] . ' ' . ($i + 1);
-
+                
                 // Generate realistic price based on garment type
                 $price = $this->getRealisticPrice($garmentType);
-
+                
                 $sizeStock = $this->buildRealisticSizeStock();
                 $colorVariants = $this->buildColorVariants($colors);
                 $variants = $this->buildVariants($colorVariants, $sizeStock);
@@ -497,7 +497,7 @@ class DummyDataSeeder extends Seeder
                     'created_at' => now()->subDays(rand(1, 180)),
                     'updated_at' => now(),
                 ];
-
+                
                 $createdItems++;
             }
         }
@@ -516,10 +516,10 @@ class DummyDataSeeder extends Seeder
         // Create item_user relationships (wishlist/favorites) - scale up proportionally
         $itemUser = [];
         $customers = DB::table('users')->where('role_id', $userRole->id)->get();
-
+        
         // Scale wishlist items proportionally to item count (approx 8x original)
         $wishlistCount = min(200 * 8, $items->count() * 2);
-
+        
         for ($i = 0; $i < $wishlistCount; $i++) {
             $itemUser[] = [
                 'item_id' => $items->random()->id,

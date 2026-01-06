@@ -7,6 +7,7 @@ use App\Models\Category;
 use App\Models\Store;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Str;
 
 class StoreController extends Controller
 {
@@ -19,23 +20,12 @@ class StoreController extends Controller
         $stores = Store::where('status', 'active')
             ->get()
             ->map(function ($store) {
-                $logoUrl = null;
-                if ($store->logo && Storage::disk('public')->exists($store->logo)) {
-                    $logoUrl = asset('storage/' . $store->logo);
-                }
-
-                $bannerUrl = null;
-                if ($store->banner_image && Storage::disk('public')->exists($store->banner_image)) {
-                    $bannerUrl = asset('storage/' . $store->banner_image);
-                }
-
-
                 return [
                     'id' => $store->id,
                     'name' => $store->name,
                     'description' => $store->description,
-                    'logo_url' => $logoUrl,
-                    'banner_url' => $bannerUrl,
+                    'logo_url' => $this->resolveMediaUrl($store->logo),
+                    'banner_url' => $this->resolveMediaUrl($store->banner_image),
                     'contact_info' => $store->contact_info,
                     'address' => $store->address,
                 ];
@@ -57,15 +47,8 @@ class StoreController extends Controller
             ], 404);
         }
 
-        $logoUrl = null;
-        if ($store->logo && Storage::disk('public')->exists($store->logo)) {
-            $logoUrl = asset('storage/' . $store->logo);
-        }
-
-        $bannerUrl = null;
-        if ($store->banner_image && Storage::disk('public')->exists($store->banner_image)) {
-            $bannerUrl = asset('storage/' . $store->banner_image);
-        }
+        $logoUrl = $this->resolveMediaUrl($store->logo);
+        $bannerUrl = $this->resolveMediaUrl($store->banner_image);
 
         $categories = Category::active()
             ->ordered()
@@ -84,21 +67,12 @@ class StoreController extends Controller
                     'description' => $category->description,
                     'items' => $category->items->map(function ($item) {
                         $primaryImagePath = $item->primary_image?->image_path;
-                        $primaryImageUrl = null;
-
-                        if ($primaryImagePath && Storage::disk('public')->exists($primaryImagePath)) {
-                            $primaryImageUrl = asset('storage/' . $primaryImagePath);
-                        }
+                        $primaryImageUrl = $this->resolveMediaUrl($primaryImagePath);
 
                         $galleryImages = $item->images
                             ->map(function ($image) {
                                 $path = $image->image_path;
-
-                                if ($path && Storage::disk('public')->exists($path)) {
-                                    return asset('storage/' . $path);
-                                }
-
-                                return null;
+                                return $this->resolveMediaUrl($path);
                             })
                             ->filter()
                             ->values();
@@ -112,11 +86,7 @@ class StoreController extends Controller
                             ->map(function ($variant) {
                                 $images = collect($variant['images'] ?? [])
                                     ->map(function ($path) {
-                                        if ($path && Storage::disk('public')->exists($path)) {
-                                            return asset('storage/' . $path);
-                                        }
-
-                                        return $path;
+                                        return $this->resolveMediaUrl($path) ?? $path;
                                     })
                                     ->filter()
                                     ->values();
@@ -172,5 +142,22 @@ class StoreController extends Controller
                 'categories' => $categories,
             ],
         ]);
+    }
+
+    private function resolveMediaUrl(?string $path): ?string
+    {
+        if (!$path) {
+            return null;
+        }
+
+        if (Str::startsWith($path, ['http://', 'https://'])) {
+            return $path;
+        }
+
+        if (Storage::disk('public')->exists($path)) {
+            return asset('storage/' . $path);
+        }
+
+        return null;
     }
 }

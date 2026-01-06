@@ -1,10 +1,10 @@
 import { useState, useEffect, useMemo, useRef } from "react";
 import { useNavigate } from "react-router-dom";
-import api from "./api";
+import api from "../api";
 import {
   getWishlist,
   toggleWishlistEntry,
-} from "./wishlistStorage";
+} from "../wishlistStorage";
 
 const DEFAULT_MEASUREMENTS = {
   height_cm: "",

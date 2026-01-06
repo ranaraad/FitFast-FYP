@@ -1,12 +1,12 @@
 import { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import api from "./api";
+import api from "../api";
 import {
   getWishlist,
   isItemWishlisted,
   toggleWishlistEntry,
-} from "./wishlistStorage";
-import { addToCart } from "./cartStorage";
+} from "../wishlistStorage";
+import { addToCart } from "../cartStorage";
 
 export default function ProductDetailPage() {
   const { storeId, productId } = useParams();

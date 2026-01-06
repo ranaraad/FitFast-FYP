@@ -1,14 +1,14 @@
 import { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import api from "./api";
+import api from "../api";
 import {
   getWishlist,
   isItemWishlisted,
   toggleWishlistEntry,
-} from "./wishlistStorage";
-import { addToCart } from "./cartStorage";
-import ItemCard from "./components/cards/ItemCard";
-import { getItemId, getItemImage, getBestFitCopy } from "./utils/item";
+} from "../wishlistStorage";
+import { addToCart } from "../cartStorage";
+import ItemCard from "../components/cards/ItemCard";
+import { getItemId, getItemImage, getBestFitCopy } from "../utils/item";
 
 export default function StorePage() {
   const { storeId } = useParams();

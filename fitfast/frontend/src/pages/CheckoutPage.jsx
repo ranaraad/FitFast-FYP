@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { clearCart, getCart } from "./cartStorage";
+import { clearCart, getCart } from "../cartStorage";
 
 const DEFAULT_CONTACT = {
 	fullName: "",

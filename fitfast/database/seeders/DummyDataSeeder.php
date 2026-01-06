@@ -113,29 +113,16 @@ class DummyDataSeeder extends Seeder
         ],
     ];
 
-    private const STORE_BRANDING_LIBRARY = [
-        ['logo' => 'https://images.unsplash.com/photo-1512436991641-6745cdb1723f?auto=format&fit=crop&w=240&q=80', 'banner' => 'https://images.unsplash.com/photo-1521572163474-6864f9cf17ab?auto=format&fit=crop&w=1400&q=80'],
-        ['logo' => 'https://images.unsplash.com/photo-1524504388940-0c3a3074e0b2?auto=format&fit=crop&w=240&q=80', 'banner' => 'https://images.unsplash.com/photo-1524504388940-b1c1722653e1?auto=format&fit=crop&w=1400&q=80'],
-        ['logo' => 'https://images.unsplash.com/photo-1495385794356-15371f348c31?auto=format&fit=crop&w=240&q=80', 'banner' => 'https://images.unsplash.com/photo-1523380666135-d8effd30d60e?auto=format&fit=crop&w=1400&q=80'],
-        ['logo' => 'https://images.unsplash.com/photo-1542291026-7eec264c27ff?auto=format&fit=crop&w=240&q=80', 'banner' => 'https://images.unsplash.com/photo-1526402466671-4aa1ebf42c34?auto=format&fit=crop&w=1400&q=80'],
-        ['logo' => 'https://images.unsplash.com/photo-1521572267360-ee0c2909d518?auto=format&fit=crop&w=240&q=80', 'banner' => 'https://images.unsplash.com/photo-1523381210434-271e8be1f52b?auto=format&fit=crop&w=1400&q=80'],
-        ['logo' => 'https://images.unsplash.com/photo-1499793983690-e29da59ef1c2?auto=format&fit=crop&w=240&q=80', 'banner' => 'https://images.unsplash.com/photo-1524504388940-b1c1722653e1?auto=format&fit=crop&w=1400&q=80'],
-        ['logo' => 'https://images.unsplash.com/photo-1522312346375-d1a52e2b99b3?auto=format&fit=crop&w=240&q=80', 'banner' => 'https://images.unsplash.com/photo-1505159940484-eb2b9f2588e2?auto=format&fit=crop&w=1400&q=80'],
-        ['logo' => 'https://images.unsplash.com/photo-1526170375885-4d8ecf77b99f?auto=format&fit=crop&w=240&q=80', 'banner' => 'https://images.unsplash.com/photo-1521572163474-6864f9cf17ab?auto=format&fit=crop&w=1400&q=80'],
-        ['logo' => 'https://images.unsplash.com/photo-1503341455253-b2e723bb3dbb?auto=format&fit=crop&w=240&q=80', 'banner' => 'https://images.unsplash.com/photo-1512436991641-6745cdb1723f?auto=format&fit=crop&w=1400&q=80'],
-        ['logo' => 'https://images.unsplash.com/photo-1523380666135-d8effd30d60e?auto=format&fit=crop&w=240&q=80', 'banner' => 'https://images.unsplash.com/photo-1469395446868-fb6a048d5ca3?auto=format&fit=crop&w=1400&q=80'],
-        ['logo' => 'https://images.unsplash.com/photo-1524504388940-b1c1722653e1?auto=format&fit=crop&w=240&q=80', 'banner' => 'https://images.unsplash.com/photo-1524504388940-0c3a3074e0b2?auto=format&fit=crop&w=1400&q=80'],
-        ['logo' => 'https://images.unsplash.com/photo-1514996937319-344454492b37?auto=format&fit=crop&w=240&q=80', 'banner' => 'https://images.unsplash.com/photo-1523381210434-271e8be1f52b?auto=format&fit=crop&w=1400&q=80'],
-        ['logo' => 'https://images.unsplash.com/photo-1475180098004-ca77a66827be?auto=format&fit=crop&w=240&q=80', 'banner' => 'https://images.unsplash.com/photo-1512436991641-6745cdb1723f?auto=format&fit=crop&w=1400&q=80'],
-        ['logo' => 'https://images.unsplash.com/photo-1523381294911-8d3cead13475?auto=format&fit=crop&w=240&q=80', 'banner' => 'https://images.unsplash.com/photo-1491553895911-0055eca6402d?auto=format&fit=crop&w=1400&q=80'],
-        ['logo' => 'https://images.unsplash.com/photo-1521572163475-b1b1cc1d82d8?auto=format&fit=crop&w=240&q=80', 'banner' => 'https://images.unsplash.com/photo-1521572163474-6864f9cf17ab?auto=format&fit=crop&w=1400&q=80'],
-        ['logo' => 'https://images.unsplash.com/photo-1523275335684-37898b6baf30?auto=format&fit=crop&w=240&q=80', 'banner' => 'https://images.unsplash.com/photo-1487412720507-e7ab37603c6f?auto=format&fit=crop&w=1400&q=80'],
-        ['logo' => 'https://images.unsplash.com/photo-1503342217505-b0a15ec3261c?auto=format&fit=crop&w=240&q=80', 'banner' => 'https://images.unsplash.com/photo-1489987707025-afc232f7ea0f?auto=format&fit=crop&w=1400&q=80'],
-        ['logo' => 'https://images.unsplash.com/photo-1523381210434-271e8be1f52b?auto=format&fit=crop&w=240&q=80', 'banner' => 'https://images.unsplash.com/photo-1523380666135-d8effd30d60e?auto=format&fit=crop&w=1400&q=80'],
-        ['logo' => 'https://images.unsplash.com/photo-1491553895911-0055eca6402d?auto=format&fit=crop&w=240&q=80', 'banner' => 'https://images.unsplash.com/photo-1523381294911-8d3cead13475?auto=format&fit=crop&w=1400&q=80'],
-        ['logo' => 'https://images.unsplash.com/photo-1521572163474-6864f9cf17ab?auto=format&fit=crop&w=240&q=80', 'banner' => 'https://images.unsplash.com/photo-1512436991641-6745cdb1723f?auto=format&fit=crop&w=1400&q=80'],
-        ['logo' => 'https://images.unsplash.com/photo-1503341455253-b2e723bb3dbb?auto=format&fit=crop&w=240&q=80', 'banner' => 'https://images.unsplash.com/photo-1521572163474-6864f9cf17ab?auto=format&fit=crop&w=1400&q=80'],
+    private const STORE_LOGO_COLORS = [
+        '641b2e',
+        'be5b50',
+        '942341',
+        '7d2339',
+        '3a1b24',
+        'be8c8a',
     ];
+
+    private const STORE_BANNER_NUMBERS = [1, 2, 3, 4];
     public function run()
     {
         $this->resetSeededData();
@@ -202,7 +189,7 @@ class DummyDataSeeder extends Seeder
         $curatedStores = [];
 
         foreach ($storeCatalog as $index => $storeDefinition) {
-            [$logoUrl, $bannerUrl] = $this->resolveStoreBranding($index + 1);
+            [$logoUrl, $bannerUrl] = $this->resolveStoreBranding($index + 1, $storeDefinition['name']);
             $storeAdmin = $storeAdmins->get($index) ?? $storeAdmins->random();
             $slug = Str::slug($storeDefinition['name']);
 
@@ -676,19 +663,26 @@ class DummyDataSeeder extends Seeder
         return array_slice($pool, $start, $take);
     }
 
-    private function resolveStoreBranding(int $index): array
+    private function resolveStoreBranding(int $index, string $storeName): array
     {
-        if (empty(self::STORE_BRANDING_LIBRARY)) {
-            return [
-                'https://images.unsplash.com/photo-1523275335684-37898b6baf30?auto=format&fit=crop&w=240&q=80',
-                'https://images.unsplash.com/photo-1524504388940-b1c1722653e1?auto=format&fit=crop&w=1400&q=80',
-            ];
-        }
+        $initial = strtoupper(Str::substr(trim($storeName), 0, 1) ?: 'S');
+        $colors = self::STORE_LOGO_COLORS;
+        $background = $colors[($index - 1) % count($colors)];
 
-        $libraryIndex = ($index - 1) % count(self::STORE_BRANDING_LIBRARY);
-        $selected = self::STORE_BRANDING_LIBRARY[$libraryIndex];
+        $logoUrl = sprintf(
+            'https://dummyimage.com/240x240/%s/ffffff.png&text=%s',
+            $background,
+            rawurlencode($initial)
+        );
 
-        return [$selected['logo'], $selected['banner']];
+        $bannerNumbers = self::STORE_BANNER_NUMBERS;
+        $bannerNumber = $bannerNumbers[($index - 1) % count($bannerNumbers)] ?? 1;
+        $bannerUrl = sprintf(
+            'https://dummyimage.com/1400x420/ebe0de/3a1b24.png&text=%s',
+            rawurlencode((string) $bannerNumber)
+        );
+
+        return [$logoUrl, $bannerUrl];
     }
 
     private function buildDescription(string $itemName): string

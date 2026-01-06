@@ -22,7 +22,7 @@ export default function App() {
 
   return (
     <>
-      {!shouldHideNavbar && <Navbar />} {/* ✅ Conditionally show navbar */}
+      {!shouldHideNavbar && <Navbar />}
 
       <div style={{ marginTop: shouldHideNavbar ? "0" : "3.25rem" }}>
         <Routes>

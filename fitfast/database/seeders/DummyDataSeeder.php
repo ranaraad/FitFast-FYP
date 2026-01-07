@@ -423,64 +423,27 @@ class DummyDataSeeder extends Seeder
         // If we need more items, create additional random items
         if ($createdItems < $targetItemCount) {
             $additionalNeeded = $targetItemCount - $createdItems;
-            $this->command->info("Creating {$additionalNeeded} additional random items...");
-            
-            // List of all possible garment types
-            $allGarmentTypes = array_keys($this->garmentMeasurementTemplates);
-            
-            // List of color combinations
-            $colorCombinations = [
-                ['Black', 'White'],
-                ['Blue', 'Gray'],
-                ['Navy', 'White'],
-                ['Green', 'Black'],
-                ['Red', 'Black'],
-                ['Brown', 'Beige'],
-                ['Gray', 'Black'],
-                ['White', 'Blue'],
-                ['Black', 'Red'],
-                ['Navy', 'Gray'],
-            ];
-            
-            // Item name templates by category
-            $nameTemplates = [
-                't-shirt' => ['Basic Tee', 'Cotton Tee', 'Essential Tee', 'Premium Tee'],
-                'shirt' => ['Classic Shirt', 'Modern Shirt', 'Essential Shirt', 'Premium Shirt'],
-                'pants' => ['Essential Pants', 'Comfort Pants', 'Classic Trousers', 'Modern Pants'],
-                'jeans' => ['Classic Jeans', 'Modern Jeans', 'Essential Jeans', 'Premium Denim'],
-                'dress' => ['Essential Dress', 'Classic Dress', 'Modern Dress', 'Chic Dress'],
-                'jacket' => ['Essential Jacket', 'Modern Jacket', 'Classic Coat', 'Premium Outerwear'],
-            ];
+            $this->command->info("Creating {$additionalNeeded} additional category-aligned items...");
+
+            $categorySlugs = array_keys($categoryItems);
 
             for ($i = 0; $i < $additionalNeeded; $i++) {
-                // Pick a random category
-                $category = $categories->random();
-                
-                // Pick a random garment type
-                $garmentType = $allGarmentTypes[array_rand($allGarmentTypes)];
-                
-                // Pick random colors
-                $colors = $colorCombinations[array_rand($colorCombinations)];
-                
-                // Generate name based on garment type
-                $namePrefix = '';
-                if (strpos($garmentType, 't_shirt') !== false) $namePrefix = 't-shirt';
-                elseif (strpos($garmentType, 'shirt') !== false) $namePrefix = 'shirt';
-                elseif (strpos($garmentType, 'pants') !== false || strpos($garmentType, 'jeans') !== false) $namePrefix = 'pants';
-                elseif (strpos($garmentType, 'dress') !== false) $namePrefix = 'dress';
-                elseif (strpos($garmentType, 'jacket') !== false || strpos($garmentType, 'coat') !== false) $namePrefix = 'jacket';
-                else $namePrefix = 'item';
-                
-                $nameTemplate = $nameTemplates[$namePrefix] ?? ['Essential Item', 'Classic Item', 'Modern Item'];
-                $name = $nameTemplate[array_rand($nameTemplate)] . ' ' . ($i + 1);
-                
-                // Generate realistic price based on garment type
+                $categorySlug = $categorySlugs[array_rand($categorySlugs)];
+
+                if (!isset($categoriesBySlug[$categorySlug])) {
+                    $i--;
+                    continue; // Retry if category is missing, should not happen.
+                }
+
+                $category = $categoriesBySlug[$categorySlug];
+                $definition = $categoryItems[$categorySlug][array_rand($categoryItems[$categorySlug])];
+                $garmentType = $definition['garment_type'];
                 $price = $this->getRealisticPrice($garmentType);
-                
                 $sizeStock = $this->buildRealisticSizeStock();
-                $colorVariants = $this->buildColorVariants($colors);
+                $colorVariants = $this->buildColorVariants($definition['colors']);
                 $variants = $this->buildVariants($colorVariants, $sizeStock);
                 $sizingData = $this->buildRealisticSizingData($garmentType);
+                $name = $definition['name'] . ' Variant ' . ($i + 1);
 
                 $allItems[] = [
                     'store_id' => $stores->random()->id,
@@ -497,7 +460,7 @@ class DummyDataSeeder extends Seeder
                     'created_at' => now()->subDays(rand(1, 180)),
                     'updated_at' => now(),
                 ];
-                
+
                 $createdItems++;
             }
         }

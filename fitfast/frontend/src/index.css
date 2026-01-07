@@ -143,6 +143,74 @@ body {
   color: #be5b50;
 }
 
+.nav-actions {
+  display: flex;
+  align-items: center;
+  gap: 1.5rem;
+}
+
+.menu-toggle {
+  display: none;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  border-radius: 12px;
+  border: 1px solid rgba(100, 27, 46, 0.18);
+  background: linear-gradient(135deg, #f8e8e5, #f2d9d6);
+  color: #641b2e;
+  padding: 0;
+  cursor: pointer;
+  transition: transform 0.2s ease, box-shadow 0.2s ease, background 0.2s ease;
+}
+
+.menu-toggle:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 10px 22px rgba(100, 27, 46, 0.18);
+}
+
+.menu-toggle span {
+  position: relative;
+  display: block;
+  width: 18px;
+  height: 2px;
+  background: currentColor;
+  transition: background 0.25s ease;
+}
+
+.menu-toggle span::before,
+.menu-toggle span::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  width: 18px;
+  height: 2px;
+  background: currentColor;
+  transition: transform 0.25s ease, top 0.25s ease, opacity 0.25s ease;
+}
+
+.menu-toggle span::before {
+  top: -6px;
+}
+
+.menu-toggle span::after {
+  top: 6px;
+}
+
+.menu-toggle.active span {
+  background: transparent;
+}
+
+.menu-toggle.active span::before {
+  top: 0;
+  transform: rotate(45deg);
+}
+
+.menu-toggle.active span::after {
+  top: 0;
+  transform: rotate(-45deg);
+}
+
 .navbar .logout-btn {
   background: #641b2e;
   border: none;
@@ -2747,7 +2815,9 @@ a:hover {
     width: 48px;
     height: 48px;
   }
-}cart-btn {
+}
+
+.add-to-cart-btn {
   background: #641b2e;
   color: white;
   border: none;
@@ -4812,6 +4882,179 @@ a:hover {
   .checkout-actions button {
     width: 100%;
     justify-content: center;
+  }
+}
+
+/* ====== Responsive Enhancements ====== */
+@media (max-width: 960px) {
+  .navbar {
+    padding: 0.9rem 1.25rem;
+  }
+
+  .nav-actions {
+    gap: 0.75rem;
+  }
+
+  .menu-toggle {
+    display: inline-flex;
+  }
+
+  .nav-links {
+    position: fixed;
+    top: 72px;
+    left: 1rem;
+    right: 1rem;
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 1.1rem;
+    padding: 1.4rem 1.5rem;
+    background: #ffffff;
+    border-radius: 18px;
+    box-shadow: 0 26px 48px rgba(58, 27, 36, 0.22);
+    transform: translateY(-20px);
+    opacity: 0;
+    pointer-events: none;
+    transition: transform 0.25s ease, opacity 0.25s ease;
+    z-index: 1000;
+  }
+
+  .nav-links.open {
+    transform: translateY(0);
+    opacity: 1;
+    pointer-events: auto;
+  }
+
+  .nav-links li {
+    width: 100%;
+  }
+
+  .nav-links a,
+  .navbar .logout-btn {
+    width: 100%;
+    display: inline-flex;
+    align-items: center;
+    justify-content: flex-start;
+  }
+
+  .navbar .logout-btn {
+    justify-content: center;
+  }
+
+  .product-grid {
+    grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  }
+
+  .product-image-container {
+    height: 320px;
+  }
+
+  .support-page {
+    padding: 90px 1.5rem 2.5rem;
+  }
+
+  .support-layout {
+    grid-template-columns: 1fr;
+  }
+
+  .support-hero {
+    padding: 2.25rem 1.8rem;
+  }
+
+  .browse-controls {
+    top: 72px;
+  }
+
+  .browse-controls-container {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 1rem;
+    padding: 1.25rem 1.5rem;
+  }
+
+  .browse-count {
+    width: 100%;
+    text-align: center;
+  }
+
+  .browse-section-header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 1rem;
+  }
+
+  .browse-store-section {
+    padding: 0 1rem;
+  }
+
+  .cart-feedback {
+    top: auto;
+    bottom: 20px;
+    right: 20px;
+  }
+}
+
+@media (max-width: 640px) {
+  .nav-links {
+    top: 64px;
+    left: 0.75rem;
+    right: 0.75rem;
+    padding: 1.25rem 1.3rem;
+  }
+
+  .browse-hero {
+    padding: 4rem 1.25rem 3rem;
+  }
+
+  .browse-hero h1 {
+    font-size: 2.45rem;
+  }
+
+  .browse-hero-subtitle {
+    font-size: 1.05rem;
+  }
+
+  .browse-items-carousel {
+    gap: 1.25rem;
+    padding: 1rem 0 1.5rem;
+  }
+
+  .product-image-container {
+    height: 280px;
+  }
+
+  .cart-feedback {
+    left: 0.75rem;
+    right: 0.75rem;
+    min-width: auto;
+  }
+}
+
+@media (max-width: 420px) {
+  .nav-links {
+    top: 60px;
+  }
+
+  .navbar {
+    padding: 0.75rem 0.85rem;
+  }
+
+  .menu-toggle {
+    width: 40px;
+    height: 40px;
+  }
+
+  .product-image-container {
+    height: 240px;
+  }
+
+  .browse-section-header h2 {
+    font-size: 1.4rem;
+  }
+
+  .browse-view-all-btn {
+    width: 100%;
+    text-align: center;
   }
 }
 

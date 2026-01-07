@@ -85,7 +85,7 @@ class ExportController extends Controller
             // Add BOM to fix UTF-8 encoding in Excel
             fputs($file, $bom = (chr(0xEF) . chr(0xBB) . chr(0xBF)));
 
-            // Headers
+            // Headers - Added 'Sizing Data'
             fputcsv($file, [
                 'ID',
                 'Name',
@@ -98,6 +98,7 @@ class ExportController extends Controller
                 'Stock Status',
                 'Colors Available',
                 'Color Variants Details',
+                'Sizing Data', // NEW FIELD
                 'Size Stock Details',
                 'Users Count',
                 'Created At',
@@ -113,6 +114,27 @@ class ExportController extends Controller
                         $colorName = $colorData['name'] ?? $colorCode;
                         $stock = $colorData['stock'] ?? 0;
                         return "{$colorName}: {$stock}";
+                    })->implode('; ');
+                }
+
+                // Prepare sizing data details
+                $sizingDetails = '';
+                if ($item->sizing_data && count($item->sizing_data) > 0) {
+                    $sizingDetails = collect($item->sizing_data)->map(function($data, $size) {
+                        // Format the sizing data based on your structure
+                        $details = [];
+                        if (is_array($data)) {
+                            foreach ($data as $key => $value) {
+                                if (is_array($value)) {
+                                    $details[] = "{$key}: " . json_encode($value);
+                                } else {
+                                    $details[] = "{$key}: {$value}";
+                                }
+                            }
+                            return "{$size}: " . implode(', ', $details);
+                        } else {
+                            return "{$size}: {$data}";
+                        }
                     })->implode('; ');
                 }
 
@@ -144,6 +166,7 @@ class ExportController extends Controller
                     $stockStatus,
                     $item->color_variants ? count($item->color_variants) : 0,
                     $colorDetails,
+                    $sizingDetails, // NEW FIELD VALUE
                     $sizeDetails,
                     $item->users->count(),
                     $item->created_at->format('Y-m-d H:i:s'),

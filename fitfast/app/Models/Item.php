@@ -189,12 +189,12 @@ class Item extends Model
         'ankle_socks' => [
             'name' => 'Ankle Socks',
             'category' => 'socks',
-            'measurements' => ['foot_length', 'calf_circumference']
+            'measurements' => ['foot_length']
         ],
         'crew_socks' => [
             'name' => 'Crew Socks',
             'category' => 'socks',
-            'measurements' => ['foot_length', 'calf_circumference', 'sock_height']
+            'measurements' => ['foot_length']
         ],
         'sneakers' => [
             'name' => 'Sneakers',
@@ -209,12 +209,12 @@ class Item extends Model
         'backpack' => [
             'name' => 'Backpack',
             'category' => 'bags',
-            'measurements' => ['bag_width', 'bag_height', 'bag_depth', 'strap_length']
+            'measurements' => []
         ],
         'tote_bag' => [
             'name' => 'Tote Bag',
             'category' => 'bags',
-            'measurements' => ['bag_width', 'bag_height', 'bag_depth', 'handle_length']
+            'measurements' => []
         ],
         'necklace' => [
             'name' => 'Necklace',
@@ -229,13 +229,13 @@ class Item extends Model
         'baseball_cap' => [
             'name' => 'Baseball Cap',
             'category' => 'hats',
-            'measurements' => ['head_circumference', 'brim_width']
+            'measurements' => ['head_circumference']
         ],
         'beanie' => [
             'name' => 'Beanie',
             'category' => 'hats',
-            'measurements' => ['head_circumference', 'hat_height']
-        ]
+            'measurements' => ['head_circumference']  
+        ],
     ];
 
     /**

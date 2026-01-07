@@ -6,6 +6,7 @@ import { getCartCount } from "../../cartStorage";
 export default function Navbar() {
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [cartCount, setCartCount] = useState(0);
+  const [isMenuOpen, setIsMenuOpen] = useState(false);
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -26,7 +27,29 @@ export default function Navbar() {
     };
   }, []);
 
+  useEffect(() => {
+    const handleResize = () => {
+      if (window.innerWidth > 960) {
+        setIsMenuOpen(false);
+      }
+    };
+
+    window.addEventListener("resize", handleResize);
+    return () => {
+      window.removeEventListener("resize", handleResize);
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!isLoggedIn) {
+      setIsMenuOpen(false);
+    }
+  }, [isLoggedIn]);
+
+  const closeMenu = () => setIsMenuOpen(false);
+
   const handleLogout = async () => {
+    closeMenu();
     try {
       await api.post("/logout");
     } catch (err) {
@@ -46,34 +69,56 @@ export default function Navbar() {
       </div>
 
       {isLoggedIn && (
-        <ul className="nav-links">
-          <li>
-            <Link to="/">HomePage</Link>
-          </li>
+        <div className="nav-actions">
+          <button
+            type="button"
+            className={`menu-toggle ${isMenuOpen ? "active" : ""}`}
+            aria-label="Toggle navigation menu"
+            aria-controls="primary-navigation"
+            aria-expanded={isMenuOpen}
+            onClick={() => setIsMenuOpen((prev) => !prev)}
+          >
+            <span />
+          </button>
 
-          <li>
-            <Link to="/support">Support and help</Link>
-          </li>
+          <ul
+            className={`nav-links ${isMenuOpen ? "open" : ""}`}
+            id="primary-navigation"
+          >
+            <li>
+              <Link to="/" onClick={closeMenu}>
+                HomePage
+              </Link>
+            </li>
 
-          <li>
-            <Link to="/profile">Account</Link>
-          </li>
+            <li>
+              <Link to="/support" onClick={closeMenu}>
+                Support and help
+              </Link>
+            </li>
 
-          <li>
-            <Link to="/cart" className="cart-icon">
-              🛒
-              {cartCount > 0 && (
-                <span className="cart-count-badge">{cartCount}</span>
-              )}
-            </Link>
-          </li>
+            <li>
+              <Link to="/profile" onClick={closeMenu}>
+                Account
+              </Link>
+            </li>
 
-          <li>
-            <button onClick={handleLogout} className="logout-btn">
-              Logout
-            </button>
-          </li>
-        </ul>
+            <li>
+              <Link to="/cart" className="cart-icon" onClick={closeMenu}>
+                🛒
+                {cartCount > 0 && (
+                  <span className="cart-count-badge">{cartCount}</span>
+                )}
+              </Link>
+            </li>
+
+            <li>
+              <button onClick={handleLogout} className="logout-btn">
+                Logout
+              </button>
+            </li>
+          </ul>
+        </div>
       )}
     </nav>
   );

@@ -64,10 +64,11 @@ export async function buildOutfitRecommendation(
   try {
     const payload = { maxItems };
     if (startingItemId) {
-      payload.startingItemId = startingItemId;
+      payload.startingItemId =
+        typeof startingItemId === "string" ? startingItemId : String(startingItemId);
     }
     if (style) {
-      payload.style = style;
+      payload.style = typeof style === "string" ? style.trim() : String(style);
     }
 
     const { data } = await api.post(`${BASE_PATH}/${userId}/outfit`, payload);

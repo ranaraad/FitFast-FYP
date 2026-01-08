@@ -312,10 +312,12 @@ export default function ProfilePage() {
   const [deleteError, setDeleteError] = useState("");
   const [activeOrder, setActiveOrder] = useState(null);
   const [showOrderModal, setShowOrderModal] = useState(false);
+  const [photoUpdating, setPhotoUpdating] = useState(false);
   const measurementsRef = useRef(null);
   const ordersRef = useRef(null);
   const settingsRef = useRef(null);
   const wishlistRef = useRef(null);
+  const photoInputRef = useRef(null);
 
   const sectionLinks = useMemo(
     () => [
@@ -482,9 +484,80 @@ export default function ProfilePage() {
     setMeasurements((prev) => ({ ...prev, [name]: value }));
   };
 
+  const triggerPhotoPicker = () => {
+    if (photoUpdating) return;
+    photoInputRef.current?.click();
+  };
+
+  const handlePhotoSelected = async (event) => {
+    const file = event.target.files?.[0];
+    if (!file) {
+      return;
+    }
+
+    setPhotoUpdating(true);
+    setMessage("");
+
+    try {
+      const formData = new FormData();
+      formData.append('profile_photo', file);
+      formData.append('_method', 'PUT');
+
+      const response = await api.post('/user', formData);
+      if (response?.data?.user) {
+        setUser(response.data.user);
+      }
+
+      setMessageType('success');
+      setMessage('Profile photo updated ✅');
+    } catch (error) {
+      console.error(error);
+      setMessageType('error');
+      setMessage('Failed to update profile photo ❌');
+    } finally {
+      setPhotoUpdating(false);
+      if (event.target) {
+        event.target.value = '';
+      }
+
+      setTimeout(() => setMessage(''), 3000);
+    }
+  };
+
+  const handlePhotoRemove = async () => {
+    if (photoUpdating || !user?.profile_photo_url) return;
+
+    setPhotoUpdating(true);
+    setMessage("");
+
+    try {
+      const formData = new FormData();
+      formData.append('remove_photo', '1');
+      formData.append('_method', 'PUT');
+
+      const response = await api.post('/user', formData);
+      if (response?.data?.user) {
+        setUser(response.data.user);
+      }
+
+      setMessageType('success');
+      setMessage('Profile photo removed ✅');
+    } catch (error) {
+      console.error(error);
+      setMessageType('error');
+      setMessage('Failed to remove profile photo ❌');
+    } finally {
+      setPhotoUpdating(false);
+      setTimeout(() => setMessage(''), 3000);
+    }
+  };
+
   const handleSave = async () => {
     try {
-      await api.put("/user", { measurements });
+      const response = await api.put("/user", { measurements });
+      if (response?.data?.user) {
+        setUser(response.data.user);
+      }
       setMessageType("success");
       setMessage("Measurements saved successfully ✅");
       setEditing(false);
@@ -823,6 +896,7 @@ export default function ProfilePage() {
 
   const hasMeasurements = Object.values(measurements).some(Boolean);
   const hasWishlist = wishlistItems.length > 0;
+  const hasProfilePhoto = Boolean(user?.profile_photo_url);
 
   const handleToggleWishlist = (item) => {
     const { items } = toggleWishlistEntry({
@@ -871,7 +945,53 @@ export default function ProfilePage() {
           >
             {/* Header */}
             <div className="profile-header">
-              <div className="avatar-circle">{initials}</div>
+              <div className={`avatar-wrapper${photoUpdating ? " uploading" : ""}`}>
+                {hasProfilePhoto ? (
+                  <img
+                    src={user.profile_photo_url}
+                    alt={`${user.name} profile`}
+                    className="avatar-image"
+                  />
+                ) : (
+                  <div className="avatar-circle">{initials}</div>
+                )}
+
+                <button
+                  type="button"
+                  className="avatar-edit-btn"
+                  onClick={triggerPhotoPicker}
+                  aria-label="Upload profile photo"
+                  title="Update profile photo"
+                  disabled={photoUpdating}
+                >
+                  ✏️
+                </button>
+
+                {hasProfilePhoto && (
+                  <button
+                    type="button"
+                    className="avatar-remove-btn"
+                    onClick={handlePhotoRemove}
+                    aria-label="Remove profile photo"
+                    title="Remove profile photo"
+                    disabled={photoUpdating}
+                  >
+                    ✕
+                  </button>
+                )}
+
+                {photoUpdating && <div className="avatar-loading">Updating…</div>}
+
+                <input
+                  ref={photoInputRef}
+                  type="file"
+                  accept="image/*"
+                  onChange={handlePhotoSelected}
+                  className="avatar-input"
+                  aria-hidden="true"
+                  tabIndex={-1}
+                />
+              </div>
 
               <div className="profile-header-text">
                 <h2 className="profile-title">Welcome, {user.name}</h2>
@@ -1848,9 +1968,20 @@ export default function ProfilePage() {
           border-bottom: 2px solid rgba(190, 91, 80, 0.15);
         }
 
+        .avatar-wrapper {
+          position: relative;
+          width: 96px;
+          height: 96px;
+          margin: 0 auto 1rem;
+        }
+
+        .avatar-wrapper.uploading {
+          opacity: 0.7;
+        }
+
         .avatar-circle {
-          width: 80px;
-          height: 80px;
+          width: 100%;
+          height: 100%;
           border-radius: 50%;
           background: linear-gradient(135deg, #641b2e 0%, #be5b50 100%);
           color: white;
@@ -1859,8 +1990,79 @@ export default function ProfilePage() {
           display: flex;
           align-items: center;
           justify-content: center;
-          margin: 0 auto 1rem;
           box-shadow: 0 4px 16px rgba(100, 27, 46, 0.25);
+        }
+
+        .avatar-image {
+          width: 100%;
+          height: 100%;
+          border-radius: 50%;
+          object-fit: cover;
+          box-shadow: 0 4px 16px rgba(100, 27, 46, 0.25);
+        }
+
+        .avatar-edit-btn,
+        .avatar-remove-btn {
+          position: absolute;
+          width: 32px;
+          height: 32px;
+          border-radius: 50%;
+          border: none;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          cursor: pointer;
+          transition: transform 0.2s ease, box-shadow 0.2s ease;
+          background: #ffffff;
+          box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+          font-size: 1rem;
+        }
+
+        .avatar-edit-btn {
+          bottom: 0;
+          right: 0;
+        }
+
+        .avatar-remove-btn {
+          top: 0;
+          right: 0;
+          background: rgba(255, 255, 255, 0.95);
+        }
+
+        .avatar-edit-btn:disabled,
+        .avatar-remove-btn:disabled {
+          cursor: not-allowed;
+          opacity: 0.6;
+        }
+
+        .avatar-edit-btn:hover:not(:disabled),
+        .avatar-remove-btn:hover:not(:disabled) {
+          transform: scale(1.08);
+        }
+
+        .avatar-loading {
+          position: absolute;
+          inset: 0;
+          border-radius: 50%;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          font-size: 0.75rem;
+          font-weight: 600;
+          color: #1d1d1f;
+          background: rgba(255, 255, 255, 0.75);
+        }
+
+        .avatar-input {
+          position: absolute;
+          width: 1px;
+          height: 1px;
+          padding: 0;
+          margin: -1px;
+          overflow: hidden;
+          clip: rect(0, 0, 0, 0);
+          white-space: nowrap;
+          border: 0;
         }
 
       

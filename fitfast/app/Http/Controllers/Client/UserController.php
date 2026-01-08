@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Client;
 use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\Rules\Password;
 
 class UserController extends Controller
@@ -38,13 +39,35 @@ class UserController extends Controller
             'measurements.inseam_cm' => 'nullable|numeric|min:50|max:100',
             'measurements.body_shape' => 'nullable|string|max:50',
             'measurements.fit_preference' => 'nullable|string|max:50',
+            'profile_photo' => 'nullable|image|max:5120',
+            'remove_photo' => 'nullable|boolean',
         ]);
+
+        $profilePhotoPath = $user->profile_photo_path;
+
+        if ($request->boolean('remove_photo')) {
+            if ($profilePhotoPath && Storage::disk('public')->exists($profilePhotoPath)) {
+                Storage::disk('public')->delete($profilePhotoPath);
+            }
+            $profilePhotoPath = null;
+        }
+
+        if ($request->hasFile('profile_photo')) {
+            if ($profilePhotoPath && Storage::disk('public')->exists($profilePhotoPath)) {
+                Storage::disk('public')->delete($profilePhotoPath);
+            }
+
+            $profilePhotoPath = $request->file('profile_photo')->store('profile-photos', 'public');
+        }
 
         $user->update([
             'name' => $validated['name'] ?? $user->name,
             'email' => $validated['email'] ?? $user->email,
             'measurements' => $validated['measurements'] ?? $user->measurements,
+            'profile_photo_path' => $profilePhotoPath,
         ]);
+
+        $user->refresh();
 
         return response()->json([
             'message' => 'User profile updated successfully',

@@ -12,6 +12,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasOne;
+use Illuminate\Support\Facades\Storage;
 use Laravel\Sanctum\HasApiTokens;
 
 class User extends Authenticatable implements MustVerifyEmail
@@ -33,6 +34,7 @@ class User extends Authenticatable implements MustVerifyEmail
         'address',
         'shipping_address',
         'billing_address',
+        'profile_photo_path',
     ];
 
     /**
@@ -54,6 +56,15 @@ class User extends Authenticatable implements MustVerifyEmail
         'email_verified_at' => 'datetime',
         'password' => 'hashed',
         'measurements' => 'array',
+    ];
+
+    /**
+     * Always include the computed profile photo URL on serialization.
+     *
+     * @var array<int, string>
+     */
+    protected $appends = [
+        'profile_photo_url',
     ];
 
     /**
@@ -139,6 +150,18 @@ class User extends Authenticatable implements MustVerifyEmail
     public function defaultPaymentMethod()
     {
         return $this->paymentMethods()->default()->first();
+    }
+
+    /**
+     * Resolve the publicly accessible profile photo URL.
+     */
+    public function getProfilePhotoUrlAttribute(): ?string
+    {
+        if (!$this->profile_photo_path) {
+            return null;
+        }
+
+        return Storage::disk('public')->url($this->profile_photo_path);
     }
 
     /**

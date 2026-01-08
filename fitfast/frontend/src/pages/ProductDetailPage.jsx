@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import api from "../api";
 import {
@@ -7,6 +7,11 @@ import {
   toggleWishlistEntry,
 } from "../wishlistStorage";
 import { addToCart } from "../cartStorage";
+import {
+  buildOutfitRecommendation,
+  getSizeRecommendation,
+  syncUserProfile,
+} from "../services/aiClient";
 
 export default function ProductDetailPage() {
   const { storeId, productId } = useParams();
@@ -20,6 +25,52 @@ export default function ProductDetailPage() {
   const [cartFeedback, setCartFeedback] = useState("");
   const [isWishlisted, setIsWishlisted] = useState(false);
   const [selectedQuantity, setSelectedQuantity] = useState(1);
+  const [sizeRecommendation, setSizeRecommendation] = useState(null);
+  const [sizeLoading, setSizeLoading] = useState(false);
+  const [sizeError, setSizeError] = useState("");
+  const [outfitSuggestion, setOutfitSuggestion] = useState(null);
+  const [outfitLoading, setOutfitLoading] = useState(false);
+  const [outfitError, setOutfitError] = useState("");
+  const sizeSummary = useMemo(() => {
+    if (!sizeRecommendation) return null;
+
+    const primary =
+      sizeRecommendation.recommended_size ||
+      sizeRecommendation.recommendedSize ||
+      sizeRecommendation.size;
+
+    const recommendationList = Array.isArray(sizeRecommendation.recommendations)
+      ? sizeRecommendation.recommendations
+      : [];
+
+    const fallbackEntry = recommendationList.length ? recommendationList[0] : null;
+
+    const pickedSize = primary || fallbackEntry?.recommended_size || fallbackEntry?.size || null;
+    const fitScore =
+      sizeRecommendation.fit_score ??
+      fallbackEntry?.fit_score ??
+      sizeRecommendation.confidence ??
+      null;
+
+    return {
+      size: pickedSize,
+      fitScore,
+      method: sizeRecommendation.method || fallbackEntry?.method || null,
+    };
+  }, [sizeRecommendation]);
+
+  const outfitItems = useMemo(() => {
+    if (!outfitSuggestion) return [];
+    if (Array.isArray(outfitSuggestion.outfit_items)) return outfitSuggestion.outfit_items;
+    if (Array.isArray(outfitSuggestion.items)) return outfitSuggestion.items;
+    return [];
+  }, [outfitSuggestion]);
+
+  const outfitSizeMap = useMemo(() => {
+    if (!outfitSuggestion) return {};
+    const map = outfitSuggestion.size_recommendations || outfitSuggestion.sizeRecommendations || {};
+    return map;
+  }, [outfitSuggestion]);
 
   const normalizeOptions = (value, fallback = []) => {
     if (Array.isArray(value)) return value.filter(Boolean);
@@ -96,6 +147,83 @@ export default function ProductDetailPage() {
     return totalStock;
   };
 
+  const normalizeGarmentTypeValue = (value) => {
+    if (!value && value !== 0) return "";
+    if (typeof value === "string") return value.trim();
+    if (typeof value === "number") return String(value);
+    if (typeof value === "object") {
+      const candidate =
+        value.garment_type ||
+        value.garmentType ||
+        value.garmentTypeKey ||
+        value.key ||
+        value.slug ||
+        value.name ||
+        value.label ||
+        value.title;
+      if (candidate) {
+        return normalizeGarmentTypeValue(candidate);
+      }
+    }
+    return "";
+  };
+
+  const normalizeGarmentKey = (raw) => {
+    if (!raw) return "";
+    return raw
+      .toString()
+      .trim()
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, "_")
+      .replace(/^_+|_+$/g, "");
+  };
+
+  const resolvedItemId = useMemo(() => {
+    if (!product) return productId;
+    return (
+      product.id ??
+      product.item_id ??
+      product.productId ??
+      product.slug ??
+      product.name ??
+      productId
+    );
+  }, [product, productId]);
+
+  const inferGarmentType = useMemo(() => {
+    if (!product) return "t_shirt";
+
+    const explicit = normalizeGarmentTypeValue(
+      product.garment_type ||
+        product.garmentType ||
+        product.garmentTypeKey ||
+        product.garmentCategory
+    );
+    if (explicit) return normalizeGarmentKey(explicit) || "t_shirt";
+
+    const rawCategory = (() => {
+      const category = product.category || product.category_name || product.category_slug;
+      if (typeof category === "string") return category;
+      if (category && typeof category === "object") {
+        return category.slug || category.name || "";
+      }
+      return "";
+    })()
+      .toString()
+      .toLowerCase();
+
+    if (rawCategory.includes("dress")) return "a_line_dress";
+    if (rawCategory.includes("jean")) return "regular_jeans";
+    if (rawCategory.includes("pant")) return "regular_pants";
+    if (rawCategory.includes("skirt")) return "a_line_skirt";
+    if (rawCategory.includes("coat") || rawCategory.includes("jacket")) return "bomber_jacket";
+    if (rawCategory.includes("hoodie")) return "pullover_hoodie";
+    if (rawCategory.includes("sweater")) return "crewneck_sweater";
+    if (rawCategory.includes("short")) return "casual_shorts";
+
+    return "t_shirt";
+  }, [product]);
+
 
   useEffect(() => {
     async function fetchData() {
@@ -158,6 +286,13 @@ export default function ProductDetailPage() {
     const wishlist = getWishlist();
     setIsWishlisted(isItemWishlisted(wishlist, productId, storeId));
   }, [product, productId, storeId]);
+
+  useEffect(() => {
+    setSizeRecommendation(null);
+    setSizeError("");
+    setOutfitSuggestion(null);
+    setOutfitError("");
+  }, [resolvedItemId]);
 
 
   useEffect(() => {
@@ -267,6 +402,75 @@ export default function ProductDetailPage() {
 
     setIsWishlisted(added);
     setCartFeedback(added ? "Added to wishlist" : "Removed from wishlist");
+  };
+
+  const handleSizeAssist = async () => {
+    if (!product) return;
+
+    const token = localStorage.getItem("auth_token");
+    if (!token) {
+      setSizeError("Sign in to get a personalized fit recommendation.");
+      return;
+    }
+
+    setSizeLoading(true);
+    setSizeError("");
+
+    const { error: syncError } = await syncUserProfile();
+    if (syncError) {
+      setSizeError(syncError);
+      setSizeLoading(false);
+      return;
+    }
+
+    const { data, error } = await getSizeRecommendation("me", {
+      garmentType: inferGarmentType,
+      itemId: resolvedItemId,
+    });
+
+    if (error) {
+      setSizeError(error);
+      setSizeRecommendation(null);
+    } else {
+      setSizeRecommendation(data);
+    }
+
+    setSizeLoading(false);
+  };
+
+  const handleOutfitAssist = async () => {
+    if (!product) return;
+
+    const token = localStorage.getItem("auth_token");
+    if (!token) {
+      setOutfitError("Sign in to let FitFast curate a full look for you.");
+      return;
+    }
+
+    setOutfitLoading(true);
+    setOutfitError("");
+
+    const { error: syncError } = await syncUserProfile();
+    if (syncError) {
+      setOutfitError(syncError);
+      setOutfitLoading(false);
+      return;
+    }
+
+    const { data, error } = await buildOutfitRecommendation("me", {
+      startingItemId: resolvedItemId,
+      style: product?.style || product?.occasion || null,
+      maxItems: 4,
+    });
+
+    if (error) {
+      setOutfitError(error);
+      setOutfitSuggestion(null);
+    } else {
+      setOutfitSuggestion(data);
+    }
+
+    setOutfitLoading(false);
   };
 
   if (loading) {
@@ -482,6 +686,84 @@ export default function ProductDetailPage() {
                 })}
               </div>
             </div>
+          </div>
+
+          <div className="ai-assist">
+            <div className="ai-action">
+              <button
+                type="button"
+                className="ai-button"
+                onClick={handleSizeAssist}
+                disabled={sizeLoading}
+              >
+                {sizeLoading ? "Finding your size..." : "Find my best size"}
+              </button>
+              {sizeError && <p className="ai-message error">{sizeError}</p>}
+              {sizeSummary && (
+                <div className="ai-result">
+                  <p className="ai-result-title">Recommended size</p>
+                  <p className="ai-result-value">{sizeSummary.size || "We need more data."}</p>
+                  <p className="ai-result-meta">
+                    {sizeSummary.method ? `Method · ${sizeSummary.method}` : "AI confidence"}
+                    {typeof sizeSummary.fitScore === "number"
+                      ? ` · ${(sizeSummary.fitScore * 100).toFixed(0)}%`
+                      : ""}
+                  </p>
+                </div>
+              )}
+            </div>
+
+            <div className="ai-action">
+              <button
+                type="button"
+                className="ai-button secondary"
+                onClick={handleOutfitAssist}
+                disabled={outfitLoading}
+              >
+                {outfitLoading ? "Curating outfit..." : "Style this outfit"}
+              </button>
+              {outfitError && <p className="ai-message error">{outfitError}</p>}
+            </div>
+
+            {outfitItems.length > 0 && (
+              <div className="ai-outfit">
+                <div className="ai-result-heading">
+                  <h3>Suggested outfit</h3>
+                  {outfitSuggestion?.compatibility_score !== undefined && (
+                    <span className="ai-chip">
+                      {Math.round(outfitSuggestion.compatibility_score)}% match
+                    </span>
+                  )}
+                </div>
+                <div className="ai-outfit-grid">
+                  {outfitItems.map((item) => {
+                    const mapKey = item.id || item.item_id || item.slug || item.name;
+                    const recommended = outfitSizeMap?.[mapKey] || {};
+
+                    return (
+                      <div key={mapKey} className="ai-outfit-card">
+                        {item.image_url || item.image ? (
+                          <img
+                            src={item.image_url || item.image}
+                            alt={item.name || "Outfit item"}
+                          />
+                        ) : (
+                          <div className="ai-outfit-placeholder">
+                            {(item.name || "?").slice(0, 1)}
+                          </div>
+                        )}
+                        <div className="ai-outfit-info">
+                          <p className="ai-outfit-name">{item.name || "Curated piece"}</p>
+                          <p className="ai-outfit-meta">
+                            {recommended.size ? `Suggested size ${recommended.size}` : "Best available size"}
+                          </p>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
           </div>
 
           <div className="product-actions-detail">

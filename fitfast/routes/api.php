@@ -6,6 +6,7 @@ use App\Http\Controllers\AuthController;
 use App\Http\Controllers\Client\UserController; 
 use App\Http\Controllers\Client\StoreController;
 use App\Http\Controllers\API\SupportChatController;
+use App\Http\Controllers\AIRecommendationController;
 
 
 Route::post('/register', [AuthController::class, 'register']);
@@ -26,5 +27,12 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('/chat-support', [SupportChatController::class, 'store']);
     Route::get('/chat-support/{chatSupport}', [SupportChatController::class, 'show']);
     Route::post('/chat-support/{chatSupport}/reply', [SupportChatController::class, 'reply']);
+
+    Route::prefix('ai/users')->group(function () {
+        Route::post('{user}/sync', [AIRecommendationController::class, 'sync']);
+        Route::post('{user}/size', [AIRecommendationController::class, 'size']);
+        Route::post('{user}/outfit', [AIRecommendationController::class, 'outfit']);
+        Route::post('{user}/recommendations', [AIRecommendationController::class, 'recommendations']);
+    });
 
 });

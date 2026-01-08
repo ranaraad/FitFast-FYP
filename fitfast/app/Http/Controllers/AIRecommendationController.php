@@ -66,14 +66,21 @@ class AIRecommendationController extends Controller
             'maxItems' => ['nullable', 'integer', 'between:2,6'],
         ]);
 
+        $outfitPayload = array_filter([
+            'startingItemId' => Arr::get($validated, 'startingItemId'),
+            'style' => Arr::get($validated, 'style'),
+            'maxItems' => Arr::get($validated, 'maxItems', 4),
+        ], static fn ($value) => $value !== null);
+
+        logger()->info('Dispatching AI outfit request', [
+            'user_id' => $resolvedUser->id,
+            'payload' => $outfitPayload,
+        ]);
+
         try {
             $response = $this->http()->post(
                 "/api/users/{$resolvedUser->id}/outfit",
-                array_filter([
-                    'startingItemId' => Arr::get($validated, 'startingItemId'),
-                    'style' => Arr::get($validated, 'style'),
-                    'maxItems' => Arr::get($validated, 'maxItems', 4),
-                ], static fn ($value) => $value !== null)
+                $outfitPayload
             );
 
             $response->throw();

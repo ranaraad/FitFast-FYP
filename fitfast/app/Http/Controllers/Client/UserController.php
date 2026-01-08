@@ -7,6 +7,8 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\Rules\Password;
+use App\Models\PaymentMethod;
+use App\Models\Order;
 
 class UserController extends Controller
 {
@@ -15,7 +17,102 @@ class UserController extends Controller
      */
     public function show(Request $request)
     {
-        return response()->json($request->user());
+        $user = $request->user()->load([
+            'orders' => function ($query) {
+                $query->latest()->with([
+                    'store:id,name',
+                    'orderItems.item.images',
+                    'delivery',
+                    'payment.paymentMethod',
+                ]);
+            },
+            'paymentMethods',
+        ]);
+
+        $orders = $user->orders->map(function (Order $order) {
+            $items = $order->orderItems->map(function ($orderItem) {
+                $item = $orderItem->item;
+                $primaryImage = $item && $item->primary_image ? $item->primary_image->image_path : null;
+
+                return [
+                    'id' => $item->id ?? $orderItem->id,
+                    'name' => $item->name ?? 'Ordered item',
+                    'quantity' => $orderItem->quantity,
+                    'unit_price' => (float) $orderItem->unit_price,
+                    'price' => (float) $orderItem->unit_price,
+                    'total' => (float) ($orderItem->quantity * $orderItem->unit_price),
+                    'size' => $orderItem->selected_size,
+                    'color' => $orderItem->selected_color,
+                    'image_url' => $primaryImage ? asset('storage/' . $primaryImage) : null,
+                ];
+            })->values()->toArray();
+
+            $deliveryStatus = optional($order->delivery)->status;
+
+            return [
+                'id' => $order->id,
+                'orderId' => $order->id,
+                'code' => 'ORDER-' . $order->id,
+                'status' => $order->status,
+                'cmsStatus' => $deliveryStatus,
+                'delivery_status' => $deliveryStatus,
+                'user_id' => $order->user_id,
+                'items_count' => $order->orderItems->sum('quantity'),
+                'delivery' => [
+                    'id' => optional($order->delivery)->id,
+                    'status' => $deliveryStatus,
+                    'address' => optional($order->delivery)->address,
+                    'label' => optional($order->delivery)->carrier ?? 'Standard delivery',
+                    'description' => optional($order->delivery)->tracking_id
+                        ? 'Tracking ID: ' . optional($order->delivery)->tracking_id
+                        : null,
+                    'tracking_id' => optional($order->delivery)->tracking_id,
+                    'carrier' => optional($order->delivery)->carrier,
+                    'estimated_delivery' => optional(optional($order->delivery)->estimated_delivery)->toISOString(),
+                ],
+                'payment' => [
+                    'status' => optional($order->payment)->status,
+                    'amount' => optional($order->payment)->amount,
+                    'method' => optional(optional($order->payment)->paymentMethod)->type,
+                ],
+                'store' => $order->store ? [
+                    'id' => $order->store->id,
+                    'name' => $order->store->name,
+                ] : null,
+                'items' => $items,
+                'totals' => [
+                    'total' => (float) $order->total_amount,
+                    'subtotal' => (float) $order->total_amount,
+                    'shipping' => 0.0,
+                    'tax' => 0.0,
+                    'discount' => 0.0,
+                ],
+                'eta' => optional(optional($order->delivery)->estimated_delivery)->toISOString(),
+                'created_at' => optional($order->created_at)->toISOString(),
+                'updated_at' => optional($order->updated_at)->toISOString(),
+            ];
+        })->values()->toArray();
+
+        $paymentMethods = $user->paymentMethods->map(function (PaymentMethod $method) {
+            $details = $method->details ?? [];
+
+            return [
+                'id' => $method->id,
+                'type' => $method->type,
+                'label' => $details['label'] ?? null,
+                'brand' => $details['brand'] ?? null,
+                'last4' => $details['last4'] ?? ($details['card_last_four'] ?? null),
+                'exp_month' => $details['exp_month'] ?? $details['expiry_month'] ?? null,
+                'exp_year' => $details['exp_year'] ?? $details['expiry_year'] ?? null,
+                'is_default' => $method->is_default,
+            ];
+        })->values()->toArray();
+
+        $userData = $user->toArray();
+        $userData['orders'] = $orders;
+        $userData['payment_methods'] = $paymentMethods;
+
+        return response()->json($userData);
     }
 
     /**

@@ -234,6 +234,7 @@ const mapRecentOrder = (order) => {
   return {
     id: orderCode,
     code: orderCode,
+    orderId: order.orderId ?? order.id ?? null,
     placedAt: order.placedAt || order.created_at || order.createdAt || new Date().toISOString(),
     eta:
       order.eta ||
@@ -241,6 +242,7 @@ const mapRecentOrder = (order) => {
       order.estimated_delivery ||
       new Date(Date.now() + 72 * 60 * 60 * 1000).toISOString(),
     status: statusLabel,
+    cmsStatus: order.cmsStatus || null,
     total: Number(totals.total || 0),
     items,
     delivery:
@@ -249,6 +251,7 @@ const mapRecentOrder = (order) => {
         label: order.deliveryLabel || "Standard delivery",
         description: order.delivery?.description || "Arrives in 3-5 business days",
       },
+    deliveryStatus: order.delivery?.status || order.deliveryStatus || null,
     shippingAddress: order.shippingAddress || { ...DEFAULT_ADDRESS },
     payment:
       order.payment || {
@@ -260,6 +263,7 @@ const mapRecentOrder = (order) => {
     trackable: computeTrackable(statusLabel, order.trackable),
     userId: order.userId ?? order.user_id ?? null,
     userEmail: normalizeEmail(order.userEmail || order.user_email || contact.email),
+    lastBackendSync: order.lastBackendSync || null,
   };
 };
 

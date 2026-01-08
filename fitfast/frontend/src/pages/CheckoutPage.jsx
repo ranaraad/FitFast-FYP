@@ -542,19 +542,24 @@ export default function CheckoutPage() {
 				const estimatedArrival = new Date(placedAt.getTime() + etaHours * 60 * 60 * 1000);
 				
 				const orderRecord = {
+					orderId: response.data.order?.id ?? null,
 					code: confirmationCode,
 					placedAt: placedAt.toISOString(),
 					eta: estimatedArrival.toISOString(),
 					status: "Processing",
+					cmsStatus: response.data.order?.status ?? "pending",
 					delivery: {
 						id: selectedShipping.id,
 						label: selectedShipping.label,
 						description: selectedShipping.description,
+						status: response.data.order?.delivery?.status ?? null,
 					},
 					payment: {
 						id: selectedPayment.id,
 						label: selectedPayment.label,
 						cardLast4,
+						status: response.data.order?.payment?.status ?? "pending",
+						method: response.data.order?.payment?.method ?? selectedPayment.id,
 					},
 					contact: { ...contactInfo },
 					shippingAddress: { ...shippingAddress, country: "United States" },

@@ -313,6 +313,7 @@ export default function ProfilePage() {
   const [activeOrder, setActiveOrder] = useState(null);
   const [showOrderModal, setShowOrderModal] = useState(false);
   const [photoUpdating, setPhotoUpdating] = useState(false);
+  const [showPhotoActions, setShowPhotoActions] = useState(false);
   const measurementsRef = useRef(null);
   const ordersRef = useRef(null);
   const settingsRef = useRef(null);
@@ -486,7 +487,13 @@ export default function ProfilePage() {
 
   const triggerPhotoPicker = () => {
     if (photoUpdating) return;
+    setShowPhotoActions(false);
     photoInputRef.current?.click();
+  };
+
+  const handleAvatarClick = () => {
+    if (photoUpdating) return;
+    setShowPhotoActions(true);
   };
 
   const handlePhotoSelected = async (event) => {
@@ -527,6 +534,7 @@ export default function ProfilePage() {
   const handlePhotoRemove = async () => {
     if (photoUpdating || !user?.profile_photo_url) return;
 
+    setShowPhotoActions(false);
     setPhotoUpdating(true);
     setMessage("");
 
@@ -945,7 +953,19 @@ export default function ProfilePage() {
           >
             {/* Header */}
             <div className="profile-header">
-              <div className={`avatar-wrapper${photoUpdating ? " uploading" : ""}`}>
+              <div 
+                className={`avatar-wrapper${photoUpdating ? " uploading" : ""}${!photoUpdating ? " clickable" : ""}`}
+                onClick={handleAvatarClick}
+                role="button"
+                tabIndex={photoUpdating ? -1 : 0}
+                aria-label="Change profile photo"
+                onKeyDown={(e) => {
+                  if ((e.key === 'Enter' || e.key === ' ') && !photoUpdating) {
+                    e.preventDefault();
+                    handleAvatarClick();
+                  }
+                }}
+              >
                 {hasProfilePhoto ? (
                   <img
                     src={user.profile_photo_url}
@@ -954,30 +974,6 @@ export default function ProfilePage() {
                   />
                 ) : (
                   <div className="avatar-circle">{initials}</div>
-                )}
-
-                <button
-                  type="button"
-                  className="avatar-edit-btn"
-                  onClick={triggerPhotoPicker}
-                  aria-label="Upload profile photo"
-                  title="Update profile photo"
-                  disabled={photoUpdating}
-                >
-                  ✏️
-                </button>
-
-                {hasProfilePhoto && (
-                  <button
-                    type="button"
-                    className="avatar-remove-btn"
-                    onClick={handlePhotoRemove}
-                    aria-label="Remove profile photo"
-                    title="Remove profile photo"
-                    disabled={photoUpdating}
-                  >
-                    ✕
-                  </button>
                 )}
 
                 {photoUpdating && <div className="avatar-loading">Updating…</div>}
@@ -1002,6 +998,47 @@ export default function ProfilePage() {
             {message && (
               <div className={messageType === "error" ? "error" : "success"}>
                 {message}
+              </div>
+            )}
+
+            {/* Photo Action Sheet */}
+            {showPhotoActions && (
+              <div 
+                className="photo-action-backdrop" 
+                onClick={() => setShowPhotoActions(false)}
+                role="dialog" 
+                aria-modal="true"
+                aria-labelledby="photo-action-title"
+              >
+                <div 
+                  className="photo-action-sheet"
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  <h3 id="photo-action-title" className="photo-action-title">Change Profile Photo</h3>
+                  <button
+                    type="button"
+                    className="photo-action-btn primary"
+                    onClick={triggerPhotoPicker}
+                  >
+                    Upload Photo
+                  </button>
+                  {hasProfilePhoto && (
+                    <button
+                      type="button"
+                      className="photo-action-btn danger"
+                      onClick={handlePhotoRemove}
+                    >
+                      Remove Current Photo
+                    </button>
+                  )}
+                  <button
+                    type="button"
+                    className="photo-action-btn cancel"
+                    onClick={() => setShowPhotoActions(false)}
+                  >
+                    Cancel
+                  </button>
+                </div>
               </div>
             )}
 
@@ -1968,15 +2005,79 @@ export default function ProfilePage() {
           border-bottom: 2px solid rgba(190, 91, 80, 0.15);
         }
 
+        .profile-header-text {
+          display: flex;
+          flex-direction: column;
+          gap: 0.5rem;
+        }
+
+        .profile-title {
+          margin: 0;
+          font-size: 1.5rem;
+          font-weight: 700;
+          color: #1d1d1f;
+          letter-spacing: -0.02em;
+        }
+
+        .profile-email {
+          margin: 0;
+          font-size: 0.95rem;
+          color: #666;
+          font-weight: 500;
+        }
+
         .avatar-wrapper {
           position: relative;
-          width: 96px;
-          height: 96px;
-          margin: 0 auto 1rem;
+          width: 120px;
+          height: 120px;
+          margin: 0 auto 1.5rem;
+          padding: 4px;
+          background: linear-gradient(135deg, #be5b50 0%, #641b2e 100%);
+          border-radius: 50%;
+          transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+          box-shadow: 
+            0 4px 12px rgba(100, 27, 46, 0.15),
+            0 1px 3px rgba(0, 0, 0, 0.08);
+        }
+
+        .avatar-wrapper.clickable {
+          cursor: pointer;
+        }
+
+        .avatar-wrapper.clickable:hover {
+          transform: translateY(-2px) scale(1.02);
+          box-shadow: 
+            0 8px 24px rgba(100, 27, 46, 0.25),
+            0 4px 8px rgba(0, 0, 0, 0.12);
+        }
+
+        .avatar-wrapper.clickable:active {
+          transform: translateY(0) scale(0.98);
+        }
+
+        .avatar-wrapper:focus-visible {
+          outline: 3px solid rgba(100, 27, 46, 0.4);
+          outline-offset: 4px;
         }
 
         .avatar-wrapper.uploading {
           opacity: 0.7;
+          pointer-events: none;
+        }
+
+        .avatar-wrapper.uploading::after {
+          content: '';
+          position: absolute;
+          inset: -4px;
+          border-radius: 50%;
+          border: 3px solid transparent;
+          border-top-color: #be5b50;
+          border-right-color: #be5b50;
+          animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+          to { transform: rotate(360deg); }
         }
 
         .avatar-circle {
@@ -1985,12 +2086,16 @@ export default function ProfilePage() {
           border-radius: 50%;
           background: linear-gradient(135deg, #641b2e 0%, #be5b50 100%);
           color: white;
-          font-size: 2rem;
+          font-size: 2.5rem;
           font-weight: 700;
+          letter-spacing: 1px;
           display: flex;
           align-items: center;
           justify-content: center;
-          box-shadow: 0 4px 16px rgba(100, 27, 46, 0.25);
+          text-transform: uppercase;
+          border: 3px solid #ffffff;
+          box-shadow: inset 0 2px 8px rgba(0, 0, 0, 0.15);
+          pointer-events: none;
         }
 
         .avatar-image {
@@ -1998,46 +2103,9 @@ export default function ProfilePage() {
           height: 100%;
           border-radius: 50%;
           object-fit: cover;
-          box-shadow: 0 4px 16px rgba(100, 27, 46, 0.25);
-        }
-
-        .avatar-edit-btn,
-        .avatar-remove-btn {
-          position: absolute;
-          width: 32px;
-          height: 32px;
-          border-radius: 50%;
-          border: none;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          cursor: pointer;
-          transition: transform 0.2s ease, box-shadow 0.2s ease;
-          background: #ffffff;
-          box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
-          font-size: 1rem;
-        }
-
-        .avatar-edit-btn {
-          bottom: 0;
-          right: 0;
-        }
-
-        .avatar-remove-btn {
-          top: 0;
-          right: 0;
-          background: rgba(255, 255, 255, 0.95);
-        }
-
-        .avatar-edit-btn:disabled,
-        .avatar-remove-btn:disabled {
-          cursor: not-allowed;
-          opacity: 0.6;
-        }
-
-        .avatar-edit-btn:hover:not(:disabled),
-        .avatar-remove-btn:hover:not(:disabled) {
-          transform: scale(1.08);
+          border: 3px solid #ffffff;
+          background: #f5f5f5;
+          pointer-events: none;
         }
 
         .avatar-loading {
@@ -2047,10 +2115,13 @@ export default function ProfilePage() {
           display: flex;
           align-items: center;
           justify-content: center;
-          font-size: 0.75rem;
+          font-size: 0.8rem;
           font-weight: 600;
           color: #1d1d1f;
-          background: rgba(255, 255, 255, 0.75);
+          background: rgba(255, 255, 255, 0.95);
+          backdrop-filter: blur(4px);
+          border: 3px solid #ffffff;
+          pointer-events: none;
         }
 
         .avatar-input {
@@ -2063,6 +2134,97 @@ export default function ProfilePage() {
           clip: rect(0, 0, 0, 0);
           white-space: nowrap;
           border: 0;
+        }
+
+        /* Photo Action Sheet */
+        .photo-action-backdrop {
+          position: fixed;
+          inset: 0;
+          background: rgba(0, 0, 0, 0.4);
+          display: flex;
+          align-items: flex-end;
+          justify-content: center;
+          z-index: 1000;
+          animation: fadeIn 0.2s ease-out;
+        }
+
+        @keyframes fadeIn {
+          from {
+            opacity: 0;
+          }
+          to {
+            opacity: 1;
+          }
+        }
+
+        @keyframes slideUp {
+          from {
+            transform: translateY(100%);
+          }
+          to {
+            transform: translateY(0);
+          }
+        }
+
+        .photo-action-sheet {
+          background: #ffffff;
+          border-radius: 16px 16px 0 0;
+          width: 100%;
+          max-width: 500px;
+          padding: 0;
+          animation: slideUp 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+          box-shadow: 0 -4px 24px rgba(0, 0, 0, 0.15);
+        }
+
+        .photo-action-title {
+          margin: 0;
+          padding: 1.25rem 1.5rem;
+          font-size: 0.9rem;
+          font-weight: 600;
+          color: #666;
+          text-align: center;
+          border-bottom: 1px solid rgba(0, 0, 0, 0.08);
+        }
+
+        .photo-action-btn {
+          width: 100%;
+          padding: 1rem 1.5rem;
+          border: none;
+          background: transparent;
+          font-size: 1rem;
+          font-weight: 500;
+          text-align: center;
+          cursor: pointer;
+          transition: background-color 0.2s ease;
+          border-bottom: 1px solid rgba(0, 0, 0, 0.05);
+        }
+
+        .photo-action-btn:last-child {
+          border-bottom: none;
+          border-radius: 0 0 16px 16px;
+        }
+
+        .photo-action-btn:hover {
+          background: rgba(0, 0, 0, 0.04);
+        }
+
+        .photo-action-btn:active {
+          background: rgba(0, 0, 0, 0.08);
+        }
+
+        .photo-action-btn.primary {
+          color: #641b2e;
+          font-weight: 600;
+        }
+
+        .photo-action-btn.danger {
+          color: #ed4956;
+          font-weight: 600;
+        }
+
+        .photo-action-btn.cancel {
+          font-weight: 600;
+          color: #1d1d1f;
         }
 
       
@@ -2524,10 +2686,27 @@ export default function ProfilePage() {
             justify-content: center;
           }
 
+          .avatar-wrapper {
+            width: 100px;
+            height: 100px;
+            margin: 0 auto 1.2rem;
+          }
+
           .avatar-circle {
-            width: 70px;
-            height: 70px;
-            font-size: 1.8rem;
+            font-size: 2rem;
+          }
+
+          .profile-title {
+            font-size: 1.3rem;
+          }
+
+          .profile-email {
+            font-size: 0.9rem;
+          }
+
+          .photo-action-sheet {
+            max-width: 100%;
+            border-radius: 0;
           }
 
           .form-grid {

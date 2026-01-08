@@ -178,6 +178,31 @@ export default function ProductDetailPage() {
       .replace(/^_+|_+$/g, "");
   };
 
+  const normalizeStyleValue = (value) => {
+    if (!value && value !== 0) return "";
+    if (typeof value === "string") return value.trim();
+    if (typeof value === "number") return String(value);
+    if (Array.isArray(value)) {
+      return value
+        .map((entry) => normalizeStyleValue(entry))
+        .filter(Boolean)
+        .join(" ");
+    }
+    if (typeof value === "object") {
+      const candidate =
+        value.style ||
+        value.name ||
+        value.label ||
+        value.title ||
+        value.description ||
+        value.slug;
+      if (candidate) {
+        return normalizeStyleValue(candidate);
+      }
+    }
+    return "";
+  };
+
   const resolvedItemId = useMemo(() => {
     if (!product) return productId;
     return (
@@ -222,6 +247,26 @@ export default function ProductDetailPage() {
     if (rawCategory.includes("short")) return "casual_shorts";
 
     return "t_shirt";
+  }, [product]);
+
+  const resolvedStyle = useMemo(() => {
+    if (!product) return "";
+
+    const directStyle = normalizeStyleValue(
+      product.style ||
+        product.style_name ||
+        product.styleName ||
+        product.styleLabel ||
+        product.occasion ||
+        product.occasion_name ||
+        product.occasionName
+    );
+    if (directStyle) return directStyle;
+
+    const fallback = normalizeStyleValue(product.category_style || product.category);
+    if (fallback) return fallback;
+
+    return "";
   }, [product]);
 
 
@@ -459,7 +504,7 @@ export default function ProductDetailPage() {
 
     const { data, error } = await buildOutfitRecommendation("me", {
       startingItemId: resolvedItemId,
-      style: product?.style || product?.occasion || null,
+      style: null,
       maxItems: 4,
     });
 

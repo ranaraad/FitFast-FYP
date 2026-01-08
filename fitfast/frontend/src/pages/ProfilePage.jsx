@@ -7,6 +7,7 @@ import {
 } from "../wishlistStorage";
 
 const DEFAULT_MEASUREMENTS = {
+  // Original basic measurements
   height_cm: "",
   weight_kg: "",
   bust_cm: "",
@@ -17,6 +18,37 @@ const DEFAULT_MEASUREMENTS = {
   inseam_cm: "",
   body_shape: "",
   fit_preference: "",
+  
+  // High Priority (10-16 garment types) - Most Important
+  chest_circumference: "",
+  waist_circumference: "",
+  hips_circumference: "",
+  garment_length: "",
+  sleeve_length: "",
+  
+  // Medium Priority (4-9 garment types) - Important
+  inseam_length: "",
+  thigh_circumference: "",
+  leg_opening: "",
+  dress_length: "",
+  short_length: "",
+  foot_length: "",
+  shoulder_to_hem: "",
+  skirt_length: "",
+  foot_width: "",
+  
+  // Low Priority (<4 garment types) - Optional
+  head_circumference: "",
+  hood_height: "",
+  bicep_circumference: "",
+  collar_size: "",
+  underbust_circumference: "",
+  cup_size: "",
+  rise: "",
+  chain_length: "",
+  bracelet_circumference: "",
+  back_width: "",
+  neck_circumference: "",
 };
 
 const isBrowser = typeof window !== "undefined";
@@ -1072,81 +1104,205 @@ export default function ProfilePage() {
                     </div>
                   ) : (
                     <ul className="measurements-list">
-                      {Object.entries(measurements).map(([key, value]) => (
-                        <li className="measurement-item" key={key}>
-                          <span className="measurement-label">{formatLabel(key)}</span>
-                          <span className="measurement-value">{value ? value : "—"}</span>
-                        </li>
-                      ))}
+                      {Object.entries(measurements).map(([key, value]) => 
+                        value ? (
+                          <li className="measurement-item" key={key}>
+                            <span className="measurement-label">{formatLabel(key)}</span>
+                            <span className="measurement-value">{value}</span>
+                          </li>
+                        ) : null
+                      )}
                     </ul>
                   )}
                 </div>
               ) : (
                 <div className="measurements-form">
-                  <div className="form-grid">
-                    {Object.entries(measurements).map(([key, value]) => {
-                      const isSelect = key === "body_shape" || key === "fit_preference";
-
-                      return (
+                  {/* High Priority Measurements */}
+                  <div className="measurement-section high-priority">
+                    <div className="section-title-row">
+                      <h4 className="measurement-section-title">⭐ High Priority Measurements</h4>
+                      <span className="section-badge high">Most Important</span>
+                    </div>
+                    <p className="section-description">
+                      These measurements are used for most garment types including shirts, pants, dresses, and outerwear.
+                    </p>
+                    <div className="form-grid">
+                      {[
+                        ["chest_circumference", "Chest Circumference", "Around fullest part of chest"],
+                        ["waist_circumference", "Waist Circumference", "Around natural waist"],
+                        ["hips_circumference", "Hips Circumference", "Around fullest part of hips"],
+                        ["garment_length", "Garment Length", "Total length from top to bottom"],
+                        ["sleeve_length", "Sleeve Length", "From shoulder to cuff"],
+                        ["shoulder_width", "Shoulder Width", "Across back from seam to seam"],
+                      ].map(([key, label, hint]) => (
                         <div className="form-group" key={key}>
-                          <label htmlFor={key}>{formatLabel(key)}</label>
-
-                          {isSelect ? (
-                            <select
+                          <label htmlFor={key}>
+                            {label}
+                            {hint && <span className="label-hint">{hint}</span>}
+                          </label>
+                          <div className="input-with-unit profile-input-unit">
+                            <input
                               id={key}
+                              type="number"
+                              step="0.1"
+                              min="0"
                               name={key}
-                              value={value}
+                              value={measurements[key]}
                               onChange={handleChange}
-                            >
-                              <option value="">—</option>
-
-                              {key === "body_shape" && (
-                                <>
-                                  <option value="hourglass">Hourglass</option>
-                                  <option value="pear">Pear</option>
-                                  <option value="apple">Apple</option>
-                                  <option value="rectangle">Rectangle</option>
-                                  <option value="inverted_triangle">
-                                    Inverted Triangle
-                                  </option>
-                                </>
-                              )}
-
-                              {key === "fit_preference" && (
-                                <>
-                                  <option value="tight">Tight</option>
-                                  <option value="regular">Regular</option>
-                                  <option value="loose">Loose</option>
-                                </>
-                              )}
-                            </select>
-                          ) : (
-                            <div className="input-with-unit profile-input-unit">
-                              <input
-                                id={key}
-                                type="number"
-                                step="0.1"
-                                name={key}
-                                value={value}
-                                onChange={handleChange}
-                                placeholder="—"
-                              />
-
-                              {(key.endsWith("_cm") || key.endsWith("_kg")) && (
-                                <span className="unit-label">
-                                  {key.endsWith("_cm") ? "cm" : "kg"}
-                                </span>
-                              )}
-                            </div>
-                          )}
+                              placeholder="—"
+                            />
+                            <span className="unit-label">cm</span>
+                          </div>
                         </div>
-                      );
-                    })}
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Medium Priority Measurements */}
+                  <div className="measurement-section medium-priority">
+                    <div className="section-title-row">
+                      <h4 className="measurement-section-title">✨ Medium Priority Measurements</h4>
+                      <span className="section-badge medium">Important</span>
+                    </div>
+                    <p className="section-description">
+                      Important for specific categories like pants, dresses, footwear, and skirts.
+                    </p>
+                    <div className="form-grid">
+                      {[
+                        ["inseam_length", "Inseam Length", "From crotch to ankle"],
+                        ["thigh_circumference", "Thigh Circumference", "Around fullest part of thigh"],
+                        ["leg_opening", "Leg Opening", "Circumference at bottom of pants"],
+                        ["dress_length", "Dress Length", "From shoulder/neck to hem"],
+                        ["short_length", "Short Length", "From waist to hem"],
+                        ["foot_length", "Foot Length", "From heel to toe"],
+                        ["shoulder_to_hem", "Shoulder to Hem", "From shoulder to bottom"],
+                        ["skirt_length", "Skirt Length", "From waistband to hem"],
+                        ["foot_width", "Foot Width", "Width across widest part"],
+                      ].map(([key, label, hint]) => (
+                        <div className="form-group" key={key}>
+                          <label htmlFor={key}>
+                            {label}
+                            {hint && <span className="label-hint">{hint}</span>}
+                          </label>
+                          <div className="input-with-unit profile-input-unit">
+                            <input
+                              id={key}
+                              type="number"
+                              step="0.1"
+                              min="0"
+                              name={key}
+                              value={measurements[key]}
+                              onChange={handleChange}
+                              placeholder="—"
+                            />
+                            <span className="unit-label">cm</span>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Low Priority Measurements */}
+                  <div className="measurement-section low-priority">
+                    <div className="section-title-row">
+                      <h4 className="measurement-section-title">💡 Low Priority Measurements</h4>
+                      <span className="section-badge low">Optional</span>
+                    </div>
+                    <p className="section-description">
+                      Specialized measurements for specific items like accessories, swimwear, and unique garments.
+                    </p>
+                    <div className="form-grid">
+                      {[
+                        ["head_circumference", "Head Circumference", "Around forehead level"],
+                        ["hood_height", "Hood Height", "Height/depth of hood"],
+                        ["bicep_circumference", "Bicep Circumference", "Around fullest part of upper arm"],
+                        ["collar_size", "Collar Size", "Around neck where collar sits"],
+                        ["underbust_circumference", "Underbust Circumference", "Around torso under bust"],
+                        ["rise", "Rise", "From crotch seam to waistband"],
+                        ["chain_length", "Chain Length", "Length of necklace chain"],
+                        ["bracelet_circumference", "Bracelet Circumference", "Circumference of bracelet"],
+                        ["back_width", "Back Width", "Across back at shoulder blades"],
+                        ["neck_circumference", "Neck Circumference", "Around base of neck"],
+                      ].map(([key, label, hint]) => (
+                        <div className="form-group" key={key}>
+                          <label htmlFor={key}>
+                            {label}
+                            {hint && <span className="label-hint">{hint}</span>}
+                          </label>
+                          <div className="input-with-unit profile-input-unit">
+                            <input
+                              id={key}
+                              type="number"
+                              step="0.1"
+                              min="0"
+                              name={key}
+                              value={measurements[key]}
+                              onChange={handleChange}
+                              placeholder="—"
+                            />
+                            <span className="unit-label">cm</span>
+                          </div>
+                        </div>
+                      ))}
+                      <div className="form-group">
+                        <label htmlFor="cup_size">
+                          Cup Size
+                          <span className="label-hint">Bra cup size (A, B, C, etc.)</span>
+                        </label>
+                        <input
+                          id="cup_size"
+                          type="text"
+                          name="cup_size"
+                          value={measurements.cup_size}
+                          onChange={handleChange}
+                          placeholder="e.g., B"
+                          maxLength="10"
+                        />
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Legacy Measurements (for backward compatibility) */}
+                  <div className="measurement-section legacy">
+                    <div className="section-title-row">
+                      <h4 className="measurement-section-title">📦 Legacy Measurements</h4>
+                      <span className="section-badge">Optional</span>
+                    </div>
+                    <p className="section-description">
+                      Original measurements kept for compatibility. Consider using the categorized versions above.
+                    </p>
+                    <div className="form-grid">
+                      {[
+                        ["bust_cm", "Bust", "cm"],
+                        ["waist_cm", "Waist", "cm"],
+                        ["hips_cm", "Hips", "cm"],
+                        ["shoulder_width_cm", "Shoulder Width", "cm"],
+                        ["arm_length_cm", "Arm Length", "cm"],
+                        ["inseam_cm", "Inseam", "cm"],
+                      ].map(([key, label, unit]) => (
+                        <div className="form-group" key={key}>
+                          <label htmlFor={key}>{label}</label>
+                          <div className="input-with-unit profile-input-unit">
+                            <input
+                              id={key}
+                              type="number"
+                              step="0.1"
+                              min="0"
+                              name={key}
+                              value={measurements[key]}
+                              onChange={handleChange}
+                              placeholder="—"
+                            />
+                            <span className="unit-label">{unit}</span>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
                   </div>
 
                   <div className="form-actions">
                     <button type="button" className="save-btn" onClick={handleSave}>
-                      💾 Save
+                      💾 Save Measurements
                     </button>
                     <button type="button" className="secondary-btn" onClick={handleCancel}>
                       Cancel
@@ -2615,6 +2771,163 @@ export default function ProfilePage() {
           border: 1px solid rgba(100, 27, 46, 0.1);
         }
 
+        /* Measurement Section Styles */
+        .measurement-section {
+          margin-bottom: 2.5rem;
+          padding: 1.5rem;
+          border-radius: 14px;
+          background: linear-gradient(135deg, rgba(248, 248, 250, 0.6) 0%, rgba(255, 255, 255, 0.9) 100%);
+          border: 1px solid rgba(100, 27, 46, 0.08);
+          transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        .measurement-section:hover {
+          box-shadow: 0 8px 24px rgba(100, 27, 46, 0.08);
+          border-color: rgba(100, 27, 46, 0.12);
+        }
+
+        .measurement-section.high-priority {
+          background: linear-gradient(135deg, rgba(255, 248, 220, 0.4) 0%, rgba(255, 253, 245, 0.8) 100%);
+          border-color: rgba(255, 193, 7, 0.25);
+        }
+
+        .measurement-section.high-priority:hover {
+          box-shadow: 0 8px 28px rgba(255, 193, 7, 0.15);
+          border-color: rgba(255, 193, 7, 0.35);
+        }
+
+        .measurement-section.medium-priority {
+          background: linear-gradient(135deg, rgba(232, 245, 255, 0.4) 0%, rgba(245, 250, 255, 0.8) 100%);
+          border-color: rgba(33, 150, 243, 0.25);
+        }
+
+        .measurement-section.medium-priority:hover {
+          box-shadow: 0 8px 28px rgba(33, 150, 243, 0.12);
+          border-color: rgba(33, 150, 243, 0.35);
+        }
+
+        .measurement-section.low-priority {
+          background: linear-gradient(135deg, rgba(245, 245, 250, 0.4) 0%, rgba(252, 252, 255, 0.8) 100%);
+          border-color: rgba(156, 39, 176, 0.2);
+        }
+
+        .measurement-section.low-priority:hover {
+          box-shadow: 0 8px 28px rgba(156, 39, 176, 0.1);
+          border-color: rgba(156, 39, 176, 0.3);
+        }
+
+        .measurement-section.legacy {
+          background: linear-gradient(135deg, rgba(230, 230, 235, 0.3) 0%, rgba(245, 245, 248, 0.7) 100%);
+          border-color: rgba(150, 150, 160, 0.2);
+          opacity: 0.85;
+        }
+
+        .section-title-row {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          margin-bottom: 1rem;
+          flex-wrap: wrap;
+          gap: 0.75rem;
+        }
+
+        .measurement-section-title {
+          margin: 0;
+          font-size: 1.15rem;
+          font-weight: 700;
+          color: #1d1d1f;
+          letter-spacing: -0.015em;
+          display: flex;
+          align-items: center;
+          gap: 0.5rem;
+        }
+
+        .section-badge {
+          display: inline-block;
+          padding: 0.35rem 0.9rem;
+          border-radius: 999px;
+          font-size: 0.75rem;
+          font-weight: 600;
+          text-transform: uppercase;
+          letter-spacing: 0.5px;
+          line-height: 1;
+        }
+
+        .section-badge.required {
+          background: linear-gradient(135deg, #be5b50 0%, #641b2e 100%);
+          color: white;
+          box-shadow: 0 2px 8px rgba(100, 27, 46, 0.25);
+        }
+
+        .section-badge.high {
+          background: linear-gradient(135deg, #ffc107 0%, #ff9800 100%);
+          color: #1d1d1f;
+          box-shadow: 0 2px 8px rgba(255, 193, 7, 0.3);
+        }
+
+        .section-badge.medium {
+          background: linear-gradient(135deg, #2196f3 0%, #03a9f4 100%);
+          color: white;
+          box-shadow: 0 2px 8px rgba(33, 150, 243, 0.3);
+        }
+
+        .section-badge.low {
+          background: linear-gradient(135deg, #9c27b0 0%, #ba68c8 100%);
+          color: white;
+          box-shadow: 0 2px 8px rgba(156, 39, 176, 0.3);
+        }
+
+        .section-badge:not(.required):not(.high):not(.medium):not(.low) {
+          background: linear-gradient(135deg, #757575 0%, #9e9e9e 100%);
+          color: white;
+          box-shadow: 0 2px 8px rgba(117, 117, 117, 0.25);
+        }
+
+        .section-description {
+          margin: 0 0 1.2rem 0;
+          font-size: 0.9rem;
+          color: #666;
+          line-height: 1.6;
+        }
+
+        .label-hint {
+          display: block;
+          font-size: 0.8rem;
+          color: #888;
+          font-weight: 400;
+          margin-top: 0.2rem;
+          line-height: 1.3;
+        }
+
+        .form-group label {
+          margin-bottom: 0.5rem;
+          font-weight: 600;
+          color: #1d1d1f;
+          font-size: 0.9rem;
+        }
+
+        .form-group input,
+        .form-group select {
+          padding: 0.75rem 1rem;
+          border: 1.5px solid rgba(100, 27, 46, 0.15);
+          border-radius: 10px;
+          font-size: 0.95rem;
+          transition: all 0.2s ease;
+          background: white;
+          color: #1d1d1f;
+        }
+
+        .form-group input:focus,
+        .form-group select:focus {
+          outline: none;
+          border-color: #be5b50;
+          box-shadow: 0 0 0 3px rgba(190, 91, 80, 0.1);
+        }
+
+        .form-group input::placeholder {
+          color: #bbb;
+        }
+
         .form-grid {
           display: grid;
           grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
@@ -2650,15 +2963,32 @@ export default function ProfilePage() {
           display: grid;
           grid-template-columns: 1fr 1fr;
           gap: 1rem;
-          margin-top: 1.5rem;
+          margin-top: 2.5rem;
+          padding-top: 2rem;
+          border-top: 2px solid rgba(100, 27, 46, 0.08);
         }
 
         .save-btn {
           background: linear-gradient(135deg, #2e7d32 0%, #43a047 100%);
+          color: white;
+          border: none;
+          padding: 0.9rem 1.5rem;
+          border-radius: 12px;
+          font-weight: 600;
+          font-size: 1rem;
+          cursor: pointer;
+          transition: all 0.3s ease;
+          box-shadow: 0 4px 12px rgba(46, 125, 50, 0.25);
         }
 
         .save-btn:hover {
           background: linear-gradient(135deg, #43a047 0%, #66bb6a 100%);
+          transform: translateY(-2px);
+          box-shadow: 0 6px 20px rgba(46, 125, 50, 0.35);
+        }
+
+        .save-btn:active {
+          transform: translateY(0);
         }
 
         .spinner {
@@ -2715,6 +3045,23 @@ export default function ProfilePage() {
 
           .form-actions {
             grid-template-columns: 1fr;
+          }
+
+          .measurement-section {
+            padding: 1rem;
+          }
+
+          .measurement-section-title {
+            font-size: 1rem;
+          }
+
+          .section-title-row {
+            flex-direction: column;
+            align-items: flex-start;
+          }
+
+          .section-description {
+            font-size: 0.85rem;
           }
         }
       `}</style>

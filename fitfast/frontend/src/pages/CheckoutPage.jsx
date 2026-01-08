@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { clearCart, getCart } from "../cartStorage";
+import api from "../api";
 
 const DEFAULT_CONTACT = {
 	fullName: "",
@@ -485,7 +486,7 @@ export default function CheckoutPage() {
 		uniqueKeys.forEach((key) => writeStoredValue(key, null));
 	};
 
-	const handlePlaceOrder = (event) => {
+	const handlePlaceOrder = async (event) => {
 		event.preventDefault();
 		if (isSubmitting) return;
 
@@ -498,60 +499,105 @@ export default function CheckoutPage() {
 		const cardLast4 = sanitizedNumber ? sanitizedNumber.slice(-4) : null;
 		const authUser = readAuthUser();
 
-		setTimeout(() => {
-			const selectedShipping = SHIPPING_OPTIONS.find((entry) => entry.id === deliveryOption) || SHIPPING_OPTIONS[0];
-			const selectedPayment = PAYMENT_METHODS.find((entry) => entry.id === paymentMethod) || PAYMENT_METHODS[0];
-			const placedAt = new Date();
-			const etaHours = estimateDeliveryHours(selectedShipping.id);
-			const estimatedArrival = new Date(placedAt.getTime() + etaHours * 60 * 60 * 1000);
-			const orderRecord = {
-				code: confirmationCode,
-				placedAt: placedAt.toISOString(),
-				eta: estimatedArrival.toISOString(),
-				status: "Processing",
-				delivery: {
-					id: selectedShipping.id,
-					label: selectedShipping.label,
-					description: selectedShipping.description,
-				},
-				payment: {
-					id: selectedPayment.id,
-					label: selectedPayment.label,
-					cardLast4,
-				},
-				contact: { ...contactInfo },
-				shippingAddress: { ...shippingAddress, country: "United States" },
+		try {
+			// Get the store_id from the first cart item (assuming all items are from the same store)
+			const storeId = cartItems[0]?.storeId;
+			
+			if (!storeId) {
+				setOrderError("Unable to determine store for this order.");
+				setIsSubmitting(false);
+				return;
+			}
+
+			// Prepare order data for backend
+			const orderData = {
+				store_id: storeId,
 				items: cartItems.map((item) => ({
 					id: item.id,
-					name: item.name,
 					quantity: item.quantity || 1,
 					price: Number(item.price) || 0,
-					image: item.image || null,
-					storeName: item.storeName || null,
 					size: item.size || null,
 					color: item.color || null,
 				})),
-				totals: {
-					subtotal,
-					shipping: shippingCost,
-					tax: taxEstimate,
-					discount,
-					total: estimatedTotal,
+				total_amount: estimatedTotal,
+				delivery_address: `${shippingAddress.street}, ${shippingAddress.city}, ${shippingAddress.state} ${shippingAddress.postalCode}`,
+				contact: {
+					fullName: contactInfo.fullName,
+					email: contactInfo.email,
+					phone: contactInfo.phone,
 				},
-				promoCode: appliedPromo?.code || null,
-				trackable: selectedShipping.id !== "pickup",
-				userId: authUser?.id ?? null,
-				userEmail: (authUser?.email || contactInfo.email || "").trim().toLowerCase(),
+				payment_method: paymentMethod,
+				card_last4: cardLast4,
 			};
 
-			persistLatestOrder(orderRecord);
-			appendOrderToAccountHistory(orderRecord, authUser);
-			clearCart();
-			setCartItems([]);
+			// Send order to backend API
+			const response = await api.post("/orders", orderData);
+
+			if (response.data.success) {
+				// Order created successfully in backend
+				const selectedShipping = SHIPPING_OPTIONS.find((entry) => entry.id === deliveryOption) || SHIPPING_OPTIONS[0];
+				const selectedPayment = PAYMENT_METHODS.find((entry) => entry.id === paymentMethod) || PAYMENT_METHODS[0];
+				const placedAt = new Date();
+				const etaHours = estimateDeliveryHours(selectedShipping.id);
+				const estimatedArrival = new Date(placedAt.getTime() + etaHours * 60 * 60 * 1000);
+				
+				const orderRecord = {
+					code: confirmationCode,
+					placedAt: placedAt.toISOString(),
+					eta: estimatedArrival.toISOString(),
+					status: "Processing",
+					delivery: {
+						id: selectedShipping.id,
+						label: selectedShipping.label,
+						description: selectedShipping.description,
+					},
+					payment: {
+						id: selectedPayment.id,
+						label: selectedPayment.label,
+						cardLast4,
+					},
+					contact: { ...contactInfo },
+					shippingAddress: { ...shippingAddress, country: "United States" },
+					items: cartItems.map((item) => ({
+						id: item.id,
+						name: item.name,
+						quantity: item.quantity || 1,
+						price: Number(item.price) || 0,
+						image: item.image || null,
+						storeName: item.storeName || null,
+						size: item.size || null,
+						color: item.color || null,
+					})),
+					totals: {
+						subtotal,
+						shipping: shippingCost,
+						tax: taxEstimate,
+						discount,
+						total: estimatedTotal,
+					},
+					promoCode: appliedPromo?.code || null,
+					trackable: selectedShipping.id !== "pickup",
+					userId: authUser?.id ?? null,
+					userEmail: (authUser?.email || contactInfo.email || "").trim().toLowerCase(),
+				};
+
+				// Still save to localStorage for order status page
+				persistLatestOrder(orderRecord);
+				appendOrderToAccountHistory(orderRecord, authUser);
+				clearCart();
+				setCartItems([]);
+				setIsSubmitting(false);
+				resetDraft();
+				navigate("/order-status");
+			} else {
+				setOrderError(response.data.message || "Failed to create order.");
+				setIsSubmitting(false);
+			}
+		} catch (error) {
+			console.error("Order creation error:", error);
+			setOrderError(error.response?.data?.message || "Failed to create order. Please try again.");
 			setIsSubmitting(false);
-			resetDraft();
-			navigate("/order-status");
-		}, 1200);
+		}
 	};
 
 	const handleNavigateBackToCart = () => {

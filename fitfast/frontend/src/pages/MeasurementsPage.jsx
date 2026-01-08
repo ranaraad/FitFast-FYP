@@ -114,6 +114,7 @@ export default function MeasurementsPage() {
                     name={key}
                     type="number"
                     step="0.1"
+                    min="0"
                     value={measurements[key]}
                     onChange={handleChange}
                     placeholder="—"

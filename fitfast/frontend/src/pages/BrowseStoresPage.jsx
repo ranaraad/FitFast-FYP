@@ -8,6 +8,7 @@ import {
 } from "../wishlistStorage";
 import { addToCart } from "../cartStorage";
 import ItemCard from "../components/cards/ItemCard";
+import OutfitRecommendation from "../components/outfit/OutfitRecommendation";
 import {
   getItemId,
   getItemImage,
@@ -155,6 +156,11 @@ export default function BrowseStoresPage() {
             <span>{filteredStores.length} {filteredStores.length === 1 ? 'Store' : 'Stores'}</span>
           </div>
         </div>
+      </section>
+
+      {/* Outfit Recommendation Section */}
+      <section className="browse-outfit-section">
+        <OutfitRecommendation className="browse-outfit-container" />
       </section>
 
       {/* Stores Sections */}

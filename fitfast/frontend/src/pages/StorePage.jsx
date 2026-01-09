@@ -8,6 +8,7 @@ import {
 } from "../wishlistStorage";
 import { addToCart } from "../cartStorage";
 import ItemCard from "../components/cards/ItemCard";
+import OutfitRecommendation from "../components/outfit/OutfitRecommendation";
 import { getItemId, getItemImage, getBestFitCopy } from "../utils/item";
 
 export default function StorePage() {
@@ -132,6 +133,11 @@ export default function StorePage() {
           )}
           <small>{categories.length} categories</small>
         </div>
+      </section>
+
+      {/* Outfit Recommendation Section */}
+      <section className="store-outfit-section">
+        <OutfitRecommendation className="store-outfit-container" />
       </section>
 
       {categories.length === 0 ? (

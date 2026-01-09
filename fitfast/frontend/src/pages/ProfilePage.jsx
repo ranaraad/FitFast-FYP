@@ -133,6 +133,32 @@ const STRING_MEASUREMENT_KEYS = new Set([
   "cup_size",
 ]);
 
+const NUMERIC_MEASUREMENT_KEYS = new Set(
+  Object.keys(DEFAULT_MEASUREMENTS).filter(
+    (key) => !STRING_MEASUREMENT_KEYS.has(key)
+  )
+);
+
+const sanitizeNumericInput = (raw = "") => {
+  if (typeof raw !== "string") {
+    return raw;
+  }
+
+  const stripped = raw.replace(/[^0-9.]/g, "");
+  const dotIndex = stripped.indexOf(".");
+
+  if (dotIndex === -1) {
+    return stripped;
+  }
+
+  const beforeDot = stripped.slice(0, dotIndex + 1);
+  const afterDot = stripped
+    .slice(dotIndex + 1)
+    .replace(/\./g, "");
+
+  return beforeDot + afterDot;
+};
+
 const extractApiErrorMessage = (error, fallback = "Failed to save measurements ❌") => {
   const response = error?.response?.data;
 
@@ -661,7 +687,10 @@ export default function ProfilePage() {
 
   const handleChange = (e) => {
     const { name, value } = e.target;
-    setMeasurements((prev) => ({ ...prev, [name]: value }));
+    const nextValue = NUMERIC_MEASUREMENT_KEYS.has(name)
+      ? sanitizeNumericInput(value)
+      : value;
+    setMeasurements((prev) => ({ ...prev, [name]: nextValue }));
   };
 
   const triggerPhotoPicker = () => {

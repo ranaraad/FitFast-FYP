@@ -15,6 +15,37 @@ const DEFAULT_MEASUREMENTS = {
   fit_preference: "",
 };
 
+const NUMERIC_MEASUREMENT_FIELDS = new Set([
+  "height_cm",
+  "weight_kg",
+  "bust_cm",
+  "waist_cm",
+  "hips_cm",
+  "shoulder_width_cm",
+  "arm_length_cm",
+  "inseam_cm",
+]);
+
+const sanitizeNumericInput = (raw = "") => {
+  if (typeof raw !== "string") {
+    return raw;
+  }
+
+  const stripped = raw.replace(/[^0-9.]/g, "");
+  const dotIndex = stripped.indexOf(".");
+
+  if (dotIndex === -1) {
+    return stripped;
+  }
+
+  const beforeDot = stripped.slice(0, dotIndex + 1);
+  const afterDot = stripped
+    .slice(dotIndex + 1)
+    .replace(/\./g, "");
+
+  return beforeDot + afterDot;
+};
+
 export default function MeasurementsPage() {
   const [measurements, setMeasurements] = useState(DEFAULT_MEASUREMENTS);
   const [message, setMessage] = useState("");
@@ -42,7 +73,11 @@ export default function MeasurementsPage() {
   /* ================= HANDLERS ================= */
   const handleChange = (e) => {
     const { name, value } = e.target;
-    setMeasurements((prev) => ({ ...prev, [name]: value }));
+    const nextValue = NUMERIC_MEASUREMENT_FIELDS.has(name)
+      ? sanitizeNumericInput(value)
+      : value;
+
+    setMeasurements((prev) => ({ ...prev, [name]: nextValue }));
   };
 
   const handleSubmit = async (e) => {

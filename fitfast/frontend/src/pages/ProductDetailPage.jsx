@@ -166,6 +166,52 @@ const isMeaningfulValue = (value) => {
   return true;
 };
 
+const pickFirstMeaningfulText = (...candidates) => {
+  for (const candidate of candidates) {
+    if (candidate === null || candidate === undefined) {
+      continue;
+    }
+
+    if (Array.isArray(candidate)) {
+      const joined = candidate.filter(Boolean).join(", ");
+      if (joined.trim()) {
+        return joined.trim();
+      }
+      continue;
+    }
+
+    if (typeof candidate === "object") {
+      const potential =
+        candidate.label ||
+        candidate.name ||
+        candidate.title ||
+        candidate.description ||
+        candidate.value ||
+        candidate.text;
+      if (typeof potential === "string" && potential.trim()) {
+        return potential.trim();
+      }
+      if (typeof potential === "number" && Number.isFinite(potential)) {
+        return String(potential);
+      }
+      continue;
+    }
+
+    if (typeof candidate === "number") {
+      if (Number.isFinite(candidate)) {
+        return String(candidate);
+      }
+      continue;
+    }
+
+    if (typeof candidate === "string" && candidate.trim()) {
+      return candidate.trim();
+    }
+  }
+
+  return "";
+};
+
 const parseSizingPayload = (raw) => {
   if (!raw) {
     return null;
@@ -477,6 +523,184 @@ export default function ProductDetailPage() {
       .replace(/^_+|_+$/g, "");
   };
 
+  const GARMENT_DETAIL_PROFILES = [
+    {
+      types: [
+        "t_shirt",
+        "v_neck_tee",
+        "henley_shirt",
+        "polo_shirt",
+        "fitted_shirt",
+        "dress_shirt",
+        "crewneck_sweater",
+        "v_neck_sweater",
+        "cardigan",
+        "turtleneck",
+      ],
+      fabric: "Soft combed knit with breathable stretch for everyday wear.",
+      fit: "Regular cut through the chest and shoulders; size up for an oversized drape.",
+      care: "Machine wash cold inside out; tumble dry low or lay flat to preserve shape.",
+    },
+    {
+      types: [
+        "pullover_hoodie",
+        "zip_hoodie",
+        "bomber_jacket",
+        "denim_jacket",
+        "trench_coat",
+        "wool_coat",
+        "windbreaker",
+        "puffer_jacket",
+      ],
+      fabric: "Durable woven shell with smooth lining designed for easy layering.",
+      fit: "Structured regular fit built to layer over light knits; consider sizing up for bulkier sweaters.",
+      care: "Spot clean as needed; dry clean or professional clean to preserve the finish.",
+    },
+    {
+      types: [
+        "slim_pants",
+        "regular_pants",
+        "cargo_pants",
+        "slim_jeans",
+        "regular_jeans",
+        "leggings",
+        "yoga_pants",
+      ],
+      fabric: "Stretch-infused twill that holds its shape while moving with you.",
+      fit: "Sits at the natural waist with a tailored leg; size up for a more relaxed silhouette.",
+      care: "Machine wash cold inside out; hang dry to preserve color and fabric recovery.",
+    },
+    {
+      types: [
+        "casual_shorts",
+        "cargo_shorts",
+        "training_shorts",
+        "shorts",
+      ],
+      fabric: "Lightweight woven blend with breathable stretch and quick-dry comfort.",
+      fit: "Athletic rise with room through the thigh; stays easy through the hip.",
+      care: "Machine wash cold; tumble dry low or hang dry to maintain shape.",
+    },
+    {
+      types: [
+        "a_line_dress",
+        "bodycon_dress",
+        "maxi_dress",
+        "midi_dress",
+        "wrap_dress",
+        "sun_dress",
+      ],
+      fabric: "Fluid woven fabric with gentle drape and subtle stretch for comfort.",
+      fit: "Designed to skim the body; use bust and waist measurements for best size selection.",
+      care: "Hand wash cold or use a delicate cycle; hang to dry to protect the fabric.",
+    },
+    {
+      types: [
+        "a_line_skirt",
+        "pencil_skirt",
+        "tennis_skirt",
+      ],
+      fabric: "Structured woven fabric with a smooth handfeel and dependable stretch.",
+      fit: "Sits at the waist with a clean drape; true to size for a polished silhouette.",
+      care: "Machine wash cold on delicate; press on low heat if needed.",
+    },
+    {
+      types: [
+        "bikini_top",
+        "swim_trunks",
+        "board_shorts",
+        "one_piece_swimsuit",
+      ],
+      fabric: "Chlorine-resistant swim knit with a supportive, fully lined finish.",
+      fit: "Secure, stay-put feel in and out of the water; stay true to your usual swim size.",
+      care: "Rinse after wear and hand wash cold; lay flat to dry out of direct sun.",
+    },
+    {
+      types: [
+        "briefs",
+        "boxer_briefs",
+        "boxers",
+      ],
+      fabric: "Breathable microfiber with smooth, no-show stretch for daily comfort.",
+      fit: "Close fit that flexes with movement; true to size for a stay-put feel.",
+      care: "Machine wash cold in a mesh bag; hang dry to extend elasticity.",
+    },
+    {
+      types: [
+        "crew_socks",
+        "ankle_socks",
+      ],
+      fabric: "Combed cotton knit with arch support and soft cushioning.",
+      fit: "Snug through the arch and cuff so they stay in place all day.",
+      care: "Machine wash warm; tumble dry low to preserve stretch.",
+    },
+    {
+      types: [
+        "sneakers",
+        "dress_shoes",
+        "loafers",
+        "boots",
+      ],
+      fabric: "Supple leather upper with breathable lining and cushioned insole.",
+      fit: "Runs true to size; go up half a size if you have a wider instep.",
+      care: "Brush off dirt after wear; wipe clean with a damp cloth and condition leather regularly.",
+    },
+    {
+      types: [
+        "backpack",
+        "tote_bag",
+        "crossbody_bag",
+        "clutch",
+      ],
+      fabric: "Pebbled faux leather exterior with durable cotton lining.",
+      fit: "Sized to carry daily essentials with a structured silhouette that keeps its shape.",
+      care: "Wipe clean with a soft cloth; keep away from prolonged moisture and direct heat.",
+    },
+    {
+      types: [
+        "necklace",
+        "bracelet",
+        "earrings",
+        "ring",
+      ],
+      fabric: "Hypoallergenic plated metal with a polished, tarnish-resistant finish.",
+      fit: "Adjustable closure for a personalized, comfortable fit against the skin.",
+      care: "Store in the provided pouch; keep away from water, lotions, and perfumes.",
+    },
+    {
+      types: [
+        "baseball_cap",
+        "beanie",
+        "sun_hat",
+        "bucket_hat",
+      ],
+      fabric: "Soft felt and twill blends with breathable comfort lining.",
+      fit: "Standard crown height with an interior band that adjusts for a custom feel.",
+      care: "Spot clean with a lint brush or damp cloth; reshape and air dry away from heat.",
+    },
+  ];
+
+  const DEFAULT_DETAIL_PROFILE = {
+    fabric: "Premium fabric with a smooth handfeel.",
+    fit: "True to size with a relaxed drape. Size down for a closer fit.",
+    care: "Machine wash cold with like colors. Tumble dry low.",
+  };
+
+  const resolveGarmentDetailProfile = (garmentType) => {
+    const normalized = normalizeGarmentKey(garmentType);
+    if (!normalized) {
+      return DEFAULT_DETAIL_PROFILE;
+    }
+
+    for (const profile of GARMENT_DETAIL_PROFILES) {
+      if (profile.types.some((type) => normalizeGarmentKey(type) === normalized)) {
+        return profile;
+      }
+    }
+
+    return DEFAULT_DETAIL_PROFILE;
+  };
+
   const normalizeStyleValue = (value) => {
     if (!value && value !== 0) return "";
     if (typeof value === "string") return value.trim();
@@ -547,6 +771,11 @@ export default function ProductDetailPage() {
 
     return "t_shirt";
   }, [product]);
+
+  const garmentDetailProfile = useMemo(
+    () => resolveGarmentDetailProfile(inferGarmentType),
+    [inferGarmentType]
+  );
 
   const resolvedStyle = useMemo(() => {
     if (!product) return "";
@@ -841,17 +1070,31 @@ export default function ProductDetailPage() {
   const isOutOfStock = availableQuantity <= 0;
   const maxQuantity = Math.max(availableQuantity || 0, 1);
   const fabric =
-    product.fabric || product.material || product.materials || "Premium cotton blend";
+    pickFirstMeaningfulText(
+      product.fabric,
+      product.material,
+      product.materials,
+      product.textile,
+      product.textiles,
+      garmentDetailProfile.fabric
+    ) || garmentDetailProfile.fabric;
   const care =
-    product.care_instructions ||
-    product.care ||
-    "Machine wash cold with like colors. Tumble dry low."
+    pickFirstMeaningfulText(
+      product.care_instructions,
+      product.care,
+      product.careInstructions,
+      garmentDetailProfile.care
+    ) || garmentDetailProfile.care;
   const deliveryNote =
     product.shipping_note ||
     "Free standard delivery over $75. Easy 30-day returns.";
   const fitNote =
-    product.fit ||
-    "True to size with a relaxed drape. Size down for a closer fit.";
+    pickFirstMeaningfulText(
+      product.fit,
+      product.fit_note,
+      product.fitNotes,
+      garmentDetailProfile.fit
+    ) || garmentDetailProfile.fit;
   const hasDynamicSizeGuide = Boolean(
     sizeGuide &&
       Array.isArray(sizeGuide.sizes) &&

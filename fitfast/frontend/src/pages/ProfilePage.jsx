@@ -51,6 +51,43 @@ const DEFAULT_MEASUREMENTS = {
   neck_circumference: "",
 };
 
+const REGISTRATION_BODY_FIELDS = [
+  { key: "height_cm", label: "Height", unit: "cm" },
+  { key: "weight_kg", label: "Weight", unit: "kg" },
+  { key: "bust_cm", label: "Bust", unit: "cm" },
+  { key: "waist_cm", label: "Waist", unit: "cm" },
+  { key: "hips_cm", label: "Hips", unit: "cm" },
+  { key: "shoulder_width_cm", label: "Shoulder Width", unit: "cm" },
+  { key: "arm_length_cm", label: "Arm Length", unit: "cm" },
+  { key: "inseam_cm", label: "Inseam", unit: "cm" },
+];
+
+const BODY_SHAPE_OPTIONS = [
+  { value: "", label: "Select your body shape" },
+  { value: "hourglass", label: "⏳ Hourglass" },
+  { value: "pear", label: "🍐 Pear" },
+  { value: "apple", label: "🍎 Apple" },
+  { value: "rectangle", label: "▭ Rectangle" },
+  { value: "inverted_triangle", label: "▽ Inverted Triangle" },
+];
+
+const FIT_PREFERENCE_OPTIONS = [
+  { value: "", label: "Select your fit preference" },
+  { value: "tight", label: "✨ Tight Fit" },
+  { value: "regular", label: "👕 Regular Fit" },
+  { value: "loose", label: "🧥 Loose Fit" },
+];
+
+const REGISTRATION_PREFERENCE_FIELDS = [
+  { key: "body_shape", label: "Body Shape", options: BODY_SHAPE_OPTIONS },
+  { key: "fit_preference", label: "Fit Preference", options: FIT_PREFERENCE_OPTIONS },
+];
+
+const REGISTRATION_DISPLAY_FIELDS = [
+  ...REGISTRATION_BODY_FIELDS,
+  ...REGISTRATION_PREFERENCE_FIELDS,
+];
+
 const isBrowser = typeof window !== "undefined";
 const ORDER_HISTORY_STORAGE = "fitfast_account_orders";
 const ORDER_STATUS_STORAGE = "fitfast_recent_order";
@@ -65,6 +102,77 @@ const DEFAULT_ADDRESS = {
   country: "USA",
   phone: "(212) 555-0113",
 };
+
+const STRING_MEASUREMENT_KEYS = new Set([
+  "body_shape",
+  "fit_preference",
+  "cup_size",
+]);
+
+const extractApiErrorMessage = (error, fallback = "Failed to save measurements ❌") => {
+  const response = error?.response?.data;
+
+  if (response?.errors && typeof response.errors === "object") {
+    const fieldErrors = Object.values(response.errors)
+      .flat()
+      .filter(Boolean);
+    if (fieldErrors.length) {
+      return `${fallback.replace(" ❌", "")}: ${fieldErrors[0]} ❌`;
+    }
+  }
+
+  if (typeof response?.message === "string" && response.message.trim()) {
+    return `${fallback.replace(" ❌", "")}: ${response.message} ❌`;
+  }
+
+  return fallback;
+};
+
+const sanitizeMeasurementsPayload = (source) => {
+  if (!source || typeof source !== "object") return {};
+
+  const toNumber = (value) => {
+    if (typeof value === "number") {
+      return Number.isFinite(value) ? value : null;
+    }
+    if (typeof value === "string") {
+      const trimmed = value.trim();
+      if (!trimmed) return null;
+      const parsed = Number.parseFloat(trimmed);
+      return Number.isFinite(parsed) ? parsed : null;
+    }
+    return null;
+  };
+
+  return Object.entries(source).reduce((acc, [key, rawValue]) => {
+    if (rawValue === undefined) {
+      return acc;
+    }
+
+    if (STRING_MEASUREMENT_KEYS.has(key)) {
+      if (rawValue === null) {
+        acc[key] = null;
+      } else if (typeof rawValue === "string") {
+        const trimmed = rawValue.trim();
+        acc[key] = trimmed || null;
+      } else {
+        acc[key] = String(rawValue || "").trim() || null;
+      }
+      return acc;
+    }
+
+    const numericValue = toNumber(rawValue);
+    acc[key] = numericValue;
+    return acc;
+  }, {});
+};
+
+const formatLabel = (key) =>
+  key
+    .replace("_cm", "")
+    .replace("_kg", "")
+    .replace(/_/g, " ")
+    .replace(/\b\w/g, (l) => l.toUpperCase());
 
 const readStoredJson = (key, fallback) => {
   if (!isBrowser) return fallback;
@@ -598,7 +706,8 @@ export default function ProfilePage() {
 
   const handleSave = async () => {
     try {
-      const response = await api.put("/user", { measurements });
+      const sanitized = sanitizeMeasurementsPayload(measurements);
+      const response = await api.put("/user", { measurements: sanitized });
       if (response?.data?.user) {
         setUser(response.data.user);
       }
@@ -608,7 +717,7 @@ export default function ProfilePage() {
     } catch (e) {
       console.error(e);
       setMessageType("error");
-      setMessage("Failed to save measurements ❌");
+      setMessage(extractApiErrorMessage(e));
     }
     setTimeout(() => setMessage(""), 3000);
   };
@@ -620,13 +729,6 @@ export default function ProfilePage() {
     });
     setEditing(false);
   };
-
-  const formatLabel = (key) =>
-    key
-      .replace("_cm", "")
-      .replace("_kg", "")
-      .replace(/_/g, " ")
-      .replace(/\b\w/g, (l) => l.toUpperCase());
 
   const formatPrice = (price) => {
     if (price === null || price === undefined || price === "") return null;
@@ -938,7 +1040,29 @@ export default function ProfilePage() {
         .join("")
     : "U";
 
-  const hasMeasurements = Object.values(measurements).some(Boolean);
+  const registrationDisplayItems = useMemo(() => {
+    return REGISTRATION_DISPLAY_FIELDS.map((field) => {
+      const rawValue = measurements[field.key];
+      if (rawValue === null || rawValue === undefined || rawValue === "") {
+        return null;
+      }
+
+      if (field.options) {
+        const optionLabel = field.options.find((option) => option.value === rawValue)?.label;
+        const resolvedValue = optionLabel || formatLabel(String(rawValue));
+        return { key: field.key, label: field.label, value: resolvedValue };
+      }
+
+      const numericValue = typeof rawValue === "number" ? rawValue : Number.parseFloat(rawValue);
+      const hasNumeric = Number.isFinite(numericValue);
+      const resolvedValue = field.unit
+        ? `${hasNumeric ? numericValue : rawValue} ${field.unit}`.trim()
+        : rawValue;
+      return { key: field.key, label: field.label, value: resolvedValue };
+    }).filter(Boolean);
+  }, [measurements]);
+
+  const hasRegistrationMeasurements = registrationDisplayItems.length > 0;
   const hasWishlist = wishlistItems.length > 0;
   const hasProfilePhoto = Boolean(user?.profile_photo_url);
 
@@ -1098,7 +1222,7 @@ export default function ProfilePage() {
 
               {!editing ? (
                 <div className="measurements-display">
-                  {!hasMeasurements ? (
+                  {!hasRegistrationMeasurements ? (
                     <div className="empty-state">
                       <div className="empty-icon">📏</div>
                       <div>No measurements yet.</div>
@@ -1108,27 +1232,86 @@ export default function ProfilePage() {
                     </div>
                   ) : (
                     <ul className="measurements-list">
-                      {Object.entries(measurements).map(([key, value]) => 
-                        value ? (
-                          <li className="measurement-item" key={key}>
-                            <span className="measurement-label">{formatLabel(key)}</span>
-                            <span className="measurement-value">{value}</span>
-                          </li>
-                        ) : null
-                      )}
+                      {registrationDisplayItems.map((item) => (
+                        <li className="measurement-item" key={item.key}>
+                          <span className="measurement-label">{item.label}</span>
+                          <span className="measurement-value">{item.value}</span>
+                        </li>
+                      ))}
                     </ul>
                   )}
                 </div>
               ) : (
                 <div className="measurements-form">
+                  <div className="measurement-section core-measurements">
+                    <div className="section-title-row">
+                      <h4 className="measurement-section-title">📝 Core Measurements</h4>
+                      <span className="section-badge">Registration</span>
+                    </div>
+                    <p className="section-description">
+                      Keep these up to date to mirror the measurements captured during registration.
+                    </p>
+                    <div className="form-grid">
+                      {REGISTRATION_BODY_FIELDS.map((field) => (
+                        <div className="form-group" key={field.key}>
+                          <label htmlFor={field.key}>{field.label}</label>
+                          <div className="input-with-unit profile-input-unit">
+                            <input
+                              id={field.key}
+                              type="number"
+                              step="0.1"
+                              min="0"
+                              name={field.key}
+                              value={measurements[field.key]}
+                              onChange={handleChange}
+                              placeholder="—"
+                            />
+                            {field.unit && <span className="unit-label">{field.unit}</span>}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+
+                  <div className="measurement-section preference-section">
+                    <div className="section-title-row">
+                      <h4 className="measurement-section-title">🎯 Fit Preferences</h4>
+                      <span className="section-badge">Registration</span>
+                    </div>
+                    <p className="section-description">
+                      Update your profile preferences used for early recommendations.
+                    </p>
+                    <div className="form-grid">
+                      {REGISTRATION_PREFERENCE_FIELDS.map((field) => (
+                        <div className="form-group" key={field.key}>
+                          <label htmlFor={field.key}>{field.label}</label>
+                          <select
+                            id={field.key}
+                            name={field.key}
+                            value={measurements[field.key]}
+                            onChange={handleChange}
+                          >
+                            {field.options.map((option) => (
+                              <option key={option.value} value={option.value}>
+                                {option.label}
+                              </option>
+                            ))}
+                          </select>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+
+                  <p className="optional-hint">Everything below is optional and helps refine advanced fit recommendations.</p>
+
                   {/* High Priority Measurements */}
                   <div className="measurement-section high-priority">
                     <div className="section-title-row">
-                      <h4 className="measurement-section-title">⭐ High Priority Measurements</h4>
-                      <span className="section-badge high">Most Important</span>
+                      <h4 className="measurement-section-title">⭐ Advanced Fit Measurements</h4>
+                      <span className="section-badge">Optional</span>
                     </div>
                     <p className="section-description">
-                      These measurements are used for most garment types including shirts, pants, dresses, and outerwear.
+                      Useful for tailoring recommendations across shirts, pants, dresses, and outerwear.
                     </p>
                     <div className="form-grid">
                       {[
@@ -1165,11 +1348,11 @@ export default function ProfilePage() {
                   {/* Medium Priority Measurements */}
                   <div className="measurement-section medium-priority">
                     <div className="section-title-row">
-                      <h4 className="measurement-section-title">✨ Medium Priority Measurements</h4>
-                      <span className="section-badge medium">Important</span>
+                      <h4 className="measurement-section-title">✨ Category-Specific Measurements</h4>
+                      <span className="section-badge">Optional</span>
                     </div>
                     <p className="section-description">
-                      Important for specific categories like pants, dresses, footwear, and skirts.
+                      Helpful for categories like pants, dresses, footwear, and skirts.
                     </p>
                     <div className="form-grid">
                       {[
@@ -1209,11 +1392,11 @@ export default function ProfilePage() {
                   {/* Low Priority Measurements */}
                   <div className="measurement-section low-priority">
                     <div className="section-title-row">
-                      <h4 className="measurement-section-title">💡 Low Priority Measurements</h4>
-                      <span className="section-badge low">Optional</span>
+                      <h4 className="measurement-section-title">💡 Specialized Measurements</h4>
+                      <span className="section-badge">Optional</span>
                     </div>
                     <p className="section-description">
-                      Specialized measurements for specific items like accessories, swimwear, and unique garments.
+                      Specialized inputs for accessories, swimwear, and unique garments.
                     </p>
                     <div className="form-grid">
                       {[
@@ -1263,44 +1446,6 @@ export default function ProfilePage() {
                           maxLength="10"
                         />
                       </div>
-                    </div>
-                  </div>
-
-                  {/* Legacy Measurements (for backward compatibility) */}
-                  <div className="measurement-section legacy">
-                    <div className="section-title-row">
-                      <h4 className="measurement-section-title">📦 Legacy Measurements</h4>
-                      <span className="section-badge">Optional</span>
-                    </div>
-                    <p className="section-description">
-                      Original measurements kept for compatibility. Consider using the categorized versions above.
-                    </p>
-                    <div className="form-grid">
-                      {[
-                        ["bust_cm", "Bust", "cm"],
-                        ["waist_cm", "Waist", "cm"],
-                        ["hips_cm", "Hips", "cm"],
-                        ["shoulder_width_cm", "Shoulder Width", "cm"],
-                        ["arm_length_cm", "Arm Length", "cm"],
-                        ["inseam_cm", "Inseam", "cm"],
-                      ].map(([key, label, unit]) => (
-                        <div className="form-group" key={key}>
-                          <label htmlFor={key}>{label}</label>
-                          <div className="input-with-unit profile-input-unit">
-                            <input
-                              id={key}
-                              type="number"
-                              step="0.1"
-                              min="0"
-                              name={key}
-                              value={measurements[key]}
-                              onChange={handleChange}
-                              placeholder="—"
-                            />
-                            <span className="unit-label">{unit}</span>
-                          </div>
-                        </div>
-                      ))}
                     </div>
                   </div>
 

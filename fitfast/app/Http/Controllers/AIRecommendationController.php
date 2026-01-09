@@ -11,6 +11,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Arr;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
 
 class AIRecommendationController extends Controller
@@ -49,7 +50,13 @@ class AIRecommendationController extends Controller
 
             $response->throw();
 
-            return response()->json($response->json());
+            $result = $response->json();
+
+            if (is_array($result) && isset($result['data']) && is_array($result['data'])) {
+                $result['data'] = $this->normalizeSizePayload($result['data'], $garmentType);
+            }
+
+            return response()->json($result);
         } catch (RequestException $exception) {
             return $this->errorResponse($exception);
         }
@@ -200,5 +207,262 @@ class AIRecommendationController extends Controller
         return response()->json([
             'message' => $message,
         ], $status >= 400 ? $status : 502);
+    }
+
+    private function normalizeSizePayload(array $payload, ?string $garmentType): array
+    {
+        $payload = $this->normalizeSizeEntry($payload, $garmentType);
+
+        if (isset($payload['recommendations']) && is_array($payload['recommendations'])) {
+            $payload['recommendations'] = array_map(function ($entry) use ($garmentType) {
+                return is_array($entry) ? $this->normalizeSizeEntry($entry, $garmentType) : $entry;
+            }, $payload['recommendations']);
+        }
+
+        return $payload;
+    }
+
+    private function normalizeSizeEntry(array $entry, ?string $garmentType): array
+    {
+        $sizeValue = null;
+        foreach (['recommended_size', 'recommendedSize', 'size', 'suggested_size', 'suggestion'] as $key) {
+            $candidate = Arr::get($entry, $key);
+            if ($candidate !== null && $candidate !== '') {
+                $sizeValue = $candidate;
+                break;
+            }
+        }
+
+        $normalized = $this->normalizeSizeValue($sizeValue, $garmentType);
+
+        if ($normalized !== null) {
+            $entry['recommended_size'] = $normalized;
+            $entry['recommendedSize'] = $entry['recommendedSize'] ?? $normalized;
+            $entry['size'] = $normalized;
+            $entry['size_label'] = $entry['size_label'] ?? $normalized;
+        }
+
+        return $entry;
+    }
+
+    private function normalizeSizeValue(mixed $value, ?string $garmentType): ?string
+    {
+        if ($value === null) {
+            return null;
+        }
+
+        if (is_array($value)) {
+            $value = Arr::first($value, static fn ($entry) => $entry !== null && $entry !== '');
+        }
+
+        if ($value === null) {
+            return null;
+        }
+
+        $stringValue = trim((string) $value);
+
+        if ($stringValue === '') {
+            return null;
+        }
+
+        if ($this->shouldForceAlphaSize($garmentType) && $this->isNumericSize($stringValue)) {
+            return $this->mapNumericSizeToAlpha((float) $stringValue);
+        }
+
+        return $this->standardizeAlphaSize($stringValue);
+    }
+
+    private function shouldForceAlphaSize(?string $garmentType): bool
+    {
+        if (!$garmentType) {
+            return false;
+        }
+
+        $normalized = Str::lower(str_replace(['_', '-'], ' ', $garmentType));
+
+        if ($this->shouldKeepNumericSizes($normalized)) {
+            return false;
+        }
+
+        $clothingKeywords = [
+            'shirt',
+            'top',
+            'tee',
+            'hoodie',
+            'sweater',
+            'jumper',
+            'jacket',
+            'coat',
+            'polo',
+            'dress',
+            'skirt',
+            'pant',
+            'jean',
+            'trouser',
+            'short',
+            'legging',
+            'sweatpant',
+            'sweatshirt',
+            'blazer',
+            'suit',
+            'romper',
+            'bodysuit',
+            'onesie',
+            'outerwear',
+            'activewear',
+            'uniform',
+            'vest',
+            'cardigan',
+            'tunic',
+            'kimono',
+            'overall',
+            'pullover',
+        ];
+
+        foreach ($clothingKeywords as $keyword) {
+            if (Str::contains($normalized, $keyword)) {
+                return true;
+            }
+        }
+
+        return true;
+    }
+
+    private function shouldKeepNumericSizes(string $normalized): bool
+    {
+        $nonClothingKeywords = [
+            'shoe',
+            'sneaker',
+            'boot',
+            'heel',
+            'sandal',
+            'flip flop',
+            'slipper',
+            'loafer',
+            'moccasin',
+            'cleat',
+            'wedge',
+            'stiletto',
+            'oxford',
+            'jewelry',
+            'necklace',
+            'bracelet',
+            'ring',
+            'earring',
+            'watch',
+            'chain',
+            'accessory',
+            'belt',
+            'bag',
+            'purse',
+            'wallet',
+            'luggage',
+            'backpack',
+            'hat',
+            'cap',
+            'beanie',
+            'helmet',
+            'glasses',
+            'goggle',
+            'scarf',
+            'wrap',
+            'shawl',
+            'tie',
+            'bowtie',
+            'suspenders',
+        ];
+
+        foreach ($nonClothingKeywords as $keyword) {
+            if (Str::contains($normalized, $keyword)) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private function isNumericSize(string $value): bool
+    {
+        if (is_numeric($value)) {
+            return true;
+        }
+
+        return (bool) preg_match('/^\d+(\.\d+)?$/', $value);
+    }
+
+    private function mapNumericSizeToAlpha(float $size): string
+    {
+        $rounded = (int) round($size);
+
+        if ($rounded <= 0) {
+            return 'XS';
+        }
+
+        if ($rounded <= 2) {
+            return 'XS';
+        }
+
+        if ($rounded <= 4) {
+            return 'S';
+        }
+
+        if ($rounded <= 8) {
+            return 'M';
+        }
+
+        if ($rounded <= 12) {
+            return 'L';
+        }
+
+        if ($rounded <= 16) {
+            return 'XL';
+        }
+
+        if ($rounded <= 20) {
+            return 'XXL';
+        }
+
+        $centimeters = $size > 60 ? (int) round($size) : (int) round($size * 2.54);
+
+        return $centimeters > 0 ? $centimeters . ' cm' : (string) $rounded;
+    }
+
+    private function standardizeAlphaSize(string $value): string
+    {
+        $normalized = strtoupper(trim($value));
+        $collapsed = preg_replace('/[^A-Z0-9]/', '', $normalized);
+
+        $aliases = [
+            'EXTRASMALL' => 'XS',
+            'XSMALL' => 'XS',
+            'SMALL' => 'S',
+            'MEDIUM' => 'M',
+            'MED' => 'M',
+            'LARGE' => 'L',
+            'XLARGE' => 'XL',
+            'EXTRALARGE' => 'XL',
+            'XXLARGE' => 'XXL',
+            '2XL' => 'XXL',
+            '3XL' => 'XXXL',
+            '4XL' => 'XXXXL',
+        ];
+
+        if (isset($aliases[$collapsed])) {
+            return $aliases[$collapsed];
+        }
+
+        if (preg_match('/^X{1,4}L$/', $normalized)) {
+            return $normalized;
+        }
+
+        if (in_array($normalized, ['XS', 'S', 'M', 'L', 'XL', 'XXL', 'XXXL', 'XXXXL'], true)) {
+            return $normalized;
+        }
+
+        if (preg_match('/^(\d+)\s*CM$/', $normalized, $matches)) {
+            return $matches[1] . ' cm';
+        }
+
+        return $normalized;
     }
 }

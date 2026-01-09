@@ -2283,6 +2283,7 @@ a:hover {
   display: flex;
   justify-content: space-between;
   align-items: center;
+  gap: 1rem;
   padding: 1rem 1.2rem;
   background: white;
   border-radius: 12px;
@@ -2301,13 +2302,14 @@ a:hover {
 .measurement-label {
   color: #641b2e;
   font-weight: 600;
-  font-size: 0.9rem;
+  font-size: 0.82rem;
 }
 
 .measurement-value {
   color: #be5b50;
   font-weight: 700;
-  font-size: 1.1rem;
+  font-size: 0.95rem;
+  white-space: nowrap;
 }
 
 /* ====== EMPTY STATE ====== */

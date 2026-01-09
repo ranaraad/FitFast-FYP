@@ -98,3 +98,59 @@ export function getBestFitCopy(item) {
 
   return "Best Fit: Medium - 90% Match!";
 }
+
+const DEFAULT_GARMENT_TYPE = "t_shirt";
+
+const normalizeGarmentKey = (value) => {
+  if (!value && value !== 0) {
+    return "";
+  }
+
+  return value
+    .toString()
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "_")
+    .replace(/^_+|_+$/g, "")
+    .replace(/__+/g, "_");
+};
+
+export function inferGarmentType(item) {
+  if (!item) {
+    return DEFAULT_GARMENT_TYPE;
+  }
+
+  const explicit = normalizeGarmentKey(
+    item.garment_type ||
+      item.garmentType ||
+      item.garmentTypeKey ||
+      item.garmentCategory
+  );
+
+  if (explicit) {
+    return explicit || DEFAULT_GARMENT_TYPE;
+  }
+
+  const categorySource = (() => {
+    const category = item.category || item.category_name || item.category_slug;
+    if (typeof category === "string") return category;
+    if (category && typeof category === "object") {
+      return category.slug || category.name || "";
+    }
+    return "";
+  })()
+    .toString()
+    .toLowerCase();
+
+  if (categorySource.includes("dress")) return "a_line_dress";
+  if (categorySource.includes("jean")) return "regular_jeans";
+  if (categorySource.includes("pant")) return "regular_pants";
+  if (categorySource.includes("skirt")) return "a_line_skirt";
+  if (categorySource.includes("coat") || categorySource.includes("jacket")) {
+    return "bomber_jacket";
+  }
+  if (categorySource.includes("hoodie")) return "pullover_hoodie";
+  if (categorySource.includes("sweater")) return "crewneck_sweater";
+  if (categorySource.includes("short")) return "casual_shorts";
+
+  return DEFAULT_GARMENT_TYPE;
+}

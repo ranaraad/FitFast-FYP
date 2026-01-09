@@ -1791,15 +1791,44 @@ body {
   bottom: 1rem;
   left: 50%;
   transform: translateX(-50%);
-  background: rgba(190, 91, 80, 0.95);
-  color: white;
-  padding: 0.6rem 1.2rem;
+  background: rgba(190, 91, 80, 0.85);
+  color: #ffffff;
+  padding: 0.6rem 1.3rem;
   border-radius: 25px;
   font-size: 0.85rem;
   font-weight: 600;
   letter-spacing: 0.02em;
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
   backdrop-filter: blur(8px);
+  border: none;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.25rem;
+  transition: background 0.2s ease, box-shadow 0.2s ease, transform 0.2s ease;
+  font-family: inherit;
+  text-decoration: none;
+}
+
+.best-fit-badge:hover {
+  background: rgba(190, 91, 80, 0.95);
+  transform: translateX(-50%) scale(1.02);
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.22);
+}
+
+.best-fit-badge:focus-visible {
+  outline: 2px solid rgba(255, 217, 225, 0.9);
+  outline-offset: 2px;
+}
+
+.best-fit-badge--active {
+  background: rgba(190, 91, 80, 1);
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.25);
+}
+
+.best-fit-badge--active:hover {
+  transform: translateX(-50%) scale(1.01);
 }
 
 /* Product Info */

@@ -13,6 +13,303 @@ import {
   syncUserProfile,
 } from "../services/aiClient";
 
+// Measurement metadata used to render the dynamic size guide.
+const STANDARD_SIZE_PRIORITY = [
+  "XXS",
+  "XS",
+  "S",
+  "M",
+  "L",
+  "XL",
+  "XXL",
+  "XXXL",
+  "3XL",
+  "4XL",
+  "5XL",
+  "ONE SIZE",
+  "OS",
+  "STANDARD",
+];
+
+const MEASUREMENT_PRIORITY = [
+  "chest_circumference",
+  "waist_circumference",
+  "hips_circumference",
+  "garment_length",
+  "dress_length",
+  "shoulder_to_hem",
+  "sleeve_length",
+  "shoulder_width",
+  "inseam_length",
+  "short_length",
+  "thigh_circumference",
+  "leg_opening",
+  "rise",
+  "foot_length",
+  "foot_width",
+  "hood_height",
+  "bicep_circumference",
+  "collar_size",
+  "head_circumference",
+  "calf_circumference",
+  "length",
+  "width",
+  "depth",
+  "circumference",
+  "chain_length",
+  "bracelet_circumference",
+];
+
+const MEASUREMENT_LABELS = {
+  chest_circumference: "Chest",
+  waist_circumference: "Waist",
+  hips_circumference: "Hips",
+  garment_length: "Length",
+  dress_length: "Dress Length",
+  shoulder_to_hem: "Shoulder to Hem",
+  sleeve_length: "Sleeve",
+  shoulder_width: "Shoulder",
+  inseam_length: "Inseam",
+  short_length: "Short Length",
+  thigh_circumference: "Thigh",
+  leg_opening: "Leg Opening",
+  rise: "Rise",
+  foot_length: "Foot Length",
+  foot_width: "Foot Width",
+  hood_height: "Hood Height",
+  bicep_circumference: "Bicep",
+  collar_size: "Collar",
+  head_circumference: "Head",
+  calf_circumference: "Calf",
+  length: "Length",
+  width: "Width",
+  depth: "Depth",
+  circumference: "Circumference",
+  chain_length: "Chain Length",
+  bracelet_circumference: "Bracelet",
+};
+
+const MEASUREMENT_UNITS = {
+  foot_width: "cm",
+  foot_length: "cm",
+  brim_width: "cm",
+};
+
+const MEASUREMENT_DIVISORS = {
+  foot_width: 10,
+  brim_width: 10,
+};
+
+const normalizeSizeValue = (value) => {
+  if (value === null || value === undefined) {
+    return "";
+  }
+
+  return value.toString().trim();
+};
+
+const getSizeOrderIndex = (size) => {
+  const normalized = normalizeSizeValue(size);
+  if (!normalized) {
+    return Number.MAX_SAFE_INTEGER;
+  }
+
+  const upper = normalized.toUpperCase();
+  const presetIndex = STANDARD_SIZE_PRIORITY.indexOf(upper);
+  if (presetIndex !== -1) {
+    return presetIndex;
+  }
+
+  const numericValue = Number(normalized);
+  if (Number.isFinite(numericValue)) {
+    return STANDARD_SIZE_PRIORITY.length + numericValue;
+  }
+
+  return STANDARD_SIZE_PRIORITY.length * 2 + upper.charCodeAt(0);
+};
+
+const sortSizesByPriority = (sizes) =>
+  [...sizes].sort((a, b) => {
+    const diff = getSizeOrderIndex(a) - getSizeOrderIndex(b);
+    if (diff !== 0) {
+      return diff;
+    }
+    return normalizeSizeValue(a).localeCompare(normalizeSizeValue(b));
+  });
+
+const getMeasurementOrderIndex = (key) => {
+  const index = MEASUREMENT_PRIORITY.indexOf(key);
+  if (index !== -1) {
+    return index;
+  }
+  return MEASUREMENT_PRIORITY.length * 2 + key.charCodeAt(0);
+};
+
+const sortMeasurementsByPriority = (keys) =>
+  [...keys].sort((a, b) => {
+    const diff = getMeasurementOrderIndex(a) - getMeasurementOrderIndex(b);
+    if (diff !== 0) {
+      return diff;
+    }
+    return a.localeCompare(b);
+  });
+
+const isMeaningfulValue = (value) => {
+  if (value === null || value === undefined) {
+    return false;
+  }
+
+  if (typeof value === "string") {
+    return value.trim().length > 0;
+  }
+
+  return true;
+};
+
+const parseSizingPayload = (raw) => {
+  if (!raw) {
+    return null;
+  }
+
+  if (typeof raw === "string") {
+    try {
+      return JSON.parse(raw);
+    } catch (err) {
+      console.warn("Failed to parse sizing_data string", err);
+      return null;
+    }
+  }
+
+  if (typeof raw === "object") {
+    return raw;
+  }
+
+  return null;
+};
+
+const pickMeasurementMap = (payload) => {
+  if (!payload || typeof payload !== "object") {
+    return null;
+  }
+
+  const candidates = [
+    payload.measurements_cm,
+    payload.measurements,
+    payload.metric,
+    payload.chart,
+  ];
+
+  for (const candidate of candidates) {
+    if (
+      candidate &&
+      typeof candidate === "object" &&
+      !Array.isArray(candidate) &&
+      Object.keys(candidate).length
+    ) {
+      return candidate;
+    }
+  }
+
+  return null;
+};
+
+const formatMeasurementLabel = (key) => {
+  if (MEASUREMENT_LABELS[key]) {
+    return MEASUREMENT_LABELS[key];
+  }
+
+  return key
+    .replace(/_/g, " ")
+    .replace(/\b\w/g, (letter) => letter.toUpperCase());
+};
+
+const formatMeasurementValue = (raw, key) => {
+  if (!isMeaningfulValue(raw)) {
+    return "—";
+  }
+
+  const numeric = Number(raw);
+  if (Number.isFinite(numeric)) {
+    const divisor = MEASUREMENT_DIVISORS[key] || 1;
+    const adjusted = numeric / divisor;
+    const decimals = adjusted % 1 === 0 ? 0 : 1;
+    const unit = MEASUREMENT_UNITS[key] || "cm";
+    const value = adjusted.toFixed(decimals);
+    return `${value} ${unit}`.trim();
+  }
+
+  return String(raw).trim();
+};
+
+const buildSizeGuide = (item) => {
+  if (!item) {
+    return null;
+  }
+
+  const payload =
+    item.sizing_data ||
+    item.sizingData ||
+    item.size_chart ||
+    item.sizeChart ||
+    null;
+
+  const parsed = parseSizingPayload(payload);
+  if (!parsed) {
+    return null;
+  }
+
+  const measurementMap = pickMeasurementMap(parsed);
+  if (!measurementMap) {
+    return null;
+  }
+
+  const sizeKeys = sortSizesByPriority(Object.keys(measurementMap));
+  if (!sizeKeys.length) {
+    return null;
+  }
+
+  const measurementKeys = new Set();
+  for (const size of sizeKeys) {
+    const sizeData = measurementMap[size];
+    if (!sizeData || typeof sizeData !== "object") {
+      continue;
+    }
+    Object.entries(sizeData).forEach(([measurementKey, measurementValue]) => {
+      if (isMeaningfulValue(measurementValue)) {
+        measurementKeys.add(measurementKey);
+      }
+    });
+  }
+
+  if (!measurementKeys.size) {
+    return null;
+  }
+
+  const sortedMeasurements = sortMeasurementsByPriority(Array.from(measurementKeys));
+
+  const formattedValues = {};
+  for (const size of sizeKeys) {
+    formattedValues[size] = {};
+    for (const measurementKey of sortedMeasurements) {
+      const rawValue = measurementMap[size]?.[measurementKey];
+      formattedValues[size][measurementKey] = formatMeasurementValue(
+        rawValue,
+        measurementKey
+      );
+    }
+  }
+
+  return {
+    sizes: sizeKeys,
+    measurements: sortedMeasurements,
+    labels: sortedMeasurements.reduce((acc, key) => {
+      acc[key] = formatMeasurementLabel(key);
+      return acc;
+    }, {}),
+    values: formattedValues,
+  };
+};
+
 export default function ProductDetailPage() {
   const { storeId, productId } = useParams();
   const navigate = useNavigate();
@@ -71,6 +368,8 @@ export default function ProductDetailPage() {
     const map = outfitSuggestion.size_recommendations || outfitSuggestion.sizeRecommendations || {};
     return map;
   }, [outfitSuggestion]);
+
+  const sizeGuide = useMemo(() => buildSizeGuide(product), [product]);
 
   const normalizeOptions = (value, fallback = []) => {
     if (Array.isArray(value)) return value.filter(Boolean);
@@ -553,6 +852,13 @@ export default function ProductDetailPage() {
   const fitNote =
     product.fit ||
     "True to size with a relaxed drape. Size down for a closer fit.";
+  const hasDynamicSizeGuide = Boolean(
+    sizeGuide &&
+      Array.isArray(sizeGuide.sizes) &&
+      sizeGuide.sizes.length &&
+      Array.isArray(sizeGuide.measurements) &&
+      sizeGuide.measurements.length
+  );
 
   return (
     <div className="product-detail-page">
@@ -845,20 +1151,53 @@ export default function ProductDetailPage() {
               </div>
 
               <div className="size-guide">
-                <div className="size-guide-row header">
-                  <span>Size</span>
-                  <span>Chest</span>
-                  <span>Waist</span>
-                  <span>Length</span>
-                </div>
-                {sizes.map((size) => (
-                  <div className="size-guide-row" key={size}>
-                    <span>{size}</span>
-                    <span>34" - 38"</span>
-                    <span>28" - 32"</span>
-                    <span>26" - 30"</span>
-                  </div>
-                ))}
+                {hasDynamicSizeGuide ? (
+                  <>
+                    <div
+                      className="size-guide-row header"
+                      style={{
+                        gridTemplateColumns: `repeat(${sizeGuide.measurements.length + 1}, minmax(0, 1fr))`,
+                      }}
+                    >
+                      <span>Size</span>
+                      {sizeGuide.measurements.map((measurementKey) => (
+                        <span key={measurementKey}>
+                          {sizeGuide.labels[measurementKey]}
+                        </span>
+                      ))}
+                    </div>
+                    {sizeGuide.sizes.map((size) => (
+                      <div
+                        className="size-guide-row"
+                        key={size}
+                        style={{
+                          gridTemplateColumns: `repeat(${sizeGuide.measurements.length + 1}, minmax(0, 1fr))`,
+                        }}
+                      >
+                        <span>{size}</span>
+                        {sizeGuide.measurements.map((measurementKey) => (
+                          <span key={measurementKey}>
+                            {sizeGuide.values[size]?.[measurementKey] || "—"}
+                          </span>
+                        ))}
+                      </div>
+                    ))}
+                  </>
+                ) : (
+                  <>
+                    <div className="size-guide-row header">
+                      <span>Size</span>
+                    </div>
+                    {sizes.map((size) => (
+                      <div className="size-guide-row" key={size}>
+                        <span>{size}</span>
+                      </div>
+                    ))}
+                    <p className="muted small">
+                      Detailed measurements are not available for this item yet.
+                    </p>
+                  </>
+                )}
               </div>
             </div>
 

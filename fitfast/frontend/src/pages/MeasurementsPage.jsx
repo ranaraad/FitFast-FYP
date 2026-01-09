@@ -112,9 +112,8 @@ export default function MeasurementsPage() {
                   <input
                     id={key}
                     name={key}
-                    type="number"
-                    step="0.1"
-                    min="0"
+                    type="text"
+                    inputMode="decimal"
                     value={measurements[key]}
                     onChange={handleChange}
                     placeholder="—"

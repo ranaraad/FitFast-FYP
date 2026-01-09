@@ -1314,9 +1314,8 @@ export default function ProfilePage() {
                           <div className="input-with-unit profile-input-unit">
                             <input
                               id={field.key}
-                              type="number"
-                              step="0.1"
-                              min="0"
+                              type="text"
+                              inputMode="decimal"
                               name={field.key}
                               value={measurements[field.key]}
                               onChange={handleChange}
@@ -1403,9 +1402,8 @@ export default function ProfilePage() {
                           <div className="input-with-unit profile-input-unit">
                             <input
                               id={key}
-                              type="number"
-                              step="0.1"
-                              min="0"
+                              type="text"
+                              inputMode="decimal"
                               name={key}
                               value={measurements[key]}
                               onChange={handleChange}
@@ -1451,9 +1449,8 @@ export default function ProfilePage() {
                           <div className="input-with-unit profile-input-unit">
                             <input
                               id={key}
-                              type="number"
-                              step="0.1"
-                              min="0"
+                              type="text"
+                              inputMode="decimal"
                               name={key}
                               value={measurements[key]}
                               onChange={handleChange}
@@ -1501,9 +1498,8 @@ export default function ProfilePage() {
                           <div className="input-with-unit profile-input-unit">
                             <input
                               id={key}
-                              type="number"
-                              step="0.1"
-                              min="0"
+                              type="text"
+                              inputMode="decimal"
                               name={key}
                               value={measurements[key]}
                               onChange={handleChange}

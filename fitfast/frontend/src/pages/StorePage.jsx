@@ -188,6 +188,7 @@ export default function StorePage() {
   const [selectedCategoryId, setSelectedCategoryId] = useState(null);
   const [cartFeedback, setCartFeedback] = useState("");
   const [wishlistItems, setWishlistItems] = useState(() => getWishlist());
+  const [itemSearch, setItemSearch] = useState("");
   const categoryRailRef = useRef(null);
 
   useEffect(() => {
@@ -264,6 +265,55 @@ export default function StorePage() {
   const selectedCategoryTheme = selectedCategoryEntry?.theme;
 
   const categories = rawCategories ?? [];
+
+  const normalizedItemSearch = itemSearch.trim().toLowerCase();
+
+  const filteredItems = useMemo(() => {
+    if (!normalizedItemSearch) {
+      return selectedCategory?.items ?? [];
+    }
+
+    const matches = new Map();
+
+    categories.forEach((category, categoryIndex) => {
+      const categoryItems = category?.items ?? [];
+      const categoryKey = getCategoryKey(category, categoryIndex);
+      const categoryName = category?.name?.toLowerCase() ?? "";
+      const categoryMatches = categoryName.includes(normalizedItemSearch);
+
+      categoryItems.forEach((item, itemIndex) => {
+        const itemName = item?.name?.toLowerCase() ?? "";
+        const itemDesc = item?.description?.toLowerCase() ?? "";
+        const rawItemCategory = item?.category ?? item?.category_name ?? "";
+
+        let itemCategoryName = "";
+        if (typeof rawItemCategory === "string") {
+          itemCategoryName = rawItemCategory.toLowerCase();
+        } else if (rawItemCategory && typeof rawItemCategory === "object") {
+          itemCategoryName = (rawItemCategory.name ?? "").toLowerCase();
+        }
+
+        if (
+          categoryMatches ||
+          itemName.includes(normalizedItemSearch) ||
+          itemDesc.includes(normalizedItemSearch) ||
+          itemCategoryName.includes(normalizedItemSearch)
+        ) {
+          const lookupKey = getItemId(item) ?? `${categoryKey}-${itemIndex}`;
+          if (!matches.has(lookupKey)) {
+            matches.set(lookupKey, item);
+          }
+        }
+      });
+    });
+
+    return Array.from(matches.values());
+  }, [categories, normalizedItemSearch, selectedCategory]);
+
+  const showingSearchResults = normalizedItemSearch.length > 0;
+  const categoryCountLabel = showingSearchResults
+    ? `${filteredItems.length} ${filteredItems.length === 1 ? "match" : "matches"}`
+    : `${filteredItems.length} ${filteredItems.length === 1 ? "piece" : "pieces"}`;
 
   if (loading) {
     return <div className="store-page">Loading store...</div>;
@@ -411,15 +461,38 @@ export default function StorePage() {
                 </p>
               </div>
               <div className="category-meta">
+                <div className="category-search">
+                  <svg
+                    className="category-search-icon"
+                    width="18"
+                    height="18"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                  >
+                    <path
+                      d="M21 21L15 15M17 10C17 13.866 13.866 17 10 17C6.13401 17 3 13.866 3 10C3 6.13401 6.13401 3 10 3C13.866 3 17 6.13401 17 10Z"
+                      stroke="currentColor"
+                      strokeWidth="2"
+                      strokeLinecap="round"
+                    />
+                  </svg>
+                  <input
+                    type="text"
+                    value={itemSearch}
+                    onChange={(event) => setItemSearch(event.target.value)}
+                    placeholder="Search items or categories..."
+                    className="category-search-input"
+                  />
+                </div>
                 <span className="pill-count">
-                  {selectedCategory?.items?.length ?? 0} pieces
+                  {categoryCountLabel}
                 </span>
               </div>
             </div>
 
-            {selectedCategory?.items?.length ? (
+            {filteredItems.length ? (
               <div className="product-grid">
-                {selectedCategory.items.map((item) => {
+                {filteredItems.map((item) => {
                   const itemId = getItemId(item) ?? item.name;
                   const wishlisted = isItemWishlisted(
                     wishlistItems,
@@ -441,7 +514,11 @@ export default function StorePage() {
                 })}
               </div>
             ) : (
-              <div className="empty-state card">No items in this category yet.</div>
+              <div className="empty-state card">
+                {showingSearchResults
+                  ? `No matches for "${itemSearch.trim()}" in this store.`
+                  : "No items in this category yet."}
+              </div>
             )}
           </section>
         </>

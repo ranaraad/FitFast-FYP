@@ -46,7 +46,15 @@ export default function HomePage() {
     const filtered = stores.filter((store) => {
       const name = store.name?.toLowerCase() || "";
       const desc = store.description?.toLowerCase() || "";
-      return name.includes(value) || desc.includes(value);
+      const categoryMatch = Array.isArray(store.categories)
+        ? store.categories.some((category) =>
+            typeof category === "string"
+              ? category.toLowerCase().includes(value)
+              : (category?.name ?? "").toLowerCase().includes(value)
+          )
+        : false;
+
+      return name.includes(value) || desc.includes(value) || categoryMatch;
     });
 
     setFilteredStores(filtered);

@@ -44,13 +44,15 @@ export default function BrowseStoresPage() {
               
               return {
                 ...store,
-                items: allItems
+                items: allItems,
+                categories: storeData.categories || [],
               };
             } catch (err) {
               console.error(`Failed to fetch details for store ${store.id}`, err);
               return {
                 ...store,
-                items: []
+                items: [],
+                categories: [],
               };
             }
           })
@@ -85,7 +87,48 @@ export default function BrowseStoresPage() {
     const filtered = storesWithItems.filter((store) => {
       const name = store.name?.toLowerCase() || "";
       const desc = store.description?.toLowerCase() || "";
-      return name.includes(searchLower) || desc.includes(searchLower);
+
+      const storeCategoryNames = Array.isArray(store.categories)
+        ? store.categories.map((category) => {
+            if (typeof category === "string") {
+              return category;
+            }
+            if (category && typeof category === "object") {
+              return category.name ?? "";
+            }
+            return "";
+          })
+        : [];
+
+      const categoryMatch = storeCategoryNames.some((categoryName) =>
+        categoryName.toLowerCase().includes(searchLower)
+      );
+
+      const itemMatch = (store.items || []).some((item) => {
+        const itemName = item?.name?.toLowerCase() || "";
+        const itemDesc = item?.description?.toLowerCase() || "";
+        const itemCategoryRaw = item?.category ?? item?.category_name ?? "";
+        let itemCategoryName = "";
+
+        if (typeof itemCategoryRaw === "string") {
+          itemCategoryName = itemCategoryRaw;
+        } else if (itemCategoryRaw && typeof itemCategoryRaw === "object") {
+          itemCategoryName = itemCategoryRaw.name ?? "";
+        }
+
+        return (
+          itemName.includes(searchLower) ||
+          itemDesc.includes(searchLower) ||
+          itemCategoryName.toLowerCase().includes(searchLower)
+        );
+      });
+
+      return (
+        name.includes(searchLower) ||
+        desc.includes(searchLower) ||
+        categoryMatch ||
+        itemMatch
+      );
     });
 
     setFilteredStores(filtered);
@@ -145,15 +188,11 @@ export default function BrowseStoresPage() {
             </svg>
             <input
               type="text"
-              placeholder="Search stores..."
+              placeholder="Search stores, items, or categories..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               className="browse-search-input"
             />
-          </div>
-
-          <div className="browse-count">
-            <span>{filteredStores.length} {filteredStores.length === 1 ? 'Store' : 'Stores'}</span>
           </div>
         </div>
       </section>

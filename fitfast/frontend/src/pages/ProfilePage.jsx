@@ -7,6 +7,7 @@ import {
 } from "../wishlistStorage";
 
 const DEFAULT_MEASUREMENTS = {
+  // Original basic measurements
   height_cm: "",
   weight_kg: "",
   bust_cm: "",
@@ -17,6 +18,98 @@ const DEFAULT_MEASUREMENTS = {
   inseam_cm: "",
   body_shape: "",
   fit_preference: "",
+  
+  // High Priority (10-16 garment types) - Most Important
+  chest_circumference: "",
+  waist_circumference: "",
+  hips_circumference: "",
+  garment_length: "",
+  sleeve_length: "",
+  
+  // Medium Priority (4-9 garment types) - Important
+  inseam_length: "",
+  thigh_circumference: "",
+  leg_opening: "",
+  dress_length: "",
+  short_length: "",
+  foot_length: "",
+  shoulder_to_hem: "",
+  skirt_length: "",
+  foot_width: "",
+  
+  // Low Priority (<4 garment types) - Optional
+  head_circumference: "",
+  hood_height: "",
+  bicep_circumference: "",
+  collar_size: "",
+  underbust_circumference: "",
+  cup_size: "",
+  rise: "",
+  chain_length: "",
+  bracelet_circumference: "",
+  back_width: "",
+  neck_circumference: "",
+};
+
+const REGISTRATION_BODY_FIELDS = [
+  { key: "height_cm", label: "Height", unit: "cm" },
+  { key: "weight_kg", label: "Weight", unit: "kg" },
+  { key: "bust_cm", label: "Bust", unit: "cm" },
+  { key: "waist_cm", label: "Waist", unit: "cm" },
+  { key: "hips_cm", label: "Hips", unit: "cm" },
+  { key: "shoulder_width_cm", label: "Shoulder Width", unit: "cm" },
+  { key: "arm_length_cm", label: "Arm Length", unit: "cm" },
+  { key: "inseam_cm", label: "Inseam", unit: "cm" },
+];
+
+const BODY_SHAPE_OPTIONS = [
+  { value: "", label: "Select your body shape" },
+  { value: "hourglass", label: "⏳ Hourglass" },
+  { value: "pear", label: "🍐 Pear" },
+  { value: "apple", label: "🍎 Apple" },
+  { value: "rectangle", label: "▭ Rectangle" },
+  { value: "inverted_triangle", label: "▽ Inverted Triangle" },
+];
+
+const FIT_PREFERENCE_OPTIONS = [
+  { value: "", label: "Select your fit preference" },
+  { value: "tight", label: "✨ Tight Fit" },
+  { value: "regular", label: "👕 Regular Fit" },
+  { value: "loose", label: "🧥 Loose Fit" },
+];
+
+const REGISTRATION_PREFERENCE_FIELDS = [
+  { key: "body_shape", label: "Body Shape", options: BODY_SHAPE_OPTIONS },
+  { key: "fit_preference", label: "Fit Preference", options: FIT_PREFERENCE_OPTIONS },
+];
+
+const REGISTRATION_DISPLAY_FIELDS = [
+  ...REGISTRATION_BODY_FIELDS,
+  ...REGISTRATION_PREFERENCE_FIELDS,
+];
+
+const REGISTRATION_KEYS = new Set(
+  REGISTRATION_DISPLAY_FIELDS.map((field) => field.key)
+);
+
+const FEMALE_ONLY_MEASUREMENT_KEYS = new Set([
+  "dress_length",
+  "skirt_length",
+  "underbust_circumference",
+  "cup_size",
+]);
+
+const deriveMeasurementAudience = (source) => {
+  if (!source || typeof source !== "object") return "men";
+  return Array.from(FEMALE_ONLY_MEASUREMENT_KEYS).some((key) => {
+    const value = source[key];
+    if (value === undefined || value === null) return false;
+    if (typeof value === "string") return value.trim().length > 0;
+    if (typeof value === "number") return Number.isFinite(value) && value > 0;
+    return Boolean(value);
+  })
+    ? "women"
+    : "men";
 };
 
 const isBrowser = typeof window !== "undefined";
@@ -32,6 +125,108 @@ const DEFAULT_ADDRESS = {
   postalCode: "10001",
   country: "USA",
   phone: "(212) 555-0113",
+};
+
+const STRING_MEASUREMENT_KEYS = new Set([
+  "body_shape",
+  "fit_preference",
+  "cup_size",
+]);
+
+const NUMERIC_MEASUREMENT_KEYS = new Set(
+  Object.keys(DEFAULT_MEASUREMENTS).filter(
+    (key) => !STRING_MEASUREMENT_KEYS.has(key)
+  )
+);
+
+const sanitizeNumericInput = (raw = "") => {
+  if (typeof raw !== "string") {
+    return raw;
+  }
+
+  const stripped = raw.replace(/[^0-9.]/g, "");
+  const dotIndex = stripped.indexOf(".");
+
+  if (dotIndex === -1) {
+    return stripped;
+  }
+
+  const beforeDot = stripped.slice(0, dotIndex + 1);
+  const afterDot = stripped
+    .slice(dotIndex + 1)
+    .replace(/\./g, "");
+
+  return beforeDot + afterDot;
+};
+
+const extractApiErrorMessage = (error, fallback = "Failed to save measurements ❌") => {
+  const response = error?.response?.data;
+
+  if (response?.errors && typeof response.errors === "object") {
+    const fieldErrors = Object.values(response.errors)
+      .flat()
+      .filter(Boolean);
+    if (fieldErrors.length) {
+      return `${fallback.replace(" ❌", "")}: ${fieldErrors[0]} ❌`;
+    }
+  }
+
+  if (typeof response?.message === "string" && response.message.trim()) {
+    return `${fallback.replace(" ❌", "")}: ${response.message} ❌`;
+  }
+
+  return fallback;
+};
+
+const sanitizeMeasurementsPayload = (source) => {
+  if (!source || typeof source !== "object") return {};
+
+  const toNumber = (value) => {
+    if (typeof value === "number") {
+      return Number.isFinite(value) ? value : null;
+    }
+    if (typeof value === "string") {
+      const trimmed = value.trim();
+      if (!trimmed) return null;
+      const parsed = Number.parseFloat(trimmed);
+      return Number.isFinite(parsed) ? parsed : null;
+    }
+    return null;
+  };
+
+  return Object.entries(source).reduce((acc, [key, rawValue]) => {
+    if (rawValue === undefined) {
+      return acc;
+    }
+
+    if (STRING_MEASUREMENT_KEYS.has(key)) {
+      if (rawValue === null) {
+        acc[key] = null;
+      } else if (typeof rawValue === "string") {
+        const trimmed = rawValue.trim();
+        acc[key] = trimmed || null;
+      } else {
+        acc[key] = String(rawValue || "").trim() || null;
+      }
+      return acc;
+    }
+
+    const numericValue = toNumber(rawValue);
+    acc[key] = numericValue;
+    return acc;
+  }, {});
+};
+
+const formatLabel = (key) =>
+  key
+    .replace("_cm", "")
+    .replace("_kg", "")
+    .replace(/_/g, " ")
+    .replace(/\b\w/g, (l) => l.toUpperCase());
+
+const stripOptionIcon = (label) => {
+  if (typeof label !== "string") return label;
+  return label.replace(/^[^\w]*\s*/, "");
 };
 
 const readStoredJson = (key, fallback) => {
@@ -202,6 +397,7 @@ const mapRecentOrder = (order) => {
   return {
     id: orderCode,
     code: orderCode,
+    orderId: order.orderId ?? order.id ?? null,
     placedAt: order.placedAt || order.created_at || order.createdAt || new Date().toISOString(),
     eta:
       order.eta ||
@@ -209,6 +405,7 @@ const mapRecentOrder = (order) => {
       order.estimated_delivery ||
       new Date(Date.now() + 72 * 60 * 60 * 1000).toISOString(),
     status: statusLabel,
+    cmsStatus: order.cmsStatus || null,
     total: Number(totals.total || 0),
     items,
     delivery:
@@ -217,6 +414,7 @@ const mapRecentOrder = (order) => {
         label: order.deliveryLabel || "Standard delivery",
         description: order.delivery?.description || "Arrives in 3-5 business days",
       },
+    deliveryStatus: order.delivery?.status || order.deliveryStatus || null,
     shippingAddress: order.shippingAddress || { ...DEFAULT_ADDRESS },
     payment:
       order.payment || {
@@ -228,6 +426,7 @@ const mapRecentOrder = (order) => {
     trackable: computeTrackable(statusLabel, order.trackable),
     userId: order.userId ?? order.user_id ?? null,
     userEmail: normalizeEmail(order.userEmail || order.user_email || contact.email),
+    lastBackendSync: order.lastBackendSync || null,
   };
 };
 
@@ -281,6 +480,9 @@ export default function ProfilePage() {
   const [user, setUser] = useState(null);
   const [editing, setEditing] = useState(false);
   const [measurements, setMeasurements] = useState(DEFAULT_MEASUREMENTS);
+  const [measurementAudience, setMeasurementAudience] = useState(() =>
+    deriveMeasurementAudience(DEFAULT_MEASUREMENTS)
+  );
   const [message, setMessage] = useState("");
   const [messageType, setMessageType] = useState("success"); // "success" | "error"
   const [loading, setLoading] = useState(true);
@@ -312,10 +514,13 @@ export default function ProfilePage() {
   const [deleteError, setDeleteError] = useState("");
   const [activeOrder, setActiveOrder] = useState(null);
   const [showOrderModal, setShowOrderModal] = useState(false);
+  const [photoUpdating, setPhotoUpdating] = useState(false);
+  const [showPhotoActions, setShowPhotoActions] = useState(false);
   const measurementsRef = useRef(null);
   const ordersRef = useRef(null);
   const settingsRef = useRef(null);
   const wishlistRef = useRef(null);
+  const photoInputRef = useRef(null);
 
   const sectionLinks = useMemo(
     () => [
@@ -339,6 +544,9 @@ export default function ProfilePage() {
           ...DEFAULT_MEASUREMENTS,
           ...(fetchedUser?.measurements || {}),
         });
+        setMeasurementAudience(
+          deriveMeasurementAudience(fetchedUser?.measurements)
+        );
         setWishlistItems(getWishlist());
 
         const paymentKey = getPaymentMethodsKey(fetchedUser);
@@ -479,19 +687,119 @@ export default function ProfilePage() {
 
   const handleChange = (e) => {
     const { name, value } = e.target;
-    setMeasurements((prev) => ({ ...prev, [name]: value }));
+    const nextValue = NUMERIC_MEASUREMENT_KEYS.has(name)
+      ? sanitizeNumericInput(value)
+      : value;
+    setMeasurements((prev) => ({ ...prev, [name]: nextValue }));
+  };
+
+  const triggerPhotoPicker = () => {
+    if (photoUpdating) return;
+    setShowPhotoActions(false);
+    photoInputRef.current?.click();
+  };
+
+  const handleMeasurementAudienceChange = (audience) => {
+    setMeasurementAudience(audience);
+    if (audience !== "men") {
+      return;
+    }
+
+    setMeasurements((prev) => {
+      const next = { ...prev };
+      FEMALE_ONLY_MEASUREMENT_KEYS.forEach((key) => {
+        if (next[key] !== undefined) {
+          next[key] = "";
+        }
+      });
+      return next;
+    });
+  };
+
+  const handleAvatarClick = () => {
+    if (photoUpdating) return;
+    setShowPhotoActions(true);
+  };
+
+  const handlePhotoSelected = async (event) => {
+    const file = event.target.files?.[0];
+    if (!file) {
+      return;
+    }
+
+    setPhotoUpdating(true);
+    setMessage("");
+
+    try {
+      const formData = new FormData();
+      formData.append('profile_photo', file);
+      formData.append('_method', 'PUT');
+
+      const response = await api.post('/user', formData);
+      if (response?.data?.user) {
+        setUser(response.data.user);
+      }
+
+      setMessageType('success');
+      setMessage('Profile photo updated ✅');
+    } catch (error) {
+      console.error(error);
+      setMessageType('error');
+      setMessage('Failed to update profile photo ❌');
+    } finally {
+      setPhotoUpdating(false);
+      if (event.target) {
+        event.target.value = '';
+      }
+
+      setTimeout(() => setMessage(''), 3000);
+    }
+  };
+
+  const handlePhotoRemove = async () => {
+    if (photoUpdating || !user?.profile_photo_url) return;
+
+    setShowPhotoActions(false);
+    setPhotoUpdating(true);
+    setMessage("");
+
+    try {
+      const formData = new FormData();
+      formData.append('remove_photo', '1');
+      formData.append('_method', 'PUT');
+
+      const response = await api.post('/user', formData);
+      if (response?.data?.user) {
+        setUser(response.data.user);
+      }
+
+      setMessageType('success');
+      setMessage('Profile photo removed ✅');
+    } catch (error) {
+      console.error(error);
+      setMessageType('error');
+      setMessage('Failed to remove profile photo ❌');
+    } finally {
+      setPhotoUpdating(false);
+      setTimeout(() => setMessage(''), 3000);
+    }
   };
 
   const handleSave = async () => {
     try {
-      await api.put("/user", { measurements });
+      const sanitized = sanitizeMeasurementsPayload(measurements);
+      const response = await api.put("/user", { measurements: sanitized });
+      if (response?.data?.user) {
+        setUser(response.data.user);
+      }
+      setMeasurementAudience(deriveMeasurementAudience(sanitized));
       setMessageType("success");
       setMessage("Measurements saved successfully ✅");
       setEditing(false);
     } catch (e) {
       console.error(e);
       setMessageType("error");
-      setMessage("Failed to save measurements ❌");
+      setMessage(extractApiErrorMessage(e));
     }
     setTimeout(() => setMessage(""), 3000);
   };
@@ -501,15 +809,9 @@ export default function ProfilePage() {
       ...DEFAULT_MEASUREMENTS,
       ...(user?.measurements || {}),
     });
+    setMeasurementAudience(deriveMeasurementAudience(user?.measurements));
     setEditing(false);
   };
-
-  const formatLabel = (key) =>
-    key
-      .replace("_cm", "")
-      .replace("_kg", "")
-      .replace(/_/g, " ")
-      .replace(/\b\w/g, (l) => l.toUpperCase());
 
   const formatPrice = (price) => {
     if (price === null || price === undefined || price === "") return null;
@@ -821,8 +1123,33 @@ export default function ProfilePage() {
         .join("")
     : "U";
 
-  const hasMeasurements = Object.values(measurements).some(Boolean);
+  const registrationDisplayItems = useMemo(() => {
+    return REGISTRATION_DISPLAY_FIELDS.map((field) => {
+      const rawValue = measurements[field.key];
+      if (rawValue === null || rawValue === undefined || rawValue === "") {
+        return null;
+      }
+
+      if (field.options) {
+        const optionLabel = field.options.find((option) => option.value === rawValue)?.label;
+        const resolvedValue = optionLabel ? stripOptionIcon(optionLabel) : formatLabel(String(rawValue));
+        return { key: field.key, label: field.label, value: resolvedValue };
+      }
+
+      const numericValue = typeof rawValue === "number" ? rawValue : Number.parseFloat(rawValue);
+      const hasNumeric = Number.isFinite(numericValue);
+      const resolvedValue = field.unit
+        ? `${hasNumeric ? numericValue : rawValue} ${field.unit}`.trim()
+        : rawValue;
+      return { key: field.key, label: field.label, value: resolvedValue };
+    }).filter(Boolean);
+  }, [measurements]);
+
+  const hasRegistrationMeasurements = registrationDisplayItems.length > 0;
   const hasWishlist = wishlistItems.length > 0;
+  const hasProfilePhoto = Boolean(user?.profile_photo_url);
+  const shouldShowOptionalField = (key) =>
+    measurementAudience === "women" || !FEMALE_ONLY_MEASUREMENT_KEYS.has(key);
 
   const handleToggleWishlist = (item) => {
     const { items } = toggleWishlistEntry({
@@ -871,7 +1198,41 @@ export default function ProfilePage() {
           >
             {/* Header */}
             <div className="profile-header">
-              <div className="avatar-circle">{initials}</div>
+              <div 
+                className={`avatar-wrapper${photoUpdating ? " uploading" : ""}${!photoUpdating ? " clickable" : ""}`}
+                onClick={handleAvatarClick}
+                role="button"
+                tabIndex={photoUpdating ? -1 : 0}
+                aria-label="Change profile photo"
+                onKeyDown={(e) => {
+                  if ((e.key === 'Enter' || e.key === ' ') && !photoUpdating) {
+                    e.preventDefault();
+                    handleAvatarClick();
+                  }
+                }}
+              >
+                {hasProfilePhoto ? (
+                  <img
+                    src={user.profile_photo_url}
+                    alt={`${user.name} profile`}
+                    className="avatar-image"
+                  />
+                ) : (
+                  <div className="avatar-circle">{initials}</div>
+                )}
+
+                {photoUpdating && <div className="avatar-loading">Updating…</div>}
+
+                <input
+                  ref={photoInputRef}
+                  type="file"
+                  accept="image/*"
+                  onChange={handlePhotoSelected}
+                  className="avatar-input"
+                  aria-hidden="true"
+                  tabIndex={-1}
+                />
+              </div>
 
               <div className="profile-header-text">
                 <h2 className="profile-title">Welcome, {user.name}</h2>
@@ -882,6 +1243,47 @@ export default function ProfilePage() {
             {message && (
               <div className={messageType === "error" ? "error" : "success"}>
                 {message}
+              </div>
+            )}
+
+            {/* Photo Action Sheet */}
+            {showPhotoActions && (
+              <div 
+                className="photo-action-backdrop" 
+                onClick={() => setShowPhotoActions(false)}
+                role="dialog" 
+                aria-modal="true"
+                aria-labelledby="photo-action-title"
+              >
+                <div 
+                  className="photo-action-sheet"
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  <h3 id="photo-action-title" className="photo-action-title">Change Profile Photo</h3>
+                  <button
+                    type="button"
+                    className="photo-action-btn primary"
+                    onClick={triggerPhotoPicker}
+                  >
+                    Upload Photo
+                  </button>
+                  {hasProfilePhoto && (
+                    <button
+                      type="button"
+                      className="photo-action-btn danger"
+                      onClick={handlePhotoRemove}
+                    >
+                      Remove Current Photo
+                    </button>
+                  )}
+                  <button
+                    type="button"
+                    className="photo-action-btn cancel"
+                    onClick={() => setShowPhotoActions(false)}
+                  >
+                    Cancel
+                  </button>
+                </div>
               </div>
             )}
 
@@ -905,7 +1307,7 @@ export default function ProfilePage() {
 
               {!editing ? (
                 <div className="measurements-display">
-                  {!hasMeasurements ? (
+                  {!hasRegistrationMeasurements ? (
                     <div className="empty-state">
                       <div className="empty-icon">📏</div>
                       <div>No measurements yet.</div>
@@ -915,10 +1317,10 @@ export default function ProfilePage() {
                     </div>
                   ) : (
                     <ul className="measurements-list">
-                      {Object.entries(measurements).map(([key, value]) => (
-                        <li className="measurement-item" key={key}>
-                          <span className="measurement-label">{formatLabel(key)}</span>
-                          <span className="measurement-value">{value ? value : "—"}</span>
+                      {registrationDisplayItems.map((item) => (
+                        <li className="measurement-item" key={item.key}>
+                          <span className="measurement-label">{item.label}</span>
+                          <span className="measurement-value">{item.value}</span>
                         </li>
                       ))}
                     </ul>
@@ -926,70 +1328,239 @@ export default function ProfilePage() {
                 </div>
               ) : (
                 <div className="measurements-form">
-                  <div className="form-grid">
-                    {Object.entries(measurements).map(([key, value]) => {
-                      const isSelect = key === "body_shape" || key === "fit_preference";
-
-                      return (
-                        <div className="form-group" key={key}>
-                          <label htmlFor={key}>{formatLabel(key)}</label>
-
-                          {isSelect ? (
-                            <select
-                              id={key}
-                              name={key}
-                              value={value}
+                  <div className="measurement-section core-measurements">
+                    <div className="section-title-row">
+                      <h4 className="measurement-section-title">📝 Core Measurements</h4>
+                      <span className="section-badge required">Required</span>
+                    </div>
+                    <p className="section-description">
+                      Keep these up to date to mirror the measurements captured during registration.
+                    </p>
+                    <div className="form-grid">
+                      {REGISTRATION_BODY_FIELDS.map((field) => (
+                        <div className="form-group" key={field.key}>
+                          <label htmlFor={field.key}>{field.label}</label>
+                          <div className="input-with-unit profile-input-unit">
+                            <input
+                              id={field.key}
+                              type="text"
+                              inputMode="decimal"
+                              name={field.key}
+                              value={measurements[field.key]}
                               onChange={handleChange}
-                            >
-                              <option value="">—</option>
-
-                              {key === "body_shape" && (
-                                <>
-                                  <option value="hourglass">Hourglass</option>
-                                  <option value="pear">Pear</option>
-                                  <option value="apple">Apple</option>
-                                  <option value="rectangle">Rectangle</option>
-                                  <option value="inverted_triangle">
-                                    Inverted Triangle
-                                  </option>
-                                </>
-                              )}
-
-                              {key === "fit_preference" && (
-                                <>
-                                  <option value="tight">Tight</option>
-                                  <option value="regular">Regular</option>
-                                  <option value="loose">Loose</option>
-                                </>
-                              )}
-                            </select>
-                          ) : (
-                            <div className="input-with-unit profile-input-unit">
-                              <input
-                                id={key}
-                                type="number"
-                                step="0.1"
-                                name={key}
-                                value={value}
-                                onChange={handleChange}
-                                placeholder="—"
-                              />
-
-                              {(key.endsWith("_cm") || key.endsWith("_kg")) && (
-                                <span className="unit-label">
-                                  {key.endsWith("_cm") ? "cm" : "kg"}
-                                </span>
-                              )}
-                            </div>
-                          )}
+                              placeholder="—"
+                            />
+                            {field.unit && <span className="unit-label">{field.unit}</span>}
+                          </div>
                         </div>
-                      );
-                    })}
+                      ))}
+                    </div>
+                  </div>
+
+                  <div className="measurement-section preference-section">
+                    <div className="section-title-row">
+                      <h4 className="measurement-section-title">🎯 Fit Preferences</h4>
+                      <span className="section-badge required">Required</span>
+                    </div>
+                    <p className="section-description">
+                      Update your profile preferences used for early recommendations.
+                    </p>
+                    <div className="form-grid">
+                      {REGISTRATION_PREFERENCE_FIELDS.map((field) => (
+                        <div className="form-group" key={field.key}>
+                          <label htmlFor={field.key}>{field.label}</label>
+                          <select
+                            id={field.key}
+                            name={field.key}
+                            value={measurements[field.key]}
+                            onChange={handleChange}
+                          >
+                            {field.options.map((option) => (
+                              <option key={option.value} value={option.value}>
+                                {option.label}
+                              </option>
+                            ))}
+                          </select>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+
+                  <div className="audience-toggle" role="group" aria-label="Measurement audience">
+                    {["women", "men"].map((option) => (
+                      <button
+                        type="button"
+                        key={option}
+                        className={`audience-toggle-btn${
+                          measurementAudience === option ? " active" : ""
+                        }`}
+                        onClick={() => handleMeasurementAudienceChange(option)}
+                      >
+                        {option === "women" ? "Women" : "Men"}
+                      </button>
+                    ))}
+                  </div>
+
+                  <p className="optional-hint">Everything below is optional and helps refine advanced fit recommendations.</p>
+
+                  {/* High Priority Measurements */}
+                  <div className="measurement-section high-priority">
+                    <div className="section-title-row">
+                      <h4 className="measurement-section-title">⭐ Advanced Fit Measurements</h4>
+                      <span className="section-badge">Optional</span>
+                    </div>
+                    <p className="section-description">
+                      Useful for tailoring recommendations across shirts, pants, dresses, and outerwear.
+                    </p>
+                    <div className="form-grid">
+                      {[
+                        ["chest_circumference", "Chest Circumference", "Around fullest part of chest"],
+                        ["garment_length", "Garment Length", "Total length from top to bottom"],
+                        ["sleeve_length", "Sleeve Length", "From shoulder to cuff"],
+                      ]
+                        .filter(
+                          ([key]) =>
+                            !REGISTRATION_KEYS.has(key) && shouldShowOptionalField(key)
+                        )
+                        .map(([key, label, hint]) => (
+                        <div className="form-group" key={key}>
+                          <label htmlFor={key}>
+                            {label}
+                            {hint && <span className="label-hint">{hint}</span>}
+                          </label>
+                          <div className="input-with-unit profile-input-unit">
+                            <input
+                              id={key}
+                              type="text"
+                              inputMode="decimal"
+                              name={key}
+                              value={measurements[key]}
+                              onChange={handleChange}
+                              placeholder="—"
+                            />
+                            <span className="unit-label">cm</span>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Medium Priority Measurements */}
+                  <div className="measurement-section medium-priority">
+                    <div className="section-title-row">
+                      <h4 className="measurement-section-title">✨ Category-Specific Measurements</h4>
+                      <span className="section-badge">Optional</span>
+                    </div>
+                    <p className="section-description">
+                      Helpful for categories like pants, dresses, footwear, and skirts.
+                    </p>
+                    <div className="form-grid">
+                      {[
+                        ["thigh_circumference", "Thigh Circumference", "Around fullest part of thigh"],
+                        ["leg_opening", "Leg Opening", "Circumference at bottom of pants"],
+                        ["dress_length", "Dress Length", "From shoulder/neck to hem"],
+                        ["short_length", "Short Length", "From waist to hem"],
+                        ["foot_length", "Foot Length", "From heel to toe"],
+                        ["shoulder_to_hem", "Shoulder to Hem", "From shoulder to bottom"],
+                        ["skirt_length", "Skirt Length", "From waistband to hem"],
+                        ["foot_width", "Foot Width", "Width across widest part"],
+                      ]
+                        .filter(
+                          ([key]) =>
+                            !REGISTRATION_KEYS.has(key) && shouldShowOptionalField(key)
+                        )
+                        .map(([key, label, hint]) => (
+                        <div className="form-group" key={key}>
+                          <label htmlFor={key}>
+                            {label}
+                            {hint && <span className="label-hint">{hint}</span>}
+                          </label>
+                          <div className="input-with-unit profile-input-unit">
+                            <input
+                              id={key}
+                              type="text"
+                              inputMode="decimal"
+                              name={key}
+                              value={measurements[key]}
+                              onChange={handleChange}
+                              placeholder="—"
+                            />
+                            <span className="unit-label">cm</span>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Low Priority Measurements */}
+                  <div className="measurement-section low-priority">
+                    <div className="section-title-row">
+                      <h4 className="measurement-section-title">💡 Specialized Measurements</h4>
+                      <span className="section-badge">Optional</span>
+                    </div>
+                    <p className="section-description">
+                      Specialized inputs for accessories, swimwear, and unique garments.
+                    </p>
+                    <div className="form-grid">
+                      {[
+                        ["head_circumference", "Head Circumference", "Around forehead level"],
+                        ["hood_height", "Hood Height", "Height/depth of hood"],
+                        ["bicep_circumference", "Bicep Circumference", "Around fullest part of upper arm"],
+                        ["collar_size", "Collar Size", "Around neck where collar sits"],
+                        ["underbust_circumference", "Underbust Circumference", "Around torso under bust"],
+                        ["rise", "Rise", "From crotch seam to waistband"],
+                        ["chain_length", "Chain Length", "Length of necklace chain"],
+                        ["bracelet_circumference", "Bracelet Circumference", "Circumference of bracelet"],
+                        ["back_width", "Back Width", "Across back at shoulder blades"],
+                        ["neck_circumference", "Neck Circumference", "Around base of neck"],
+                      ]
+                        .filter(
+                          ([key]) =>
+                            !REGISTRATION_KEYS.has(key) && shouldShowOptionalField(key)
+                        )
+                        .map(([key, label, hint]) => (
+                        <div className="form-group" key={key}>
+                          <label htmlFor={key}>
+                            {label}
+                            {hint && <span className="label-hint">{hint}</span>}
+                          </label>
+                          <div className="input-with-unit profile-input-unit">
+                            <input
+                              id={key}
+                              type="text"
+                              inputMode="decimal"
+                              name={key}
+                              value={measurements[key]}
+                              onChange={handleChange}
+                              placeholder="—"
+                            />
+                            <span className="unit-label">cm</span>
+                          </div>
+                        </div>
+                      ))}
+                      {measurementAudience === "women" && (
+                        <div className="form-group">
+                          <label htmlFor="cup_size">
+                            Cup Size
+                            <span className="label-hint">Bra cup size (A, B, C, etc.)</span>
+                          </label>
+                          <input
+                            id="cup_size"
+                            type="text"
+                            name="cup_size"
+                            value={measurements.cup_size}
+                            onChange={handleChange}
+                            placeholder="e.g., B"
+                            maxLength="10"
+                          />
+                        </div>
+                      )}
+                    </div>
                   </div>
 
                   <div className="form-actions">
                     <button type="button" className="save-btn" onClick={handleSave}>
-                      💾 Save
+                      💾 Save Measurements
                     </button>
                     <button type="button" className="secondary-btn" onClick={handleCancel}>
                       Cancel
@@ -1848,19 +2419,226 @@ export default function ProfilePage() {
           border-bottom: 2px solid rgba(190, 91, 80, 0.15);
         }
 
+        .profile-header-text {
+          display: flex;
+          flex-direction: column;
+          gap: 0.5rem;
+        }
+
+        .profile-title {
+          margin: 0;
+          font-size: 1.5rem;
+          font-weight: 700;
+          color: #1d1d1f;
+          letter-spacing: -0.02em;
+        }
+
+        .profile-email {
+          margin: 0;
+          font-size: 0.95rem;
+          color: #666;
+          font-weight: 500;
+        }
+
+        .avatar-wrapper {
+          position: relative;
+          width: 120px;
+          height: 120px;
+          margin: 0 auto 1.5rem;
+          padding: 4px;
+          background: linear-gradient(135deg, #be5b50 0%, #641b2e 100%);
+          border-radius: 50%;
+          transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+          box-shadow: 
+            0 4px 12px rgba(100, 27, 46, 0.15),
+            0 1px 3px rgba(0, 0, 0, 0.08);
+        }
+
+        .avatar-wrapper.clickable {
+          cursor: pointer;
+        }
+
+        .avatar-wrapper.clickable:hover {
+          transform: translateY(-2px) scale(1.02);
+          box-shadow: 
+            0 8px 24px rgba(100, 27, 46, 0.25),
+            0 4px 8px rgba(0, 0, 0, 0.12);
+        }
+
+        .avatar-wrapper.clickable:active {
+          transform: translateY(0) scale(0.98);
+        }
+
+        .avatar-wrapper:focus-visible {
+          outline: 3px solid rgba(100, 27, 46, 0.4);
+          outline-offset: 4px;
+        }
+
+        .avatar-wrapper.uploading {
+          opacity: 0.7;
+          pointer-events: none;
+        }
+
+        .avatar-wrapper.uploading::after {
+          content: '';
+          position: absolute;
+          inset: -4px;
+          border-radius: 50%;
+          border: 3px solid transparent;
+          border-top-color: #be5b50;
+          border-right-color: #be5b50;
+          animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+          to { transform: rotate(360deg); }
+        }
+
         .avatar-circle {
-          width: 80px;
-          height: 80px;
+          width: 100%;
+          height: 100%;
           border-radius: 50%;
           background: linear-gradient(135deg, #641b2e 0%, #be5b50 100%);
           color: white;
-          font-size: 2rem;
+          font-size: 2.5rem;
           font-weight: 700;
+          letter-spacing: 1px;
           display: flex;
           align-items: center;
           justify-content: center;
-          margin: 0 auto 1rem;
-          box-shadow: 0 4px 16px rgba(100, 27, 46, 0.25);
+          text-transform: uppercase;
+          border: 3px solid #ffffff;
+          box-shadow: inset 0 2px 8px rgba(0, 0, 0, 0.15);
+          pointer-events: none;
+        }
+
+        .avatar-image {
+          width: 100%;
+          height: 100%;
+          border-radius: 50%;
+          object-fit: cover;
+          border: 3px solid #ffffff;
+          background: #f5f5f5;
+          pointer-events: none;
+        }
+
+        .avatar-loading {
+          position: absolute;
+          inset: 0;
+          border-radius: 50%;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          font-size: 0.8rem;
+          font-weight: 600;
+          color: #1d1d1f;
+          background: rgba(255, 255, 255, 0.95);
+          backdrop-filter: blur(4px);
+          border: 3px solid #ffffff;
+          pointer-events: none;
+        }
+
+        .avatar-input {
+          position: absolute;
+          width: 1px;
+          height: 1px;
+          padding: 0;
+          margin: -1px;
+          overflow: hidden;
+          clip: rect(0, 0, 0, 0);
+          white-space: nowrap;
+          border: 0;
+        }
+
+        /* Photo Action Sheet */
+        .photo-action-backdrop {
+          position: fixed;
+          inset: 0;
+          background: rgba(0, 0, 0, 0.4);
+          display: flex;
+          align-items: flex-end;
+          justify-content: center;
+          z-index: 1000;
+          animation: fadeIn 0.2s ease-out;
+        }
+
+        @keyframes fadeIn {
+          from {
+            opacity: 0;
+          }
+          to {
+            opacity: 1;
+          }
+        }
+
+        @keyframes slideUp {
+          from {
+            transform: translateY(100%);
+          }
+          to {
+            transform: translateY(0);
+          }
+        }
+
+        .photo-action-sheet {
+          background: #ffffff;
+          border-radius: 16px 16px 0 0;
+          width: 100%;
+          max-width: 500px;
+          padding: 0;
+          animation: slideUp 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+          box-shadow: 0 -4px 24px rgba(0, 0, 0, 0.15);
+        }
+
+        .photo-action-title {
+          margin: 0;
+          padding: 1.25rem 1.5rem;
+          font-size: 0.9rem;
+          font-weight: 600;
+          color: #666;
+          text-align: center;
+          border-bottom: 1px solid rgba(0, 0, 0, 0.08);
+        }
+
+        .photo-action-btn {
+          width: 100%;
+          padding: 1rem 1.5rem;
+          border: none;
+          background: transparent;
+          font-size: 1rem;
+          font-weight: 500;
+          text-align: center;
+          cursor: pointer;
+          transition: background-color 0.2s ease;
+          border-bottom: 1px solid rgba(0, 0, 0, 0.05);
+        }
+
+        .photo-action-btn:last-child {
+          border-bottom: none;
+          border-radius: 0 0 16px 16px;
+        }
+
+        .photo-action-btn:hover {
+          background: rgba(0, 0, 0, 0.04);
+        }
+
+        .photo-action-btn:active {
+          background: rgba(0, 0, 0, 0.08);
+        }
+
+        .photo-action-btn.primary {
+          color: #641b2e;
+          font-weight: 600;
+        }
+
+        .photo-action-btn.danger {
+          color: #ed4956;
+          font-weight: 600;
+        }
+
+        .photo-action-btn.cancel {
+          font-weight: 600;
+          color: #1d1d1f;
         }
 
       
@@ -2251,11 +3029,201 @@ export default function ProfilePage() {
           border: 1px solid rgba(100, 27, 46, 0.1);
         }
 
+        /* Measurement Section Styles */
+        .measurement-section {
+          margin-bottom: 2.5rem;
+          padding: 1.5rem;
+          border-radius: 14px;
+          background: linear-gradient(135deg, rgba(248, 248, 250, 0.6) 0%, rgba(255, 255, 255, 0.9) 100%);
+          border: 1px solid rgba(100, 27, 46, 0.08);
+          transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        .measurement-section:hover {
+          box-shadow: 0 8px 24px rgba(100, 27, 46, 0.08);
+          border-color: rgba(100, 27, 46, 0.12);
+        }
+
+        .measurement-section.high-priority {
+          background: linear-gradient(135deg, rgba(255, 248, 220, 0.4) 0%, rgba(255, 253, 245, 0.8) 100%);
+          border-color: rgba(255, 193, 7, 0.25);
+        }
+
+        .measurement-section.high-priority:hover {
+          box-shadow: 0 8px 28px rgba(255, 193, 7, 0.15);
+          border-color: rgba(255, 193, 7, 0.35);
+        }
+
+        .measurement-section.medium-priority {
+          background: linear-gradient(135deg, rgba(232, 245, 255, 0.4) 0%, rgba(245, 250, 255, 0.8) 100%);
+          border-color: rgba(33, 150, 243, 0.25);
+        }
+
+        .measurement-section.medium-priority:hover {
+          box-shadow: 0 8px 28px rgba(33, 150, 243, 0.12);
+          border-color: rgba(33, 150, 243, 0.35);
+        }
+
+        .measurement-section.low-priority {
+          background: linear-gradient(135deg, rgba(245, 245, 250, 0.4) 0%, rgba(252, 252, 255, 0.8) 100%);
+          border-color: rgba(156, 39, 176, 0.2);
+        }
+
+        .measurement-section.low-priority:hover {
+          box-shadow: 0 8px 28px rgba(156, 39, 176, 0.1);
+          border-color: rgba(156, 39, 176, 0.3);
+        }
+
+        .measurement-section.legacy {
+          background: linear-gradient(135deg, rgba(230, 230, 235, 0.3) 0%, rgba(245, 245, 248, 0.7) 100%);
+          border-color: rgba(150, 150, 160, 0.2);
+          opacity: 0.85;
+        }
+
+        .section-title-row {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          margin-bottom: 1rem;
+          flex-wrap: wrap;
+          gap: 0.75rem;
+        }
+
+        .measurement-section-title {
+          margin: 0;
+          font-size: 1.15rem;
+          font-weight: 700;
+          color: #1d1d1f;
+          letter-spacing: -0.015em;
+          display: flex;
+          align-items: center;
+          gap: 0.5rem;
+        }
+
+        .section-badge {
+          display: inline-block;
+          padding: 0.35rem 0.9rem;
+          border-radius: 999px;
+          font-size: 0.75rem;
+          font-weight: 600;
+          text-transform: uppercase;
+          letter-spacing: 0.5px;
+          line-height: 1;
+        }
+
+        .section-badge.required {
+          background: linear-gradient(135deg, #be5b50 0%, #641b2e 100%);
+          color: white;
+          box-shadow: 0 2px 8px rgba(100, 27, 46, 0.25);
+        }
+
+        .section-badge.high {
+          background: linear-gradient(135deg, #ffc107 0%, #ff9800 100%);
+          color: #1d1d1f;
+          box-shadow: 0 2px 8px rgba(255, 193, 7, 0.3);
+        }
+
+        .section-badge.medium {
+          background: linear-gradient(135deg, #2196f3 0%, #03a9f4 100%);
+          color: white;
+          box-shadow: 0 2px 8px rgba(33, 150, 243, 0.3);
+        }
+
+        .section-badge.low {
+          background: linear-gradient(135deg, #9c27b0 0%, #ba68c8 100%);
+          color: white;
+          box-shadow: 0 2px 8px rgba(156, 39, 176, 0.3);
+        }
+
+        .section-badge:not(.required):not(.high):not(.medium):not(.low) {
+          background: linear-gradient(135deg, #757575 0%, #9e9e9e 100%);
+          color: white;
+          box-shadow: 0 2px 8px rgba(117, 117, 117, 0.25);
+        }
+
+        .section-description {
+          margin: 0 0 1.2rem 0;
+          font-size: 0.9rem;
+          color: #666;
+          line-height: 1.6;
+        }
+
+        .label-hint {
+          display: block;
+          font-size: 0.8rem;
+          color: #888;
+          font-weight: 400;
+          margin-top: 0.2rem;
+          line-height: 1.3;
+        }
+
+        .form-group label {
+          margin-bottom: 0.5rem;
+          font-weight: 600;
+          color: #1d1d1f;
+          font-size: 0.9rem;
+        }
+
+        .form-group input,
+        .form-group select {
+          padding: 0.75rem 1rem;
+          border: 1.5px solid rgba(100, 27, 46, 0.15);
+          border-radius: 10px;
+          font-size: 0.95rem;
+          transition: all 0.2s ease;
+          background: white;
+          color: #1d1d1f;
+        }
+
+        .form-group input:focus,
+        .form-group select:focus {
+          outline: none;
+          border-color: #be5b50;
+          box-shadow: 0 0 0 3px rgba(190, 91, 80, 0.1);
+        }
+
+        .form-group input::placeholder {
+          color: #bbb;
+        }
+
         .form-grid {
           display: grid;
           grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
           gap: 1.2rem;
           margin-bottom: 1.5rem;
+        }
+
+        .audience-toggle {
+          display: inline-flex;
+          align-items: center;
+          gap: 0.75rem;
+          background: #f7f2f4;
+          padding: 0.4rem 0.6rem;
+          border-radius: 999px;
+          margin: 0.25rem 0 1.6rem 0;
+        }
+
+        .audience-toggle-btn {
+          border: none;
+          background: transparent;
+          color: #641b2e;
+          font-weight: 600;
+          padding: 0.45rem 1.1rem;
+          border-radius: 999px;
+          cursor: pointer;
+          transition: all 0.2s ease;
+          font-size: 0.85rem;
+        }
+
+        .audience-toggle-btn:hover {
+          background: rgba(190, 91, 80, 0.18);
+          color: #3d101f;
+        }
+
+        .audience-toggle-btn.active {
+          background: linear-gradient(135deg, #be5b50 0%, #641b2e 100%);
+          color: white;
+          box-shadow: 0 4px 12px rgba(190, 91, 80, 0.25);
         }
 
         .form-group {
@@ -2286,15 +3254,32 @@ export default function ProfilePage() {
           display: grid;
           grid-template-columns: 1fr 1fr;
           gap: 1rem;
-          margin-top: 1.5rem;
+          margin-top: 2.5rem;
+          padding-top: 2rem;
+          border-top: 2px solid rgba(100, 27, 46, 0.08);
         }
 
         .save-btn {
           background: linear-gradient(135deg, #2e7d32 0%, #43a047 100%);
+          color: white;
+          border: none;
+          padding: 0.9rem 1.5rem;
+          border-radius: 12px;
+          font-weight: 600;
+          font-size: 1rem;
+          cursor: pointer;
+          transition: all 0.3s ease;
+          box-shadow: 0 4px 12px rgba(46, 125, 50, 0.25);
         }
 
         .save-btn:hover {
           background: linear-gradient(135deg, #43a047 0%, #66bb6a 100%);
+          transform: translateY(-2px);
+          box-shadow: 0 6px 20px rgba(46, 125, 50, 0.35);
+        }
+
+        .save-btn:active {
+          transform: translateY(0);
         }
 
         .spinner {
@@ -2322,10 +3307,27 @@ export default function ProfilePage() {
             justify-content: center;
           }
 
+          .avatar-wrapper {
+            width: 100px;
+            height: 100px;
+            margin: 0 auto 1.2rem;
+          }
+
           .avatar-circle {
-            width: 70px;
-            height: 70px;
-            font-size: 1.8rem;
+            font-size: 2rem;
+          }
+
+          .profile-title {
+            font-size: 1.3rem;
+          }
+
+          .profile-email {
+            font-size: 0.9rem;
+          }
+
+          .photo-action-sheet {
+            max-width: 100%;
+            border-radius: 0;
           }
 
           .form-grid {
@@ -2334,6 +3336,23 @@ export default function ProfilePage() {
 
           .form-actions {
             grid-template-columns: 1fr;
+          }
+
+          .measurement-section {
+            padding: 1rem;
+          }
+
+          .measurement-section-title {
+            font-size: 1rem;
+          }
+
+          .section-title-row {
+            flex-direction: column;
+            align-items: flex-start;
+          }
+
+          .section-description {
+            font-size: 0.85rem;
           }
         }
       `}</style>

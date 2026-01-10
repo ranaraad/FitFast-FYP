@@ -1,13 +1,11 @@
-import { Link, useNavigate } from "react-router-dom";
+import { Link } from "react-router-dom";
 import { useEffect, useState } from "react";
-import api from "../../api";
 import { getCartCount } from "../../cartStorage";
 
 export default function Navbar() {
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [cartCount, setCartCount] = useState(0);
   const [isMenuOpen, setIsMenuOpen] = useState(false);
-  const navigate = useNavigate();
 
   useEffect(() => {
     const token = localStorage.getItem("auth_token");
@@ -47,20 +45,6 @@ export default function Navbar() {
   }, [isLoggedIn]);
 
   const closeMenu = () => setIsMenuOpen(false);
-
-  const handleLogout = async () => {
-    closeMenu();
-    try {
-      await api.post("/logout");
-    } catch (err) {
-      console.error(err);
-    } finally {
-      localStorage.removeItem("auth_token");
-      localStorage.removeItem("auth_user");
-      navigate("/login");
-      window.location.reload();
-    }
-  };
 
   return (
     <nav className="navbar">
@@ -110,12 +94,6 @@ export default function Navbar() {
                   <span className="cart-count-badge">{cartCount}</span>
                 )}
               </Link>
-            </li>
-
-            <li>
-              <button onClick={handleLogout} className="logout-btn">
-                Logout
-              </button>
             </li>
           </ul>
         </div>

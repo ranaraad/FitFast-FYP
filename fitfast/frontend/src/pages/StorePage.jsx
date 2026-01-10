@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo, useRef } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import api from "../api";
 import {
@@ -8,7 +8,176 @@ import {
 } from "../wishlistStorage";
 import { addToCart } from "../cartStorage";
 import ItemCard from "../components/cards/ItemCard";
+import OutfitRecommendation from "../components/outfit/OutfitRecommendation";
 import { getItemId, getItemImage, getBestFitCopy } from "../utils/item";
+
+const PRIMARY_COLOR = "#641b2e";
+
+const CATEGORY_THEME_PRESETS = [
+  {
+    keywords: ["dress", "gown", "skirt"],
+    badge: "Occasion ready",
+    blurb: "Fluid silhouettes and statement drapes for night-out plans.",
+    tint: 0.96,
+    gradientIntensity: 0.18,
+  },
+  {
+    keywords: ["coat", "jacket", "outer"],
+    badge: "Layering edit",
+    blurb: "Structured outerwear to top off every fit in style.",
+    tint: 0.95,
+    gradientIntensity: 0.17,
+  },
+  {
+    keywords: ["denim", "jean"],
+    badge: "Everyday denim",
+    blurb: "Your go-to washes and fits for off-duty ease.",
+    tint: 0.95,
+    gradientIntensity: 0.16,
+  },
+  {
+    keywords: ["suit", "tailor", "blazer"],
+    badge: "Sharp tailoring",
+    blurb: "Clean lines and confident cuts for elevated dressing.",
+    tint: 0.94,
+    gradientIntensity: 0.18,
+  },
+  {
+    keywords: ["active", "sport", "athleisure", "gym"],
+    badge: "Move-ready",
+    blurb: "Breathable fabrics built to flex with your routine.",
+    tint: 0.97,
+    gradientIntensity: 0.15,
+  },
+];
+
+const CATEGORY_THEME_FALLBACKS = [
+  {
+    badge: "Trending now",
+    blurb: "Curated pieces styled to mix and match with ease.",
+    tint: 0.96,
+    gradientIntensity: 0.18,
+  },
+  {
+    badge: "Fresh drop",
+    blurb: "Seasonal heroes refreshed with a modern twist.",
+    tint: 0.97,
+    gradientIntensity: 0.16,
+  },
+  {
+    badge: "Editor pick",
+    blurb: "Elevated staples with effortlessly polished vibes.",
+    tint: 0.96,
+    gradientIntensity: 0.18,
+  },
+];
+
+function clamp01(value) {
+  if (value < 0) return 0;
+  if (value > 1) return 1;
+  return value;
+}
+
+function hexToRgb(hex) {
+  const normalized = hex.replace("#", "").trim();
+  const expanded =
+    normalized.length === 3
+      ? normalized
+          .split("")
+          .map((char) => char + char)
+          .join("")
+      : normalized;
+
+  const value = parseInt(expanded, 16);
+
+  return {
+    r: (value >> 16) & 255,
+    g: (value >> 8) & 255,
+    b: value & 255,
+  };
+}
+
+function rgbChannelToHex(channel) {
+  const bounded = Math.max(0, Math.min(255, Math.round(channel)));
+  return bounded.toString(16).padStart(2, "0");
+}
+
+function rgbToHex(r, g, b) {
+  return `#${rgbChannelToHex(r)}${rgbChannelToHex(g)}${rgbChannelToHex(b)}`;
+}
+
+function mixWithWhite(hex, weight = 0.85) {
+  const ratio = clamp01(weight);
+  const { r, g, b } = hexToRgb(hex);
+  const mixedR = r + (255 - r) * ratio;
+  const mixedG = g + (255 - g) * ratio;
+  const mixedB = b + (255 - b) * ratio;
+
+  return rgbToHex(mixedR, mixedG, mixedB);
+}
+
+function hexToRgba(hex, alpha = 1) {
+  const { r, g, b } = hexToRgb(hex);
+  return `rgba(${r}, ${g}, ${b}, ${clamp01(alpha)})`;
+}
+
+function createThemeFromConfig(config = {}) {
+  const {
+    tint = 0.96,
+    gradientIntensity = 0.18,
+    keywords: _unusedKeywords,
+    ...rest
+  } = config;
+  const accent = PRIMARY_COLOR;
+  const surface = mixWithWhite(PRIMARY_COLOR, tint);
+  const startAlpha = clamp01(gradientIntensity);
+  const endAlpha = clamp01(Math.max(gradientIntensity - 0.1, 0.04));
+  const gradient = `linear-gradient(135deg, ${hexToRgba(
+    PRIMARY_COLOR,
+    startAlpha
+  )}, ${hexToRgba(PRIMARY_COLOR, endAlpha)})`;
+
+  return {
+    accent,
+    surface,
+    gradient,
+    ...rest,
+  };
+}
+
+function pickCategoryTheme(name, index) {
+  const normalized = (name || "").toLowerCase();
+
+  for (const preset of CATEGORY_THEME_PRESETS) {
+    if (preset.keywords.some((keyword) => normalized.includes(keyword))) {
+      return createThemeFromConfig(preset);
+    }
+  }
+
+  return createThemeFromConfig(
+    CATEGORY_THEME_FALLBACKS[index % CATEGORY_THEME_FALLBACKS.length]
+  );
+}
+
+function getCategoryBlurb(category, theme) {
+  if (category?.description) {
+    const trimmed = category.description.trim();
+    if (trimmed.length <= 130) {
+      return trimmed;
+    }
+    return `${trimmed.slice(0, 127).trim()}...`;
+  }
+
+  return theme?.blurb || "Curated looks to build outfits you can live in.";
+}
+
+function getCategoryKey(category, index) {
+  if (!category) {
+    return `category-${index}`;
+  }
+
+  return category.id ?? category.name ?? `category-${index}`;
+}
 
 export default function StorePage() {
   const { storeId } = useParams();
@@ -19,6 +188,8 @@ export default function StorePage() {
   const [selectedCategoryId, setSelectedCategoryId] = useState(null);
   const [cartFeedback, setCartFeedback] = useState("");
   const [wishlistItems, setWishlistItems] = useState(() => getWishlist());
+  const [itemSearch, setItemSearch] = useState("");
+  const categoryRailRef = useRef(null);
 
   useEffect(() => {
     async function fetchStore() {
@@ -49,9 +220,100 @@ export default function StorePage() {
   useEffect(() => {
     if (store?.categories?.length) {
       const firstCategory = store.categories[0];
-      setSelectedCategoryId(firstCategory.id ?? firstCategory.name);
+      setSelectedCategoryId(getCategoryKey(firstCategory, 0));
     }
   }, [store]);
+
+  useEffect(() => {
+    const scroller = categoryRailRef.current;
+    if (!scroller) return;
+
+    const activeCard = scroller.querySelector(".category-card.is-active");
+    if (!activeCard) return;
+
+    const scrollerRect = scroller.getBoundingClientRect();
+    const activeRect = activeCard.getBoundingClientRect();
+
+    if (
+      activeRect.left < scrollerRect.left + 16 ||
+      activeRect.right > scrollerRect.right - 16
+    ) {
+      activeCard.scrollIntoView({
+        behavior: "smooth",
+        block: "nearest",
+        inline: "center",
+      });
+    }
+  }, [selectedCategoryId]);
+
+  const rawCategories = store?.categories;
+  const decoratedCategories = useMemo(
+    () =>
+      (rawCategories ?? []).map((category, index) => ({
+        category,
+        key: getCategoryKey(category, index),
+        theme: pickCategoryTheme(category?.name, index),
+      })),
+    [rawCategories]
+  );
+
+  const selectedCategoryEntry = decoratedCategories.find(
+    ({ key }) => key === selectedCategoryId
+  );
+
+  const selectedCategory = selectedCategoryEntry?.category;
+  const selectedCategoryTheme = selectedCategoryEntry?.theme;
+
+  const categories = rawCategories ?? [];
+
+  const normalizedItemSearch = itemSearch.trim().toLowerCase();
+
+  const filteredItems = useMemo(() => {
+    if (!normalizedItemSearch) {
+      return selectedCategory?.items ?? [];
+    }
+
+    const matches = new Map();
+
+    categories.forEach((category, categoryIndex) => {
+      const categoryItems = category?.items ?? [];
+      const categoryKey = getCategoryKey(category, categoryIndex);
+      const categoryName = category?.name?.toLowerCase() ?? "";
+      const categoryMatches = categoryName.includes(normalizedItemSearch);
+
+      categoryItems.forEach((item, itemIndex) => {
+        const itemName = item?.name?.toLowerCase() ?? "";
+        const itemDesc = item?.description?.toLowerCase() ?? "";
+        const rawItemCategory = item?.category ?? item?.category_name ?? "";
+
+        let itemCategoryName = "";
+        if (typeof rawItemCategory === "string") {
+          itemCategoryName = rawItemCategory.toLowerCase();
+        } else if (rawItemCategory && typeof rawItemCategory === "object") {
+          itemCategoryName = (rawItemCategory.name ?? "").toLowerCase();
+        }
+
+        if (
+          categoryMatches ||
+          itemName.includes(normalizedItemSearch) ||
+          itemDesc.includes(normalizedItemSearch) ||
+          itemCategoryName.includes(normalizedItemSearch)
+        ) {
+          const lookupKey = getItemId(item) ?? `${categoryKey}-${itemIndex}`;
+          if (!matches.has(lookupKey)) {
+            matches.set(lookupKey, item);
+          }
+        }
+      });
+    });
+
+    return Array.from(matches.values());
+  }, [categories, normalizedItemSearch, selectedCategory]);
+
+  const showingSearchResults = normalizedItemSearch.length > 0;
+  const categoryCountLabel = showingSearchResults
+    ? `${filteredItems.length} ${filteredItems.length === 1 ? "match" : "matches"}`
+    : `${filteredItems.length} ${filteredItems.length === 1 ? "piece" : "pieces"}`;
 
   if (loading) {
     return <div className="store-page">Loading store...</div>;
@@ -64,11 +326,6 @@ export default function StorePage() {
   if (!store) {
     return <div className="store-page">Store not found.</div>;
   }
-
-  const categories = store.categories || [];
-  const selectedCategory = categories.find(
-    (category) => (category.id ?? category.name) === selectedCategoryId
-  );
 
   const handleItemClick = (item) => {
     const itemId = getItemId(item) ?? item.name;
@@ -134,49 +391,108 @@ export default function StorePage() {
         </div>
       </section>
 
+      {/* Outfit Recommendation Section */}
+      <section className="store-outfit-section">
+        <OutfitRecommendation className="store-outfit-container" />
+      </section>
+
       {categories.length === 0 ? (
         <p className="empty-state">No categories available.</p>
       ) : (
         <>
-          <div className="category-pills">
-            {categories.map((category) => {
-              const categoryKey = category.id ?? category.name;
-              const isActive = categoryKey === selectedCategoryId;
+          <section className="category-rail">
+            <div className="category-rail__header">
+              <div>
+                <p className="eyebrow">Shop by category</p>
+                <h2>Dial in your vibe</h2>
+              </div>
+            </div>
 
-              return (
-                <button
-                  key={categoryKey}
-                  className={`category-pill ${isActive ? "active" : ""}`}
-                  onClick={() => setSelectedCategoryId(categoryKey)}
-                >
-                  <span>{category.name || "Category"}</span>
-                  <span className="pill-count">
-                    {(category.items?.length ?? 0) + " items"}
-                  </span>
-                </button>
-              );
-            })}
-          </div>
+            <div className="category-rail__viewport">
+              <div className="category-rail__scroller" ref={categoryRailRef}>
+                {decoratedCategories.map(({ category, key, theme }, index) => {
+                  const recordKey = key ?? `category-${index}`;
+                  const reactKey =
+                    typeof recordKey === "number"
+                      ? `category-${recordKey}`
+                      : recordKey;
+                  const isActive = recordKey === selectedCategoryId;
+                  return (
+                    <button
+                      key={reactKey}
+                      type="button"
+                      className={`category-card ${isActive ? "is-active" : ""}`}
+                      aria-pressed={isActive}
+                      onClick={() => setSelectedCategoryId(recordKey)}
+                      style={{
+                        "--category-accent": theme.accent,
+                        "--category-surface": theme.surface,
+                        "--category-gradient": theme.gradient,
+                      }}
+                    >
+                      <span className="category-card__badge">{theme.badge}</span>
+                      <h3 className="category-card__title">
+                        {category?.name || "Category"}
+                      </h3>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          </section>
 
-          <section className="category-detail">
+          <section
+            className="category-detail"
+            style={
+              selectedCategoryTheme
+                ? {
+                    "--category-accent": selectedCategoryTheme.accent,
+                    "--category-surface": selectedCategoryTheme.surface,
+                  }
+                : undefined
+            }
+          >
             <div className="category-heading">
               <div>
                 <p className="eyebrow">Browse by style</p>
                 <h2>{selectedCategory?.name || "Category"}</h2>
-                {selectedCategory?.description && (
-                  <p className="muted">{selectedCategory.description}</p>
-                )}
+                <p className="muted">
+                  {selectedCategory ? getCategoryBlurb(selectedCategory, selectedCategoryTheme) : "Curated edits tailored to the store's vibe."}
+                </p>
               </div>
               <div className="category-meta">
+                <div className="category-search">
+                  <svg
+                    className="category-search-icon"
+                    width="18"
+                    height="18"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                  >
+                    <path
+                      d="M21 21L15 15M17 10C17 13.866 13.866 17 10 17C6.13401 17 3 13.866 3 10C3 6.13401 6.13401 3 10 3C13.866 3 17 6.13401 17 10Z"
+                      stroke="currentColor"
+                      strokeWidth="2"
+                      strokeLinecap="round"
+                    />
+                  </svg>
+                  <input
+                    type="text"
+                    value={itemSearch}
+                    onChange={(event) => setItemSearch(event.target.value)}
+                    placeholder="Search items or categories..."
+                    className="category-search-input"
+                  />
+                </div>
                 <span className="pill-count">
-                  {selectedCategory?.items?.length ?? 0} pieces
+                  {categoryCountLabel}
                 </span>
               </div>
             </div>
 
-            {selectedCategory?.items?.length ? (
+            {filteredItems.length ? (
               <div className="product-grid">
-                {selectedCategory.items.map((item) => {
+                {filteredItems.map((item) => {
                   const itemId = getItemId(item) ?? item.name;
                   const wishlisted = isItemWishlisted(
                     wishlistItems,
@@ -198,7 +514,11 @@ export default function StorePage() {
                 })}
               </div>
             ) : (
-              <div className="empty-state card">No items in this category yet.</div>
+              <div className="empty-state card">
+                {showingSearchResults
+                  ? `No matches for "${itemSearch.trim()}" in this store.`
+                  : "No items in this category yet."}
+              </div>
             )}
           </section>
         </>

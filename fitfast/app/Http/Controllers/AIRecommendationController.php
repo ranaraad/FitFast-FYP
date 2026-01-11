@@ -34,50 +34,157 @@ class AIRecommendationController extends Controller
     // ========== PUBLIC API ENDPOINTS ==========
 
     public function size(Request $request, string $user): JsonResponse
-    {
-        $resolvedUser = $this->resolveUser($request, $user);
+{
+    $resolvedUser = $this->resolveUser($request, $user);
 
-        $validated = $request->validate([
-            'garmentType' => ['required', 'string'],
-            'userMeasurements' => ['required', 'array'],
-            'top_k' => ['nullable', 'integer', 'min:1', 'max:10'],
-        ]);
+    $validated = $request->validate([
+        'garmentType' => ['required', 'string'],
+        'itemId' => ['nullable', 'integer'],
+    ]);
 
-        $garmentType = $validated['garmentType'];
-        $userMeasurements = $validated['userMeasurements'];
-        $top_k = $validated['top_k'] ?? 5;
+    $garmentType = $validated['garmentType'];
+    $itemId = $validated['itemId'] ?? null;
 
-        Log::info('Size recommendation requested', [
+    // Get user measurements from profile
+    $userMeasurements = $resolvedUser->measurements ?? [];
+
+    if (empty($userMeasurements)) {
+        return response()->json([
+            'success' => false,
+            'message' => 'User measurements not found. Please update your profile measurements.',
+            'requires_measurements' => true,
+        ], 400);
+    }
+
+    // Convert frontend measurements to AI format
+    $aiMeasurements = $this->convertToAiFormat($userMeasurements);
+
+    Log::info('Size recommendation request', [
+        'user_id' => $resolvedUser->id,
+        'garment_type' => $garmentType,
+        'item_id' => $itemId,
+        'original_measurements' => array_keys($userMeasurements),
+        'ai_measurements' => array_keys($aiMeasurements),
+    ]);
+
+    try {
+        // Call Python size recommender
+        $recommendations = $this->callPythonSizeApi($aiMeasurements, $garmentType, 5);
+
+        return response()->json([
+            'success' => true,
+            'data' => $recommendations,
             'user_id' => $resolvedUser->id,
             'garment_type' => $garmentType,
-            'measurements_count' => count($userMeasurements),
+            'measurements_used' => $this->getRelevantMeasurements($aiMeasurements, $garmentType),
+            'timestamp' => now()->toISOString(),
         ]);
 
-        try {
-            // Call your REAL trained size recommender from Step 4
-            $recommendations = $this->callPythonSizeApi($userMeasurements, $garmentType, $top_k);
+    } catch (\Exception $e) {
+        Log::error('Size recommendation failed', [
+            'error' => $e->getMessage(),
+            'measurements' => $aiMeasurements,
+        ]);
 
-            return response()->json([
-                'success' => true,
-                'data' => $recommendations,
-                'user_id' => $resolvedUser->id,
-                'garment_type' => $garmentType,
-                'timestamp' => now()->toISOString(),
-            ]);
+        return response()->json([
+            'success' => false,
+            'message' => 'Size recommendation service unavailable',
+            'fallback' => $this->getAdvancedFallbackSize($aiMeasurements, $garmentType),
+            'error' => $e->getMessage(),
+        ], 500);
+    }
+}
 
-        } catch (\Exception $e) {
-            Log::error('Size recommendation failed', [
-                'error' => $e->getMessage(),
-                'trace' => $e->getTraceAsString(),
-            ]);
+// ========== ADD THESE HELPER METHODS ==========
 
-            return response()->json([
-                'success' => false,
-                'message' => 'Size recommendation service unavailable',
-                'fallback' => $this->getAdvancedFallbackSize($userMeasurements, $garmentType),
-                'error' => $e->getMessage(),
-            ], 500);
+    private function convertToAiFormat(array $frontendMeasurements): array
+    {
+        // Mapping from frontend field names to AI expected field names
+        $mapping = [
+            // Core measurements (direct matches)
+            'chest_circumference' => 'chest_circumference',
+            'waist_circumference' => 'waist_circumference',
+            'hips_circumference' => 'hips_circumference',
+            'shoulder_width' => 'shoulder_width',
+            'sleeve_length' => 'sleeve_length',
+            'inseam_length' => 'inseam_length',
+
+            // Frontend to AI conversions
+            'height_cm' => 'garment_length',  // Height often used for garment length
+            'arm_length_cm' => 'sleeve_length',
+            'inseam_cm' => 'inseam_length',
+            'bust_cm' => 'chest_circumference',  // Bust ≈ chest for clothing
+            'shoulder_width_cm' => 'shoulder_width',
+
+            // Garment-specific mappings
+            'thigh_circumference' => 'thigh_circumference',
+            'leg_opening' => 'leg_opening',
+            'rise' => 'rise',
+            'collar_size' => 'collar_size',
+            'foot_length' => 'foot_length',
+            'foot_width' => 'foot_width',
+        ];
+
+        $aiMeasurements = [];
+
+        foreach ($mapping as $frontendKey => $aiKey) {
+            if (isset($frontendMeasurements[$frontendKey])) {
+                $aiMeasurements[$aiKey] = $this->convertToFloat($frontendMeasurements[$frontendKey]);
+            } elseif (isset($frontendMeasurements[$aiKey])) {
+                // Also check if AI key exists directly
+                $aiMeasurements[$aiKey] = $this->convertToFloat($frontendMeasurements[$aiKey]);
+            }
         }
+
+        // Add height as garment_length if not already set
+        if (!isset($aiMeasurements['garment_length']) && isset($frontendMeasurements['height_cm'])) {
+            $aiMeasurements['garment_length'] = $this->convertToFloat($frontendMeasurements['height_cm']) - 5; // Approximate
+        }
+
+        return $aiMeasurements;
+    }
+
+    private function convertToFloat($value): float
+    {
+        if (is_numeric($value)) {
+            return (float) $value;
+        }
+
+        if (is_string($value)) {
+            // Remove any non-numeric characters except decimal point
+            $cleaned = preg_replace('/[^0-9.]/', '', $value);
+            if (is_numeric($cleaned)) {
+                return (float) $cleaned;
+            }
+        }
+
+        return 0.0;
+    }
+
+    private function getRelevantMeasurements(array $measurements, string $garmentType): array
+    {
+        // Define which measurements are relevant for each garment type
+        $relevantMeasurements = [
+            't_shirt' => ['chest_circumference', 'garment_length', 'sleeve_length', 'shoulder_width'],
+            'v_neck_tee' => ['chest_circumference', 'garment_length', 'sleeve_length', 'shoulder_width'],
+            'regular_jeans' => ['waist_circumference', 'hips_circumference', 'inseam_length', 'thigh_circumference'],
+            'slim_pants' => ['waist_circumference', 'hips_circumference', 'inseam_length', 'thigh_circumference'],
+            'dress_shirt' => ['chest_circumference', 'waist_circumference', 'garment_length', 'sleeve_length', 'collar_size'],
+            'sneakers' => ['foot_length', 'foot_width'],
+        ];
+
+        $garmentType = strtolower($garmentType);
+        $relevant = $relevantMeasurements[$garmentType] ?? ['chest_circumference', 'waist_circumference'];
+
+        // Return only measurements that exist and are relevant
+        $result = [];
+        foreach ($relevant as $measurement) {
+            if (isset($measurements[$measurement])) {
+                $result[$measurement] = $measurements[$measurement];
+            }
+        }
+
+        return $result;
     }
 
     public function outfit(Request $request, string $user): JsonResponse

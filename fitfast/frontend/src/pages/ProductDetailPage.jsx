@@ -1247,15 +1247,172 @@ export default function ProductDetailPage() {
       </button>
 
       <div className="product-detail-container">
-        <div className="product-detail-image">
-          {getItemImage(product) ? (
-            <img
-              src={getItemImage(product)}
-              alt={product.name || "Product"}
-            />
-          ) : (
-            <div className="image-placeholder-large">
-              {product.name?.slice(0, 1) || "P"}
+        <div>
+          <div className="product-detail-image">
+            {getItemImage(product) ? (
+              <img
+                src={getItemImage(product)}
+                alt={product.name || "Product"}
+              />
+            ) : (
+              <div className="image-placeholder-large">
+                {product.name?.slice(0, 1) || "P"}
+              </div>
+            )}
+          </div>
+          
+          {/* Style Outfit Section under image */}
+          <div className="ai-action" style={{ marginTop: '20px' }}>
+            <button
+              type="button"
+              className={`ai-button secondary ${outfitLoading ? 'loading' : ''}`}
+              onClick={handleOutfitAssist}
+              disabled={outfitLoading}
+            >
+              {outfitLoading ? (
+                <>
+                  <span className="spinner"></span>
+                  Curating outfit...
+                </>
+              ) : (
+                "Style this outfit"
+              )}
+            </button>
+
+            {outfitError && <p className="ai-message error">{outfitError}</p>}
+          </div>
+
+          {/* Outfit Suggestions under image */}
+          {outfitItems.length > 0 && (
+            <div className={`ai-outfit ${outfitSourceInfo.isRealAI ? 'real-ai-outfit' : 'fallback-outfit'}`} style={{ marginTop: '15px' }}>
+              <div className="ai-outfit-header">
+                <div className="ai-result-heading">
+                  <h3>Complete Outfit Suggestion</h3>
+                  <div className="outfit-source-indicator">
+                    <span className={`ai-source-badge ${outfitSourceInfo.isRealAI ? 'ai-badge' : 'fallback-badge'}`}>
+                      {outfitSourceInfo.isRealAI ? '🤖 AI Generated' : '📊 Basic Match'}
+                    </span>
+                    {outfitSuggestion.data?.outfit?.compatibility_score !== undefined && (
+                      <span className="ai-chip">
+                        {Math.round(outfitSuggestion.data.outfit.compatibility_score)}% match
+                      </span>
+                    )}
+                    {outfitSuggestion.data?.outfit?.style_theme && (
+                      <span className="ai-chip secondary">
+                        {outfitSuggestion.data.outfit.style_theme.replace(/_/g, ' ')}
+                      </span>
+                    )}
+                  </div>
+                </div>
+
+                {outfitSuggestion.data?.outfit?.description && (
+                  <p className="outfit-description">
+                    {outfitSuggestion.data.outfit.description}
+                  </p>
+                )}
+
+                <div className="outfit-meta-info">
+                  <span className="outfit-item-count">
+                    {outfitItems.length} items · ${outfitTotalPrice.toFixed(2)}
+                  </span>
+                </div>
+              </div>
+
+              <div className="ai-outfit-grid">
+                {outfitItems.map((item, index) => {
+                  const itemId = item.id || item.item_id || index;
+                  const recommendedSize = outfitSizeMap[item.id] || outfitSizeMap[itemId] || 'Standard';
+                  const isRealItem = item.name && !item.name.startsWith('Item ');
+
+                  return (
+                    <div key={itemId} className="ai-outfit-card">
+                      <div className="outfit-card-image">
+                        {item.image_url || item.image ? (
+                          <img
+                            src={item.image_url || item.image}
+                            alt={item.name || item.item_name || "Outfit item"}
+                            className="outfit-item-image"
+                          />
+                        ) : (
+                          <div className="ai-outfit-placeholder">
+                            {(item.name || item.item_name || "?").slice(0, 1)}
+                          </div>
+                        )}
+                        {!isRealItem && (
+                          <div className="item-source-indicator">
+                            <span className="item-source-badge">Generic</span>
+                          </div>
+                        )}
+                      </div>
+                      <div className="ai-outfit-info">
+                        <p className="ai-outfit-name">
+                          {item.name || item.item_name || "Curated piece"}
+                          {!isRealItem && <span className="item-generic-indicator"> (example)</span>}
+                        </p>
+                        {item.price && (
+                          <p className="ai-outfit-price">
+                            ${parseFloat(item.price).toFixed(2)}
+                          </p>
+                        )}
+                        <p className="ai-outfit-meta">
+                          {item.garment_type || item.garment_category || ''}
+                        </p>
+                        {isRealItem && (
+                          <button
+                            className="outfit-item-add-btn"
+                            onClick={() => {
+                              addToCart({
+                                id: item.id,
+                                name: item.name || item.item_name,
+                                price: item.price,
+                                image: item.image_url || item.image,
+                                size: outfitSizeMap[item.id] || 'Standard',
+                                storeId: storeId,
+                                quantity: 1
+                              });
+                              setCartFeedback(`Added ${item.name || item.item_name} to cart`);
+                            }}
+                          >
+                            Add to Cart
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+
+              <div className="outfit-actions">
+                <button
+                  className="outfit-add-all"
+                  onClick={() => {
+                    const validItems = outfitItems.filter(i => i.id && i.name && !i.name.startsWith('Item '));
+                    const totalOriginalPrice = validItems.reduce((sum, item) => sum + parseFloat(item.price || 0), 0);
+                    const savings = totalOriginalPrice * 0.20;
+                    
+                    validItems.forEach(item => {
+                      addToCart({
+                        id: item.id,
+                        name: item.name || item.item_name,
+                        price: item.price,
+                        image: item.image_url || item.image,
+                        size: outfitSizeMap[item.id] || 'Standard',
+                        storeId: storeId,
+                        quantity: 1,
+                        bundleDiscount: 20
+                      });
+                    });
+                    setCartFeedback(`Added ${validItems.length} items to cart with 20% off! You saved $${savings.toFixed(2)}`);
+                  }}
+                  disabled={outfitItems.every(item => !item.id || item.name?.startsWith('Item '))}
+                >
+                  <span className="outfit-add-all-text">Add all to cart</span>
+                  <span className="outfit-add-all-prices">
+                    <span className="outfit-original-price">${outfitTotalPrice.toFixed(2)}</span>
+                    <span className="outfit-discounted-price">${(outfitTotalPrice * 0.8).toFixed(2)}</span>
+                  </span>
+                </button>
+              </div>
             </div>
           )}
         </div>
@@ -1416,6 +1573,17 @@ export default function ProductDetailPage() {
             </div>
           </div>
 
+          <div className="product-actions-detail">
+            <button
+              type="button"
+              className="add-to-cart-btn-large"
+              onClick={handleAddToCart}
+              disabled={isOutOfStock}
+            >
+               {isOutOfStock ? "Out of Stock" : "Add to Cart"}
+            </button>
+          </div>
+
           {/* AI Assist Section with Source Indicators */}
           <div className="ai-assist">
             <div className="ai-action">
@@ -1438,11 +1606,6 @@ export default function ProductDetailPage() {
                       <span className={`ai-source-badge ${sizeSummary.isFallback ? 'fallback-badge' : 'ai-badge'}`}>
                         {sizeSummary.isFallback ? '📊 Fallback' : '🤖 AI'}
                       </span>
-                      {sizeSummary.sourceInfo.modelUsed && (
-                        <span className="ai-model-info">
-                          {sizeSummary.sourceInfo.modelUsed.replace('.pkl', '')}
-                        </span>
-                      )}
                     </div>
                   </div>
 
@@ -1462,9 +1625,6 @@ export default function ProductDetailPage() {
                         <span className="confidence-score">
                           Confidence: <strong>{formatFitScore(sizeSummary.fitScore)}</strong>
                         </span>
-                        {sizeSummary.method && (
-                          <span className="confidence-method"> · {sizeSummary.method}</span>
-                        )}
                       </div>
                     </div>
                   )}
@@ -1490,7 +1650,6 @@ export default function ProductDetailPage() {
                     <div className="debug-info">
                       <small>
                         Source: {sizeSummary.sourceInfo.source} |
-                        Model: {sizeSummary.sourceInfo.modelUsed || 'none'} |
                         Fallback: {sizeSummary.isFallback ? 'Yes' : 'No'}
                       </small>
                     </div>
@@ -1498,173 +1657,6 @@ export default function ProductDetailPage() {
                 </div>
               )}
             </div>
-
-            <div className="ai-action">
-              <button
-                type="button"
-                className={`ai-button secondary ${outfitLoading ? 'loading' : ''}`}
-                onClick={handleOutfitAssist}
-                disabled={outfitLoading}
-              >
-                {outfitLoading ? (
-                  <>
-                    <span className="spinner"></span>
-                    Curating outfit...
-                  </>
-                ) : (
-                  "Style this outfit"
-                )}
-              </button>
-
-              {outfitError && <p className="ai-message error">{outfitError}</p>}
-            </div>
-
-            {/* Outfit Suggestions */}
-            {outfitItems.length > 0 && (
-              <div className={`ai-outfit ${outfitSourceInfo.isRealAI ? 'real-ai-outfit' : 'fallback-outfit'}`}>
-                <div className="ai-outfit-header">
-                  <div className="ai-result-heading">
-                    <h3>Complete Outfit Suggestion</h3>
-                    <div className="outfit-source-indicator">
-                      <span className={`ai-source-badge ${outfitSourceInfo.isRealAI ? 'ai-badge' : 'fallback-badge'}`}>
-                        {outfitSourceInfo.isRealAI ? '🤖 AI Generated' : '📊 Basic Match'}
-                      </span>
-                      {outfitSuggestion.data?.outfit?.compatibility_score !== undefined && (
-                        <span className="ai-chip">
-                          {Math.round(outfitSuggestion.data.outfit.compatibility_score)}% match
-                        </span>
-                      )}
-                      {outfitSuggestion.data?.outfit?.style_theme && (
-                        <span className="ai-chip secondary">
-                          {outfitSuggestion.data.outfit.style_theme.replace(/_/g, ' ')}
-                        </span>
-                      )}
-                    </div>
-                  </div>
-
-                  {outfitSuggestion.data?.outfit?.description && (
-                    <p className="outfit-description">
-                      {outfitSuggestion.data.outfit.description}
-                    </p>
-                  )}
-
-                  {/* Outfit source info */}
-                  <div className="outfit-meta-info">
-                    <span className="outfit-item-count">
-                      {outfitItems.length} items · ${outfitTotalPrice.toFixed(2)}
-                    </span>
-                  </div>
-                </div>
-
-                <div className="ai-outfit-grid">
-                  {outfitItems.map((item, index) => {
-                    const itemId = item.id || item.item_id || index;
-                    const recommendedSize = outfitSizeMap[item.id] || outfitSizeMap[itemId] || 'Standard';
-                    const isRealItem = item.name && !item.name.startsWith('Item ');
-
-                    return (
-                      <div key={itemId} className="ai-outfit-card">
-                        <div className="outfit-card-image">
-                          {item.image_url || item.image ? (
-                            <img
-                              src={item.image_url || item.image}
-                              alt={item.name || item.item_name || "Outfit item"}
-                              className="outfit-item-image"
-                            />
-                          ) : (
-                            <div className="ai-outfit-placeholder">
-                              {(item.name || item.item_name || "?").slice(0, 1)}
-                            </div>
-                          )}
-                          {!isRealItem && (
-                            <div className="item-source-indicator">
-                              <span className="item-source-badge">Generic</span>
-                            </div>
-                          )}
-                        </div>
-                        <div className="ai-outfit-info">
-                          <p className="ai-outfit-name">
-                            {item.name || item.item_name || "Curated piece"}
-                            {!isRealItem && <span className="item-generic-indicator"> (example)</span>}
-                          </p>
-                          {item.price && (
-                            <p className="ai-outfit-price">
-                              ${parseFloat(item.price).toFixed(2)}
-                            </p>
-                          )}
-                          <p className="ai-outfit-meta">
-                            {item.garment_type || item.garment_category || ''}
-                          </p>
-                          {isRealItem && (
-                            <button
-                              className="outfit-item-add-btn"
-                              onClick={() => {
-                                addToCart({
-                                  id: item.id,
-                                  name: item.name || item.item_name,
-                                  price: item.price,
-                                  image: item.image_url || item.image,
-                                  size: outfitSizeMap[item.id] || 'Standard',
-                                  storeId: storeId,
-                                  quantity: 1
-                                });
-                                setCartFeedback(`Added ${item.name || item.item_name} to cart`);
-                              }}
-                            >
-                              Add to Cart
-                            </button>
-                          )}
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-
-                <div className="outfit-actions">
-                  <button
-                    className="outfit-add-all"
-                    onClick={() => {
-                      // Add all outfit items to cart with 20% discount
-                      const validItems = outfitItems.filter(i => i.id && i.name && !i.name.startsWith('Item '));
-                      const totalOriginalPrice = validItems.reduce((sum, item) => sum + parseFloat(item.price || 0), 0);
-                      const savings = totalOriginalPrice * 0.20;
-                      
-                      validItems.forEach(item => {
-                        addToCart({
-                          id: item.id,
-                          name: item.name || item.item_name,
-                          price: item.price,
-                          image: item.image_url || item.image,
-                          size: outfitSizeMap[item.id] || 'Standard',
-                          storeId: storeId,
-                          quantity: 1,
-                          bundleDiscount: 20
-                        });
-                      });
-                      setCartFeedback(`Added ${validItems.length} items to cart with 20% off! You saved $${savings.toFixed(2)}`);
-                    }}
-                    disabled={outfitItems.every(item => !item.id || item.name?.startsWith('Item '))}
-                  >
-                    <span className="outfit-add-all-text">Add all to cart</span>
-                    <span className="outfit-add-all-prices">
-                      <span className="outfit-original-price">${outfitTotalPrice.toFixed(2)}</span>
-                      <span className="outfit-discounted-price">${(outfitTotalPrice * 0.8).toFixed(2)}</span>
-                    </span>
-                  </button>
-                </div>
-              </div>
-            )}
-          </div>
-
-          <div className="product-actions-detail">
-            <button
-              type="button"
-              className="add-to-cart-btn-large"
-              onClick={handleAddToCart}
-              disabled={isOutOfStock}
-            >
-               {isOutOfStock ? "Out of Stock" : "Add to Cart"}
-            </button>
           </div>
 
           <div className="detail-sections">

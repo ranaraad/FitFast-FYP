@@ -8,7 +8,6 @@ import {
 } from "../wishlistStorage";
 import { addToCart } from "../cartStorage";
 import ItemCard from "../components/cards/ItemCard";
-import OutfitRecommendation from "../components/outfit/OutfitRecommendation";
 import { getItemId, getItemImage, getBestFitCopy } from "../utils/item";
 
 const PRIMARY_COLOR = "#641b2e";
@@ -391,10 +390,7 @@ export default function StorePage() {
         </div>
       </section>
 
-      {/* Outfit Recommendation Section */}
-      <section className="store-outfit-section">
-        <OutfitRecommendation className="store-outfit-container" />
-      </section>
+
 
       {categories.length === 0 ? (
         <p className="empty-state">No categories available.</p>

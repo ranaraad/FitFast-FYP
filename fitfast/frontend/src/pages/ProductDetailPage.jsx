@@ -528,6 +528,19 @@ export default function ProductDetailPage() {
     return getAISourceInfo(outfitSuggestion);
   }, [outfitSuggestion]);
 
+  const outfitTotalPrice = useMemo(() => {
+    if (!outfitItems.length) return 0;
+    
+    // Calculate total from outfit items
+    const itemsTotal = outfitItems.reduce((sum, item) => {
+      const price = parseFloat(item.price || 0);
+      return sum + price;
+    }, 0);
+    
+    // Use API total if available, otherwise use calculated total
+    return outfitSuggestion?.data?.outfit?.total_price || itemsTotal;
+  }, [outfitItems, outfitSuggestion]);
+
   const sizeGuide = useMemo(() => buildSizeGuide(product), [product]);
 
   const normalizeOptions = (value, fallback = []) => {
@@ -1506,13 +1519,6 @@ export default function ProductDetailPage() {
               </button>
 
               {outfitError && <p className="ai-message error">{outfitError}</p>}
-
-              {outfitLoading && (
-                <div className="outfit-loading">
-                  <div className="loading-spinner"></div>
-                  <p>Analyzing your style preferences...</p>
-                </div>
-              )}
             </div>
 
             {/* Outfit Suggestions */}
@@ -1547,7 +1553,7 @@ export default function ProductDetailPage() {
                   {/* Outfit source info */}
                   <div className="outfit-meta-info">
                     <span className="outfit-item-count">
-                      {outfitItems.length} items · ${outfitSuggestion?.data?.outfit?.total_price?.toFixed(2) || '0.00'}
+                      {outfitItems.length} items · ${outfitTotalPrice.toFixed(2)}
                     </span>
                   </div>
                 </div>
@@ -1591,6 +1597,25 @@ export default function ProductDetailPage() {
                           <p className="ai-outfit-meta">
                             {item.garment_type || item.garment_category || ''}
                           </p>
+                          {isRealItem && (
+                            <button
+                              className="outfit-item-add-btn"
+                              onClick={() => {
+                                addToCart({
+                                  id: item.id,
+                                  name: item.name || item.item_name,
+                                  price: item.price,
+                                  image: item.image_url || item.image,
+                                  size: outfitSizeMap[item.id] || 'Standard',
+                                  storeId: storeId,
+                                  quantity: 1
+                                });
+                                setCartFeedback(`Added ${item.name || item.item_name} to cart`);
+                              }}
+                            >
+                              Add to Cart
+                            </button>
+                          )}
                         </div>
                       </div>
                     );
@@ -1601,25 +1626,32 @@ export default function ProductDetailPage() {
                   <button
                     className="outfit-add-all"
                     onClick={() => {
-                      // Add all outfit items to cart
-                      outfitItems.forEach(item => {
-                        if (item.id && item.name && !item.name.startsWith('Item ')) {
-                          addToCart({
-                            id: item.id,
-                            name: item.name || item.item_name,
-                            price: item.price,
-                            image: item.image_url || item.image,
-                            size: outfitSizeMap[item.id] || 'Standard',
-                            storeId: storeId,
-                            quantity: 1
-                          });
-                        }
+                      // Add all outfit items to cart with 20% discount
+                      const validItems = outfitItems.filter(i => i.id && i.name && !i.name.startsWith('Item '));
+                      const totalOriginalPrice = validItems.reduce((sum, item) => sum + parseFloat(item.price || 0), 0);
+                      const savings = totalOriginalPrice * 0.20;
+                      
+                      validItems.forEach(item => {
+                        addToCart({
+                          id: item.id,
+                          name: item.name || item.item_name,
+                          price: item.price,
+                          image: item.image_url || item.image,
+                          size: outfitSizeMap[item.id] || 'Standard',
+                          storeId: storeId,
+                          quantity: 1,
+                          bundleDiscount: 20
+                        });
                       });
-                      setCartFeedback(`Added ${outfitItems.filter(i => i.id && i.name && !i.name.startsWith('Item ')).length} items to cart`);
+                      setCartFeedback(`Added ${validItems.length} items to cart with 20% off! You saved $${savings.toFixed(2)}`);
                     }}
                     disabled={outfitItems.every(item => !item.id || item.name?.startsWith('Item '))}
                   >
-                    Add all to cart
+                    <span className="outfit-add-all-text">Add all to cart</span>
+                    <span className="outfit-add-all-prices">
+                      <span className="outfit-original-price">${outfitTotalPrice.toFixed(2)}</span>
+                      <span className="outfit-discounted-price">${(outfitTotalPrice * 0.8).toFixed(2)}</span>
+                    </span>
                   </button>
                 </div>
               </div>

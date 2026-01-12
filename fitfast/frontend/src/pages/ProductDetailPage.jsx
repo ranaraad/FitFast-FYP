@@ -1546,11 +1546,6 @@ export default function ProductDetailPage() {
 
                   {/* Outfit source info */}
                   <div className="outfit-meta-info">
-                    {outfitSourceInfo.modelUsed && (
-                      <span className="outfit-model">
-                        Model: {outfitSourceInfo.modelUsed.replace('.pkl', '')}
-                      </span>
-                    )}
                     <span className="outfit-item-count">
                       {outfitItems.length} items · ${outfitSuggestion?.data?.outfit?.total_price?.toFixed(2) || '0.00'}
                     </span>
@@ -1596,10 +1591,6 @@ export default function ProductDetailPage() {
                           <p className="ai-outfit-meta">
                             {item.garment_type || item.garment_category || ''}
                           </p>
-                          <div className="outfit-size-info">
-                            <span className="size-label">Recommended:</span>
-                            <span className="size-value">{recommendedSize}</span>
-                          </div>
                         </div>
                       </div>
                     );

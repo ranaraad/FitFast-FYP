@@ -993,6 +993,13 @@ export default function ProductDetailPage() {
     setOutfitError("");
   }, [resolvedItemId]);
 
+  // Automatically fetch size recommendation when product is loaded
+  useEffect(() => {
+    if (product && resolvedItemId) {
+      handleSizeAssist();
+    }
+  }, [product, resolvedItemId]);
+
 
   useEffect(() => {
     if (!cartFeedback) return;
@@ -1412,21 +1419,12 @@ export default function ProductDetailPage() {
           {/* AI Assist Section with Source Indicators */}
           <div className="ai-assist">
             <div className="ai-action">
-              <button
-                type="button"
-                className={`ai-button ${sizeLoading ? 'loading' : ''}`}
-                onClick={handleSizeAssist}
-                disabled={sizeLoading}
-              >
-                {sizeLoading ? (
-                  <>
-                    <span className="spinner"></span>
-                    Finding your size...
-                  </>
-                ) : (
-                  "Find my best size"
-                )}
-              </button>
+              {sizeLoading && (
+                <p className="ai-message loading">
+                  <span className="spinner"></span>
+                  Finding your best size...
+                </p>
+              )}
 
               {sizeError && <p className="ai-message error">{sizeError}</p>}
 

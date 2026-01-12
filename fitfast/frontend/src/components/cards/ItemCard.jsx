@@ -106,7 +106,7 @@ export default function ItemCard({
       const match = normalizeFitScore(rawScore);
 
       if (recommendedSize && match !== null) {
-        return `Best Fit: ${recommendedSize} - ${match}% Match!`;
+        return `Best Fit: ${recommendedSize}`;
       }
 
       if (recommendedSize) {
@@ -114,7 +114,7 @@ export default function ItemCard({
       }
 
       if (match !== null) {
-        return `Best Fit Confidence: ${match}%`;
+        return `Best Fit Confidence`;
       }
 
       return "We need more data.";

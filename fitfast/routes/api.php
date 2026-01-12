@@ -4,6 +4,7 @@ use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\AuthController;
 use App\Http\Controllers\Client\UserController;
 use App\Http\Controllers\Client\StoreController;
+use App\Http\Controllers\Client\OrderController;
 use App\Http\Controllers\API\SupportChatController;
 use App\Http\Controllers\AIRecommendationController; 
 
@@ -603,7 +604,7 @@ Route::prefix('ai-test')->group(function () {
 Route::prefix('ai')->middleware('auth:sanctum')->group(function () {
     Route::post('/users/{user}/size', [AIRecommendationController::class, 'size']);
     Route::post('/users/{user}/outfit', [AIRecommendationController::class, 'outfit']);
-    Route::get('/users/{user}/recommendations', [AIRecommendationController::class, 'recommendations']);
+    Route::match(['get', 'post'], '/users/{user}/recommendations', [AIRecommendationController::class, 'recommendations']);
     Route::post('/users/{user}/sync', [AIRecommendationController::class, 'sync']);
 });
 
@@ -613,6 +614,10 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/user', [UserController::class, 'show']);
     Route::put('/user', [UserController::class, 'update']);
     Route::post('/user/password', [UserController::class, 'updatePassword']);
+
+    Route::get('/orders', [OrderController::class, 'index']);
+    Route::post('/orders', [OrderController::class, 'store']);
+    Route::get('/orders/{order}', [OrderController::class, 'show'])->whereNumber('order');
 
     Route::get('/chat-support', [SupportChatController::class, 'index']);
     Route::post('/chat-support', [SupportChatController::class, 'store']);

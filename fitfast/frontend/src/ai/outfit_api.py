@@ -5,11 +5,22 @@ import pickle
 import os
 
 def load_outfit_model():
-    """Load outfit builder model"""
+    """Load outfit builder model - UPDATED VERSION"""
     ai_dir = os.path.dirname(os.path.abspath(__file__))
     artifacts_dir = os.path.join(ai_dir, "artifacts")
 
-    # Try to load outfit builder
+    # FIRST: Try the NEW fixed model
+    fixed_model_path = os.path.join(artifacts_dir, "intelligent_outfit_builder_fixed_names.pkl")
+    if os.path.exists(fixed_model_path):
+        try:
+            with open(fixed_model_path, "rb") as f:
+                print(f"Loading fixed model: {fixed_model_path}", file=sys.stderr)
+                return pickle.load(f), "intelligent_outfit_builder_fixed_names.pkl"
+        except Exception as e:
+            print(f"Error loading fixed model: {e}", file=sys.stderr)
+            # Continue to try other models
+
+    # SECOND: Try the original model (fallback)
     model_path = os.path.join(artifacts_dir, "intelligent_outfit_builder.pkl")
     if os.path.exists(model_path):
         try:
@@ -18,7 +29,7 @@ def load_outfit_model():
         except:
             pass
 
-    # Try complete system
+    # THIRD: Try complete system
     complete_path = os.path.join(artifacts_dir, "complete_outfit_system.pkl")
     if os.path.exists(complete_path):
         try:

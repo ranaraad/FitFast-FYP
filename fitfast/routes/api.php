@@ -614,6 +614,7 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/user', [UserController::class, 'show']);
     Route::put('/user', [UserController::class, 'update']);
     Route::post('/user/password', [UserController::class, 'updatePassword']);
+    Route::delete('/user', [UserController::class, 'destroy']);
 
     Route::get('/orders', [OrderController::class, 'index']);
     Route::post('/orders', [OrderController::class, 'store']);

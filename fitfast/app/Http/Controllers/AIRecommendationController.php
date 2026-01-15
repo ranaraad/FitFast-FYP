@@ -214,6 +214,58 @@ class AIRecommendationController extends Controller
             // Call your REAL intelligent outfit builder from Step 5
             $outfit = $this->callPythonOutfitApi($startingItemId, $userMeasurements, $style, $maxItems);
 
+            // Enhance outfit items with store_id, storeId, image_url.
+            $outfitItems = null;
+            $itemsPath = null;
+
+            if (isset($outfit['outfit_items']) && is_array($outfit['outfit_items'])) {
+                $outfitItems = $outfit['outfit_items'];
+                $itemsPath = 'outfit_items';
+            } elseif (isset($outfit['outfit']['outfit_items']) && is_array($outfit['outfit']['outfit_items'])) {
+                $outfitItems = $outfit['outfit']['outfit_items'];
+                $itemsPath = 'outfit.outfit_items';
+            }
+
+            if ($outfitItems !== null) {
+                $enhancedItems = [];
+                foreach ($outfitItems as $item) {
+                    $itemId = $item['id'] ?? $item['item_id'] ?? null;
+                    $storeId = $item['store_id'] ?? $item['storeId'] ?? null;
+                    $dbItem = null;
+
+                    if ($itemId && $storeId) {
+                        // If store_id is provided, use it for a precise lookup
+                        $dbItem = \App\Models\Item::where('id', $itemId)
+                                                  ->where('store_id', $storeId)
+                                                  ->first();
+                    } elseif ($itemId) {
+                        // Fallback for older AI models: find item by ID and log a warning
+                        Log::warning('AI outfit item is missing store_id. Falling back to find()', [
+                            'item_id' => $itemId,
+                            'outfit_data' => $item,
+                        ]);
+                        $dbItem = \App\Models\Item::find($itemId);
+                    }
+
+                    $enhancedItems[] = [
+                        'id' => $itemId,
+                        'name' => $item['name'] ?? $item['item_name'] ?? ($dbItem ? $dbItem->name : 'Unknown Item'),
+                        'price' => $item['price'] ?? ($dbItem ? $dbItem->price : 0),
+                        'garment_type' => $item['garment_type'] ?? ($dbItem ? $dbItem->garment_type : null),
+                        'garment_category' => $item['garment_category'] ?? ($dbItem ? $dbItem->category : null),
+                        'store_id' => $dbItem ? $dbItem->store_id : $storeId, // Prioritize DB, fallback to AI data
+                        'storeId' => $dbItem ? $dbItem->store_id : $storeId,  // For frontend consistency
+                        'image_url' => $dbItem ? $dbItem->image_url : null,
+                    ];
+                }
+
+                if ($itemsPath === 'outfit_items') {
+                    $outfit['outfit_items'] = $enhancedItems;
+                } else {
+                    $outfit['outfit']['outfit_items'] = $enhancedItems;
+                }
+            }
+
             return response()->json([
                 'success' => true,
                 'data' => $outfit,
@@ -927,6 +979,9 @@ PYTHON;
                     'name' => $fallbackItem->name,
                     'price' => $fallbackItem->price,
                     'garment_type' => $fallbackItem->garment_type,
+                    'store_id' => $fallbackItem->store_id,
+                    'storeId' => $fallbackItem->store_id,
+                    'image_url' => $fallbackItem->image_url,
                 ];
             })
             ->toArray();
@@ -937,6 +992,9 @@ PYTHON;
                 'name' => $item->name,
                 'type' => $item->garment_type,
                 'price' => $item->price,
+                'store_id' => $item->store_id,
+                'storeId' => $item->store_id,
+                'image_url' => $item->image_url,
             ] : null,
             'outfit_items' => $fallbackItems,
             'total_price' => $item->price + array_sum(array_column($fallbackItems, 'price')),

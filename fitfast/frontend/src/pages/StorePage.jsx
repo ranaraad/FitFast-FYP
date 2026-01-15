@@ -264,7 +264,7 @@ export default function StorePage() {
   const selectedCategory = selectedCategoryEntry?.category;
   const selectedCategoryTheme = selectedCategoryEntry?.theme;
 
-  const categories = rawCategories ?? [];
+  const categories = useMemo(() => rawCategories ?? [], [rawCategories]);
 
   const normalizedItemSearch = itemSearch.trim().toLowerCase();
 
@@ -331,8 +331,9 @@ export default function StorePage() {
   }
 
   const handleItemClick = (item) => {
+    console.log('Clicked item:', item);
     const itemId = getItemId(item) ?? item.name;
-
+    console.log('Navigating to:', `/stores/${storeId}/product/${itemId}`);
     navigate(`/stores/${storeId}/product/${itemId}`);
   };
 

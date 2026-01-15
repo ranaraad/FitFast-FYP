@@ -1169,7 +1169,15 @@ export default function ProductDetailPage() {
       maxItems: 4,
     });
 
-    console.log('Outfit API Response:', { data, error }); // Debug log
+    // Debug: log the raw response and check for store_id
+    console.log('🔍 DEBUG Outfit Response:', {
+      rawResponse: data,
+      firstItem: data?.data?.outfit?.outfit_items?.[0],
+      allItems: data?.data?.outfit?.outfit_items,
+      // Check for store_id
+      firstItemHasStoreId: data?.data?.outfit?.outfit_items?.[0]?.store_id,
+      firstItemHasStoreIdAlt: data?.data?.outfit?.outfit_items?.[0]?.storeId,
+    });
 
     if (error) {
       setOutfitError(error);
@@ -1325,7 +1333,41 @@ export default function ProductDetailPage() {
                   const isRealItem = item.name && !item.name.startsWith('Item ');
 
                   return (
-                    <div key={itemId} className="ai-outfit-card">
+                    <div
+                      key={itemId}
+                      className="ai-outfit-card clickable"
+                      style={{ cursor: isRealItem ? 'pointer' : 'default' }}
+                      onClick={() => {
+                        if (!isRealItem) return;
+
+                        // Try multiple ways to get store ID
+                        const navStoreId =
+                          item.store_id ||
+                          item.storeId ||
+                          item.store_id_alt ||
+                          storeId; // fallback to current store
+
+                        console.log('🖱️ Clicking outfit item:', {
+                          itemId,
+                          itemName: item.name,
+                          hasStoreId: Boolean(item.store_id || item.storeId),
+                          navStoreId,
+                          itemData: item
+                        });
+
+                        if (itemId && navStoreId) {
+                          navigate(`/stores/${navStoreId}/product/${itemId}`);
+                        } else {
+                          console.warn('Cannot navigate: missing store ID', {
+                            itemId,
+                            itemName: item.name,
+                            hasStoreId: Boolean(item.store_id || item.storeId),
+                            item
+                          });
+                          setCartFeedback(`Sorry, "${item.name}" doesn't have store information.`);
+                        }
+                      }}
+                    >
                       <div className="outfit-card-image">
                         {item.image_url || item.image ? (
                           <img
@@ -1360,14 +1402,15 @@ export default function ProductDetailPage() {
                         {isRealItem && (
                           <button
                             className="outfit-item-add-btn"
-                            onClick={() => {
+                            onClick={(e) => {
+                              e.stopPropagation();
                               addToCart({
                                 id: item.id,
                                 name: item.name || item.item_name,
                                 price: item.price,
                                 image: item.image_url || item.image,
                                 size: outfitSizeMap[item.id] || 'Standard',
-                                storeId: storeId,
+                                storeId: item.store_id || item.storeId || storeId,
                                 quantity: 1
                               });
                               setCartFeedback(`Added ${item.name || item.item_name} to cart`);

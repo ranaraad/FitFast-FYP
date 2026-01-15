@@ -184,7 +184,18 @@ export default function ItemCard({
   }, [item, badgeContent]);
 
   return (
-    <article className={articleClassName} onClick={handleCardClick}>
+    <article
+      className={articleClassName}
+      onClick={handleCardClick}
+      style={{ cursor: "pointer" }}
+      aria-label={`View details for ${name}`}
+      tabIndex={0}
+      onKeyDown={e => {
+        if (e.key === "Enter" || e.key === " ") {
+          handleCardClick();
+        }
+      }}
+    >
       <div className={`product-image-container ${styles.imageWrapper}`}>
         {image ? (
           <img src={image} alt={name} loading="lazy" />

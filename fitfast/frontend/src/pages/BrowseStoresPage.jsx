@@ -8,7 +8,6 @@ import {
 } from "../wishlistStorage";
 import { addToCart } from "../cartStorage";
 import ItemCard from "../components/cards/ItemCard";
-import OutfitRecommendation from "../components/outfit/OutfitRecommendation";
 import {
   getItemId,
   getItemImage,
@@ -134,8 +133,10 @@ export default function BrowseStoresPage() {
     setFilteredStores(filtered);
   }, [search, storesWithItems]);
 
-  const handleAddToCart = (store, item) => {
+  const handleAddToCart = (store, item, options = {}) => {
     const itemId = getItemId(item) ?? item.name;
+
+    const selectionLabel = [options.color, options.size].filter(Boolean).join(" / ");
 
     addToCart({
       id: itemId,
@@ -145,9 +146,13 @@ export default function BrowseStoresPage() {
       image: getItemImage(item),
       storeName: store.name,
       quantity: 1,
+      size: options.size || null,
+      color: options.color || null,
     });
 
-    setCartFeedback(`${item.name || "Item"} added to cart`);
+    setCartFeedback(
+      `${item.name || "Item"} added to cart${selectionLabel ? ` (${selectionLabel})` : ""}`
+    );
   };
 
   const handleToggleWishlist = (store, item) => {
@@ -195,11 +200,6 @@ export default function BrowseStoresPage() {
             />
           </div>
         </div>
-      </section>
-
-      {/* Outfit Recommendation Section */}
-      <section className="browse-outfit-section">
-        <OutfitRecommendation className="browse-outfit-container" />
       </section>
 
       {/* Stores Sections */}

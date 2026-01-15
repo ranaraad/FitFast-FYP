@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import WishlistButton from "../buttons/WishlistButton";
 import styles from "./ItemCard.module.css";
 import {
@@ -30,6 +30,10 @@ export default function ItemCard({
   const [bestFitStatus, setBestFitStatus] = useState("idle");
   const [bestFitMessage, setBestFitMessage] = useState(badgeContent || "");
   const [bestFitError, setBestFitError] = useState("");
+  const [showQuickAdd, setShowQuickAdd] = useState(false);
+  const [selectedSize, setSelectedSize] = useState("");
+  const [selectedColor, setSelectedColor] = useState("");
+  const quickAddRef = useRef(null);
 
   const name = getItemName(item);
   const image = getItemImage(item);
@@ -56,9 +60,10 @@ export default function ItemCard({
   };
 
   const handleAddToCart = () => {
-    if (typeof onAddToCart === "function") {
-      onAddToCart(item);
+    if (typeof onAddToCart !== "function") {
+      return;
     }
+    setShowQuickAdd((prev) => !prev);
   };
 
   const resolvedItemId = getItemId(item);
@@ -106,7 +111,7 @@ export default function ItemCard({
       const match = normalizeFitScore(rawScore);
 
       if (recommendedSize && match !== null) {
-        return `Best Fit: ${recommendedSize} - ${match}% Match!`;
+        return `Best Fit: ${recommendedSize}`;
       }
 
       if (recommendedSize) {
@@ -114,7 +119,7 @@ export default function ItemCard({
       }
 
       if (match !== null) {
-        return `Best Fit Confidence: ${match}%`;
+        return `Best Fit Confidence`;
       }
 
       return "We need more data.";
@@ -176,15 +181,107 @@ export default function ItemCard({
     }
   };
 
+  const normalizeOptions = useCallback((value, fallback = []) => {
+    if (Array.isArray(value)) return value.filter(Boolean);
+    if (typeof value === "string") {
+      return value
+        .split(/[,|]/)
+        .map((entry) => entry.trim())
+        .filter(Boolean);
+    }
+    return fallback;
+  }, []);
+
+  const normalizeSizeStock = useCallback((target) => {
+    const rawStock = target?.size_stock || target?.sizeStock || {};
+    if (Array.isArray(rawStock)) return {};
+
+    return Object.entries(rawStock).reduce((acc, [size, quantity]) => {
+      acc[size] = Number(quantity) || 0;
+      return acc;
+    }, {});
+  }, []);
+
+  const sizeStock = useMemo(() => normalizeSizeStock(item), [item, normalizeSizeStock]);
+
+  const sizes = useMemo(() => {
+    const stockSizes = Object.keys(sizeStock);
+    if (stockSizes.length > 0) return stockSizes;
+
+    return normalizeOptions(
+      item?.sizes || item?.available_sizes || item?.size_options,
+      ["XS", "S", "M", "L", "XL"]
+    );
+  }, [item, normalizeOptions, sizeStock]);
+
+  const colors = useMemo(() => {
+    const variants =
+      item?.color_variants || item?.available_colors || item?.color_options || [];
+
+    if (Array.isArray(variants)) {
+      const mapped = variants
+        .map((variant) => variant?.name || variant?.color || variant)
+        .filter(Boolean);
+      if (mapped.length) return mapped;
+    }
+
+    if (typeof variants === "object" && variants !== null) {
+      const mapped = Object.values(variants)
+        .map((variant) => variant?.name || variant)
+        .filter(Boolean);
+      if (mapped.length) return mapped;
+    }
+
+    return ["Charcoal", "Sand", "Rose"];
+  }, [item]);
+
+  const handleQuickAddConfirm = () => {
+    if (typeof onAddToCart !== "function") {
+      return;
+    }
+    if (!selectedSize || !selectedColor) {
+      return;
+    }
+    onAddToCart(item, { size: selectedSize, color: selectedColor });
+    setShowQuickAdd(false);
+    setSelectedSize("");
+    setSelectedColor("");
+  };
+
   useEffect(() => {
     setShowBestFit(false);
     setBestFitStatus("idle");
     setBestFitMessage(badgeContent || "");
     setBestFitError("");
+    setShowQuickAdd(false);
+    setSelectedSize("");
+    setSelectedColor("");
   }, [item, badgeContent]);
 
+  useEffect(() => {
+    if (!showQuickAdd || !quickAddRef.current) return;
+
+    const node = quickAddRef.current;
+    const raf = requestAnimationFrame(() => {
+      node.scrollIntoView({ behavior: "smooth", block: "nearest" });
+    });
+
+    return () => cancelAnimationFrame(raf);
+  }, [showQuickAdd]);
+
   return (
-    <article className={articleClassName} onClick={handleCardClick}>
+    <article
+      className={articleClassName}
+      onClick={handleCardClick}
+      style={{ cursor: "pointer" }}
+      aria-label={`View details for ${name}`}
+      tabIndex={0}
+      onKeyDown={e => {
+        if (e.key === "Enter" || e.key === " ") {
+          handleCardClick();
+        }
+      }}
+    >
       <div className={`product-image-container ${styles.imageWrapper}`}>
         {image ? (
           <img src={image} alt={name} loading="lazy" />
@@ -229,7 +326,7 @@ export default function ItemCard({
             <span className="price-modern">{priceLabel}</span>
           )}
 
-          {showAddToCart && typeof onAddToCart === "function" && (
+          {showAddToCart && !showQuickAdd && typeof onAddToCart === "function" && (
             <button
               type="button"
               className="add-to-cart-btn"
@@ -242,6 +339,88 @@ export default function ItemCard({
             </button>
           )}
         </div>
+
+        {showQuickAdd && (
+          <div
+            className={styles.quickAddPanel}
+            onClick={(event) => event.stopPropagation()}
+            role="dialog"
+            aria-label={`Choose size and color for ${name}`}
+            ref={quickAddRef}
+          >
+            <div className={styles.quickAddHeader}>
+              <div>
+                <p className={styles.quickAddSubtitle}>Pick a size and color.</p>
+              </div>
+              <button
+                type="button"
+                className={styles.quickAddClose}
+                onClick={() => setShowQuickAdd(false)}
+                aria-label="Close quick add"
+              >
+                x
+              </button>
+            </div>
+
+            <div className={styles.quickAddGroup}>
+              <span className={styles.quickAddLabel}>Size</span>
+              <div className={styles.quickAddChips}>
+                {sizes.map((size) => {
+                  const isUnavailable = sizeStock[size] === 0;
+                  return (
+                    <button
+                      key={size}
+                      type="button"
+                      className={`${styles.quickAddChip} ${
+                        selectedSize === size ? styles.quickAddChipActive : ""
+                      }`}
+                      onClick={() => setSelectedSize(size)}
+                      disabled={isUnavailable}
+                    >
+                      {size}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
+            <div className={styles.quickAddGroup}>
+              <span className={styles.quickAddLabel}>Color</span>
+              <div className={styles.quickAddChips}>
+                {colors.map((color) => (
+                  <button
+                    key={color}
+                    type="button"
+                    className={`${styles.quickAddChip} ${
+                      selectedColor === color ? styles.quickAddChipActive : ""
+                    }`}
+                    onClick={() => setSelectedColor(color)}
+                  >
+                    {color}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <div className={styles.quickAddActions}>
+              <button
+                type="button"
+                className={styles.quickAddGhost}
+                onClick={() => setShowQuickAdd(false)}
+              >
+                Keep browsing
+              </button>
+              <button
+                type="button"
+                className={styles.quickAddConfirm}
+                onClick={handleQuickAddConfirm}
+                disabled={!selectedSize || !selectedColor}
+              >
+                Add to cart
+              </button>
+            </div>
+          </div>
+        )}
       </div>
     </article>
   );

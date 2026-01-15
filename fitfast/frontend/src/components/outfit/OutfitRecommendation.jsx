@@ -121,6 +121,8 @@ export default function OutfitRecommendation({ className = "" }) {
 
     if (storeId && itemId) {
       navigate(`/stores/${storeId}/product/${itemId}`);
+    } else {
+      setFeedback("Sorry, product details are unavailable for this item.");
     }
   };
 

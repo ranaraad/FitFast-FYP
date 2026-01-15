@@ -1,0 +1,49 @@
+{
+    "user_id": "116",
+    "name": "r",
+    "email": "r@gmail.com",
+    "measurements": {
+        "height_cm": "184",
+        "weight_kg": "78",
+        "bust_cm": "102",
+        "waist_cm": "86",
+        "hips_cm": "99",
+        "shoulder_width_cm": "60",
+        "arm_length_cm": "57",
+        "inseam_cm": "84",
+        "body_shape": "hourglass",
+        "fit_preference": "regular"
+    },
+    "preferences": {
+        "preferred_styles": [
+            "casual_everyday",
+            "smart_casual"
+        ],
+        "size_preferences": [
+            "S",
+            "M",
+            "L"
+        ],
+        "color_preferences": [
+            "Black",
+            "White",
+            "Blue",
+            "Gray"
+        ],
+        "price_range": {
+            "min": 0,
+            "max": 200
+        },
+        "preferred_categories": [
+            "T-Shirts",
+            "Jeans",
+            "Sneakers"
+        ],
+        "fit_preference": "regular"
+    },
+    "purchase_history": [],
+    "created_at": "2026-01-14T21:52:50.000000Z",
+    "last_sync": "2026-01-15T16:40:09.536318Z",
+    "total_orders": 0,
+    "total_spent": 0
+}

@@ -1,11 +1,62 @@
+
 <?php
 
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\AuthController;
 use App\Http\Controllers\Client\UserController;
 use App\Http\Controllers\Client\StoreController;
+use App\Http\Controllers\Client\OrderController;
 use App\Http\Controllers\API\SupportChatController;
 use App\Http\Controllers\AIRecommendationController; 
+
+// ========== OUTFIT PYTHON STORE_ID TEST ROUTE ==========
+use Illuminate\Http\Request;
+Route::post('/test-outfit-store-ids', function (Request $request) {
+    $validated = $request->validate([
+        'startingItemId' => 'required|integer',
+    ]);
+    
+    $controller = new AIRecommendationController();
+    
+    // Manually call the Python script to see what it returns
+    $aiBasePath = 'C:\Users\Rana\OneDrive\Desktop\FitFast FYP\fitfast\frontend\src\ai';
+    $pythonScript = $aiBasePath . '/outfit_api.py';
+    
+    $data = [
+        'starting_item_id' => $validated['startingItemId'],
+        'user_measurements' => [],
+        'style_theme' => 'casual_everyday',
+        'max_items' => 3,
+        'timestamp' => now()->toISOString(),
+    ];
+    
+    $tempFile = tempnam(sys_get_temp_dir(), 'outfit_test_') . '.json';
+    file_put_contents($tempFile, json_encode($data));
+    
+    $command = 'python "' . $pythonScript . '" "' . $tempFile . '" 2>&1';
+    $output = shell_exec($command);
+    
+    unlink($tempFile);
+    
+    // Parse the Python output
+    $output = trim($output);
+    $jsonStart = strpos($output, '{');
+    
+    if ($jsonStart !== false) {
+        $jsonString = substr($output, $jsonStart);
+        $result = json_decode($jsonString, true);
+    } else {
+        $result = ['raw_output' => $output];
+    }
+    
+    return response()->json([
+        'python_output' => $output,
+        'parsed_result' => $result,
+        'data_sent' => $data,
+        'first_item_store_id' => $result['outfit']['outfit_items'][0]['store_id'] ?? 'NOT FOUND',
+        'all_items' => $result['outfit']['outfit_items'] ?? [],
+    ]);
+});
 
 // ========== PUBLIC ROUTES ==========
 Route::post('/register', [AuthController::class, 'register']);
@@ -603,7 +654,7 @@ Route::prefix('ai-test')->group(function () {
 Route::prefix('ai')->middleware('auth:sanctum')->group(function () {
     Route::post('/users/{user}/size', [AIRecommendationController::class, 'size']);
     Route::post('/users/{user}/outfit', [AIRecommendationController::class, 'outfit']);
-    Route::get('/users/{user}/recommendations', [AIRecommendationController::class, 'recommendations']);
+    Route::match(['get', 'post'], '/users/{user}/recommendations', [AIRecommendationController::class, 'recommendations']);
     Route::post('/users/{user}/sync', [AIRecommendationController::class, 'sync']);
 });
 
@@ -613,6 +664,11 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/user', [UserController::class, 'show']);
     Route::put('/user', [UserController::class, 'update']);
     Route::post('/user/password', [UserController::class, 'updatePassword']);
+    Route::delete('/user', [UserController::class, 'destroy']);
+
+    Route::get('/orders', [OrderController::class, 'index']);
+    Route::post('/orders', [OrderController::class, 'store']);
+    Route::get('/orders/{order}', [OrderController::class, 'show'])->whereNumber('order');
 
     Route::get('/chat-support', [SupportChatController::class, 'index']);
     Route::post('/chat-support', [SupportChatController::class, 'store']);

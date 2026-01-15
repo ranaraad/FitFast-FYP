@@ -137,7 +137,19 @@ export default function CartPage() {
             {cartItems.map((item) => (
               <article className="cart-item-card" key={item.cartKey}>
                 <div className="cart-item-media">
-                  {item.image ? (
+                  {item.storeId && item.id ? (
+                    <Link
+                      to={`/stores/${item.storeId}/product/${item.id}`}
+                      className="cart-item-link"
+                      aria-label={`View ${item.name || "item"}`}
+                    >
+                      {item.image ? (
+                        <img src={item.image} alt={item.name} loading="lazy" />
+                      ) : (
+                        <div className="image-placeholder">{item.name?.[0] || ""}</div>
+                      )}
+                    </Link>
+                  ) : item.image ? (
                     <img src={item.image} alt={item.name} loading="lazy" />
                   ) : (
                     <div className="image-placeholder">{item.name?.[0] || ""}</div>
@@ -147,7 +159,18 @@ export default function CartPage() {
                 <div className="cart-item-body">
                   <div className="cart-item-header">
                     <div>
-                      <h3>{item.name}</h3>
+                      <h3>
+                        {item.storeId && item.id ? (
+                          <Link
+                            to={`/stores/${item.storeId}/product/${item.id}`}
+                            className="cart-item-name-link"
+                          >
+                            {item.name}
+                          </Link>
+                        ) : (
+                          item.name
+                        )}
+                      </h3>
                       {item.storeName ? <p className="cart-item-brand">{item.storeName}</p> : null}
                       <div className="cart-item-meta">
                         {item.color ? <span>Color: {item.color}</span> : null}

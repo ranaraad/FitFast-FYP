@@ -1723,7 +1723,7 @@ export default function ProfilePage() {
                     <div className="wishlist-card" key={key}>
                       <div
                         className="wishlist-clickable"
-                        onClick={() => navigate(`/product/${item.storeId}/${item.id}`)}
+                        onClick={() => navigate(`/stores/${item.storeId}/product/${item.id}`)}
                         style={{ cursor: "pointer" }}
                       >
                         <div className="wishlist-media">

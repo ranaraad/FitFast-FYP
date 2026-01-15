@@ -1,0 +1,147 @@
+{
+    "user_id": "114",
+    "name": "elie",
+    "email": "elie@gmail.com",
+    "measurements": {
+        "height_cm": 184,
+        "weight_kg": 78,
+        "bust_cm": 102,
+        "waist_cm": 86,
+        "hips_cm": 99,
+        "shoulder_width_cm": 60,
+        "arm_length_cm": 57,
+        "inseam_cm": 84,
+        "body_shape": "rectangle",
+        "fit_preference": "regular",
+        "chest_circumference": 102,
+        "waist_circumference": 86,
+        "hips_circumference": 94,
+        "garment_length": 76,
+        "sleeve_length": 57,
+        "inseam_length": 86,
+        "thigh_circumference": 61,
+        "leg_opening": 46,
+        "dress_length": null,
+        "short_length": 55,
+        "foot_length": 27,
+        "shoulder_to_hem": null,
+        "skirt_length": null,
+        "foot_width": 8,
+        "head_circumference": 58,
+        "hood_height": 15,
+        "bicep_circumference": 32,
+        "collar_size": 40,
+        "underbust_circumference": null,
+        "cup_size": null,
+        "rise": null,
+        "chain_length": null,
+        "bracelet_circumference": null,
+        "back_width": 45,
+        "neck_circumference": 39
+    },
+    "preferences": {
+        "preferred_styles": [
+            "casual_everyday",
+            "smart_casual"
+        ],
+        "size_preferences": [
+            "S",
+            "M",
+            "L"
+        ],
+        "color_preferences": [
+            "Black",
+            "White",
+            "Blue",
+            "Gray"
+        ],
+        "price_range": {
+            "min": 0,
+            "max": 200
+        },
+        "preferred_categories": [
+            "T-Shirts",
+            "Jeans",
+            "Sneakers"
+        ],
+        "fit_preference": "regular"
+    },
+    "purchase_history": [
+        {
+            "order_id": 205,
+            "item_id": "220",
+            "item_name": "Henley Shirt Variant 129",
+            "item_type": "henley_shirt",
+            "price": 37.95,
+            "purchased_at": "2026-01-09T14:08:09.000000Z",
+            "selected_size": "XS",
+            "selected_color": "Gray",
+            "quantity": 1,
+            "status": "pending"
+        },
+        {
+            "order_id": 205,
+            "item_id": "195",
+            "item_name": "Oxford Button-Down Variant 104",
+            "item_type": "fitted_shirt",
+            "price": 38.55,
+            "purchased_at": "2026-01-09T14:08:09.000000Z",
+            "selected_size": "XS",
+            "selected_color": "White",
+            "quantity": 5,
+            "status": "pending"
+        },
+        {
+            "order_id": 205,
+            "item_id": "239",
+            "item_name": "Heritage Bomber Jacket Variant 148",
+            "item_type": "bomber_jacket",
+            "price": 106.84,
+            "purchased_at": "2026-01-09T14:08:09.000000Z",
+            "selected_size": "XS",
+            "selected_color": "Green",
+            "quantity": 1,
+            "status": "pending"
+        },
+        {
+            "order_id": 205,
+            "item_id": "125",
+            "item_name": "Henley Shirt Variant 34",
+            "item_type": "henley_shirt",
+            "price": 33.88,
+            "purchased_at": "2026-01-09T14:08:09.000000Z",
+            "selected_size": "XS",
+            "selected_color": "Gray",
+            "quantity": 1,
+            "status": "pending"
+        },
+        {
+            "order_id": 205,
+            "item_id": "8",
+            "item_name": "Polo Shirt",
+            "item_type": "polo_shirt",
+            "price": 34.99,
+            "purchased_at": "2026-01-09T14:08:09.000000Z",
+            "selected_size": "XS",
+            "selected_color": "Black",
+            "quantity": 1,
+            "status": "pending"
+        },
+        {
+            "order_id": 205,
+            "item_id": "5",
+            "item_name": "Organic Cotton Tee",
+            "item_type": "t_shirt",
+            "price": 29.99,
+            "purchased_at": "2026-01-09T14:08:09.000000Z",
+            "selected_size": "XS",
+            "selected_color": "White",
+            "quantity": 1,
+            "status": "pending"
+        }
+    ],
+    "created_at": "2026-01-09T13:45:10.000000Z",
+    "last_sync": "2026-01-11T19:58:04.228441Z",
+    "total_orders": 6,
+    "total_spent": 282.2
+}

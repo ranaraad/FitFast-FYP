@@ -231,4 +231,19 @@ class UserController extends Controller
             'message' => 'Password updated successfully',
         ]);
     }
+
+    /**
+     * Delete the authenticated user's account.
+     */
+    public function destroy(Request $request)
+    {
+        $user = $request->user();
+        // Revoke all tokens (force logout)
+        $user->tokens()->delete();
+        // Delete the user account
+        $user->delete();
+        return response()->json([
+            'message' => 'Account deleted successfully. You have been logged out and must register again to use the app.'
+        ], 200);
+    }
 }

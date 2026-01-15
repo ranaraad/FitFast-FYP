@@ -60,12 +60,17 @@ function writeStorage(items) {
 
 function normalizeEntry(entry) {
   const normalizedQuantity = Number(entry.quantity) || 1;
+  const bundleDiscount = entry.bundleDiscount || 0;
+  const originalPrice = entry.price;
+  const discountedPrice = bundleDiscount > 0 ? originalPrice * (1 - bundleDiscount / 100) : originalPrice;
 
   return {
     id: entry.id?.toString(),
     storeId: entry.storeId?.toString(),
     name: entry.name || "Cart item",
-    price: entry.price ?? null,
+    price: discountedPrice ?? null,
+    originalPrice: bundleDiscount > 0 ? originalPrice : null,
+    bundleDiscount: bundleDiscount > 0 ? bundleDiscount : null,
     image: entry.image || null,
     size: entry.size || null,
     color: entry.color || null,

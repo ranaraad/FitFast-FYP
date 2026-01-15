@@ -8,7 +8,6 @@ import {
 } from "../wishlistStorage";
 import { addToCart } from "../cartStorage";
 import ItemCard from "../components/cards/ItemCard";
-import OutfitRecommendation from "../components/outfit/OutfitRecommendation";
 import { getItemId, getItemImage, getBestFitCopy } from "../utils/item";
 
 const PRIMARY_COLOR = "#641b2e";
@@ -187,6 +186,7 @@ export default function StorePage() {
   const [error, setError] = useState("");
   const [selectedCategoryId, setSelectedCategoryId] = useState(null);
   const [cartFeedback, setCartFeedback] = useState("");
+  const [priceSort, setPriceSort] = useState(""); // '', 'low', 'high'
   const [wishlistItems, setWishlistItems] = useState(() => getWishlist());
   const [itemSearch, setItemSearch] = useState("");
   const categoryRailRef = useRef(null);
@@ -264,51 +264,54 @@ export default function StorePage() {
   const selectedCategory = selectedCategoryEntry?.category;
   const selectedCategoryTheme = selectedCategoryEntry?.theme;
 
-  const categories = rawCategories ?? [];
+  const categories = useMemo(() => rawCategories ?? [], [rawCategories]);
 
   const normalizedItemSearch = itemSearch.trim().toLowerCase();
 
   const filteredItems = useMemo(() => {
+    let items = [];
     if (!normalizedItemSearch) {
-      return selectedCategory?.items ?? [];
-    }
-
-    const matches = new Map();
-
-    categories.forEach((category, categoryIndex) => {
-      const categoryItems = category?.items ?? [];
-      const categoryKey = getCategoryKey(category, categoryIndex);
-      const categoryName = category?.name?.toLowerCase() ?? "";
-      const categoryMatches = categoryName.includes(normalizedItemSearch);
-
-      categoryItems.forEach((item, itemIndex) => {
-        const itemName = item?.name?.toLowerCase() ?? "";
-        const itemDesc = item?.description?.toLowerCase() ?? "";
-        const rawItemCategory = item?.category ?? item?.category_name ?? "";
-
-        let itemCategoryName = "";
-        if (typeof rawItemCategory === "string") {
-          itemCategoryName = rawItemCategory.toLowerCase();
-        } else if (rawItemCategory && typeof rawItemCategory === "object") {
-          itemCategoryName = (rawItemCategory.name ?? "").toLowerCase();
-        }
-
-        if (
-          categoryMatches ||
-          itemName.includes(normalizedItemSearch) ||
-          itemDesc.includes(normalizedItemSearch) ||
-          itemCategoryName.includes(normalizedItemSearch)
-        ) {
-          const lookupKey = getItemId(item) ?? `${categoryKey}-${itemIndex}`;
-          if (!matches.has(lookupKey)) {
-            matches.set(lookupKey, item);
+      items = selectedCategory?.items ?? [];
+    } else {
+      const matches = new Map();
+      categories.forEach((category, categoryIndex) => {
+        const categoryItems = category?.items ?? [];
+        const categoryKey = getCategoryKey(category, categoryIndex);
+        const categoryName = category?.name?.toLowerCase() ?? "";
+        const categoryMatches = categoryName.includes(normalizedItemSearch);
+        categoryItems.forEach((item, itemIndex) => {
+          const itemName = item?.name?.toLowerCase() ?? "";
+          const itemDesc = item?.description?.toLowerCase() ?? "";
+          const rawItemCategory = item?.category ?? item?.category_name ?? "";
+          let itemCategoryName = "";
+          if (typeof rawItemCategory === "string") {
+            itemCategoryName = rawItemCategory.toLowerCase();
+          } else if (rawItemCategory && typeof rawItemCategory === "object") {
+            itemCategoryName = (rawItemCategory.name ?? "").toLowerCase();
           }
-        }
+          if (
+            categoryMatches ||
+            itemName.includes(normalizedItemSearch) ||
+            itemDesc.includes(normalizedItemSearch) ||
+            itemCategoryName.includes(normalizedItemSearch)
+          ) {
+            const lookupKey = getItemId(item) ?? `${categoryKey}-${itemIndex}`;
+            if (!matches.has(lookupKey)) {
+              matches.set(lookupKey, item);
+            }
+          }
+        });
       });
-    });
-
-    return Array.from(matches.values());
-  }, [categories, normalizedItemSearch, selectedCategory]);
+      items = Array.from(matches.values());
+    }
+    // Price sorting
+    if (priceSort === 'low') {
+      items = [...items].sort((a, b) => (parseFloat(a.price) || 0) - (parseFloat(b.price) || 0));
+    } else if (priceSort === 'high') {
+      items = [...items].sort((a, b) => (parseFloat(b.price) || 0) - (parseFloat(a.price) || 0));
+    }
+    return items;
+  }, [categories, normalizedItemSearch, selectedCategory, priceSort]);
 
   const showingSearchResults = normalizedItemSearch.length > 0;
   const categoryCountLabel = showingSearchResults
@@ -328,13 +331,16 @@ export default function StorePage() {
   }
 
   const handleItemClick = (item) => {
+    console.log('Clicked item:', item);
     const itemId = getItemId(item) ?? item.name;
-
+    console.log('Navigating to:', `/stores/${storeId}/product/${itemId}`);
     navigate(`/stores/${storeId}/product/${itemId}`);
   };
 
-  const handleAddToCart = (item) => {
+  const handleAddToCart = (item, options = {}) => {
     const itemId = getItemId(item) ?? item.name;
+
+    const selectionLabel = [options.color, options.size].filter(Boolean).join(" / ");
 
     addToCart({
       id: itemId,
@@ -344,8 +350,12 @@ export default function StorePage() {
       image: getItemImage(item),
       storeName: store?.name,
       quantity: 1,
+      size: options.size || null,
+      color: options.color || null,
     });
-    setCartFeedback(`${item.name || "Item"} added to cart`);
+    setCartFeedback(
+      `${item.name || "Item"} added to cart${selectionLabel ? ` (${selectionLabel})` : ""}`
+    );
   };
 
   const handleToggleWishlist = (item) => {
@@ -391,10 +401,7 @@ export default function StorePage() {
         </div>
       </section>
 
-      {/* Outfit Recommendation Section */}
-      <section className="store-outfit-section">
-        <OutfitRecommendation className="store-outfit-container" />
-      </section>
+
 
       {categories.length === 0 ? (
         <p className="empty-state">No categories available.</p>
@@ -460,7 +467,27 @@ export default function StorePage() {
                   {selectedCategory ? getCategoryBlurb(selectedCategory, selectedCategoryTheme) : "Curated edits tailored to the store's vibe."}
                 </p>
               </div>
-              <div className="category-meta">
+              <div className="category-meta" style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+                <div className="price-sort" style={{ marginRight: '1rem' }}>
+                  <select
+                    value={priceSort}
+                    onChange={e => setPriceSort(e.target.value)}
+                    style={{
+                      borderRadius: '999px',
+                      padding: '6px 18px',
+                      fontWeight: 600,
+                      border: '1px solid #ddd',
+                      background: '#faf9fa',
+                      color: '#641b2e',
+                      outline: 'none',
+                      fontSize: '1rem',
+                    }}
+                  >
+                    <option value="">Sort by price</option>
+                    <option value="low">Price: Low to High</option>
+                    <option value="high">Price: High to Low</option>
+                  </select>
+                </div>
                 <div className="category-search">
                   <svg
                     className="category-search-icon"

@@ -356,6 +356,56 @@ const buildSizeGuide = (item) => {
   };
 };
 
+// Helper function to format confidence score
+const formatFitScore = (score) => {
+  if (score === null || score === undefined) return '';
+  if (typeof score === 'number') {
+    if (score >= 1) return '100%';
+    return `${Math.round(score * 100)}%`;
+  }
+  if (typeof score === 'string') {
+    const num = parseFloat(score);
+    if (!isNaN(num)) {
+      if (num >= 1) return '100%';
+      return `${Math.round(num * 100)}%`;
+    }
+    return score;
+  }
+  return '';
+};
+
+// Helper function to determine if response is using fallback
+const isFallbackResponse = (response) => {
+  if (!response) return false;
+
+  // Check if it's a fallback from backend
+  if (response.is_fallback === true) return true;
+
+  // Check for fallback indicators in data structure
+  if (response.data?.is_fallback === true) return true;
+  if (response.data?.method?.includes('fallback') || response.data?.method?.includes('size_chart')) return true;
+
+  return false;
+};
+
+// Helper function to get AI source information
+const getAISourceInfo = (response) => {
+  if (!response) return { source: 'unknown', isRealAI: false, modelUsed: null };
+
+  const data = response.data || response;
+
+  // Check if real AI was used
+  const isRealAI = data.model_used &&
+                   !data.model_used.includes('fallback') &&
+                   !data.is_fallback &&
+                   data.model_used.includes('.pkl');
+
+  const source = isRealAI ? 'ai_system' : 'fallback';
+  const modelUsed = data.model_used || data.method || null;
+
+  return { source, isRealAI, modelUsed };
+};
+
 export default function ProductDetailPage() {
   const { storeId, productId } = useParams();
   const navigate = useNavigate();
@@ -374,46 +424,122 @@ export default function ProductDetailPage() {
   const [outfitSuggestion, setOutfitSuggestion] = useState(null);
   const [outfitLoading, setOutfitLoading] = useState(false);
   const [outfitError, setOutfitError] = useState("");
+
+  // Debug logging
+  useEffect(() => {
+    if (sizeRecommendation) {
+      console.log('📏 Size Recommendation Data:', {
+        raw: sizeRecommendation,
+        isFallback: isFallbackResponse(sizeRecommendation),
+        sourceInfo: getAISourceInfo(sizeRecommendation),
+        summary: sizeSummary
+      });
+    }
+  }, [sizeRecommendation]);
+
+  useEffect(() => {
+    if (outfitSuggestion) {
+      console.log('👗 Outfit Suggestion Data:', {
+        raw: outfitSuggestion,
+        isFallback: isFallbackResponse(outfitSuggestion),
+        sourceInfo: getAISourceInfo(outfitSuggestion),
+        items: outfitItems
+      });
+    }
+  }, [outfitSuggestion]);
+
   const sizeSummary = useMemo(() => {
     if (!sizeRecommendation) return null;
 
-    const primary =
-      sizeRecommendation.recommended_size ||
-      sizeRecommendation.recommendedSize ||
-      sizeRecommendation.size;
+    // Get data from response
+    const data = sizeRecommendation.data || sizeRecommendation;
 
-    const recommendationList = Array.isArray(sizeRecommendation.recommendations)
-      ? sizeRecommendation.recommendations
-      : [];
+    // Check if it's a fallback
+    const isFallback = isFallbackResponse(sizeRecommendation);
+    const sourceInfo = getAISourceInfo(sizeRecommendation);
 
-    const fallbackEntry = recommendationList.length ? recommendationList[0] : null;
+    // Extract size recommendation
+    let recommendedSize = null;
+    let fitScore = null;
+    let method = null;
+    let recommendations = [];
 
-    const pickedSize = primary || fallbackEntry?.recommended_size || fallbackEntry?.size || null;
-    const fitScore =
-      sizeRecommendation.fit_score ??
-      fallbackEntry?.fit_score ??
-      sizeRecommendation.confidence ??
-      null;
+    if (data.recommendations && Array.isArray(data.recommendations) && data.recommendations.length > 0) {
+      // Real AI response with recommendations array
+      recommendations = data.recommendations;
+      const firstRec = recommendations[0];
+      recommendedSize = firstRec.recommended_size || firstRec.size;
+      fitScore = firstRec.overall_fit_score || firstRec.fit_score;
+      method = data.model_used || 'AI Recommendation';
+    } else if (data.recommended_size || data.size) {
+      // Direct size recommendation
+      recommendedSize = data.recommended_size || data.size;
+      fitScore = data.fit_score || data.confidence;
+      method = data.method || sourceInfo.modelUsed || (isFallback ? 'Size Chart' : 'AI Analysis');
+    } else if (isFallback) {
+      // Fallback response
+      recommendedSize = data.recommended_size || data.size || 'M';
+      fitScore = data.confidence || 0.7;
+      method = 'Advanced Size Chart';
+    }
 
     return {
-      size: pickedSize,
+      size: recommendedSize,
       fitScore,
-      method: sizeRecommendation.method || fallbackEntry?.method || null,
+      method,
+      isFallback,
+      sourceInfo,
+      recommendations,
+      rawData: data
     };
   }, [sizeRecommendation]);
 
   const outfitItems = useMemo(() => {
     if (!outfitSuggestion) return [];
-    if (Array.isArray(outfitSuggestion.outfit_items)) return outfitSuggestion.outfit_items;
-    if (Array.isArray(outfitSuggestion.items)) return outfitSuggestion.items;
+
+    const data = outfitSuggestion.data || outfitSuggestion;
+
+    if (data.outfit?.outfit_items && Array.isArray(data.outfit.outfit_items)) {
+      return data.outfit.outfit_items;
+    }
+    if (data.outfit_items && Array.isArray(data.outfit_items)) {
+      return data.outfit_items;
+    }
+    if (data.items && Array.isArray(data.items)) {
+      return data.items;
+    }
+    if (data.outfit?.items && Array.isArray(data.outfit.items)) {
+      return data.outfit.items;
+    }
+
     return [];
   }, [outfitSuggestion]);
 
   const outfitSizeMap = useMemo(() => {
     if (!outfitSuggestion) return {};
-    const map = outfitSuggestion.size_recommendations || outfitSuggestion.sizeRecommendations || {};
-    return map;
+
+    const data = outfitSuggestion.data || outfitSuggestion;
+    const outfit = data.outfit || data;
+
+    return outfit.size_recommendations || outfit.sizeRecommendations || {};
   }, [outfitSuggestion]);
+
+  const outfitSourceInfo = useMemo(() => {
+    return getAISourceInfo(outfitSuggestion);
+  }, [outfitSuggestion]);
+
+  const outfitTotalPrice = useMemo(() => {
+    if (!outfitItems.length) return 0;
+    
+    // Calculate total from outfit items
+    const itemsTotal = outfitItems.reduce((sum, item) => {
+      const price = parseFloat(item.price || 0);
+      return sum + price;
+    }, 0);
+    
+    // Use API total if available, otherwise use calculated total
+    return outfitSuggestion?.data?.outfit?.total_price || itemsTotal;
+  }, [outfitItems, outfitSuggestion]);
 
   const sizeGuide = useMemo(() => buildSizeGuide(product), [product]);
 
@@ -826,7 +952,7 @@ export default function ProductDetailPage() {
 
         if (foundProduct) {
           setProduct(foundProduct);
-          
+
           // Set default selections
           const sizes = getSizes(foundProduct);
           const colors = getColors(foundProduct);
@@ -867,6 +993,13 @@ export default function ProductDetailPage() {
     setOutfitError("");
   }, [resolvedItemId]);
 
+  // Automatically fetch size recommendation when product is loaded
+  useEffect(() => {
+    if (product && resolvedItemId) {
+      handleSizeAssist();
+    }
+  }, [product, resolvedItemId]);
+
 
   useEffect(() => {
     if (!cartFeedback) return;
@@ -881,8 +1014,8 @@ export default function ProductDetailPage() {
       if (available <= 0) return Math.max(1, qty);
       return Math.max(1, Math.min(qty, available));
     });
-  }, [product, selectedSize]); 
- 
+  }, [product, selectedSize]);
+
   const getItemImage = (item) =>
     item?.image_url ||
     item?.image ||
@@ -897,7 +1030,7 @@ export default function ProductDetailPage() {
     if (Number.isNaN(amount)) return price;
     return `$${amount.toFixed(2)}`;
   };
-  
+
 
   const buildFeatureList = (sizes, colors) => {
     const baseFeatures = [
@@ -927,6 +1060,11 @@ export default function ProductDetailPage() {
   const handleAddToCart = () => {
     const maxQuantity = getAvailableQuantity();
 
+    if (!selectedColor || !selectedSize) {
+      setCartFeedback("Please choose a color and size before adding to cart.");
+      return;
+    }
+
     if (maxQuantity <= 0) {
       setCartFeedback("This item is currently out of stock.");
       return;
@@ -955,10 +1093,8 @@ export default function ProductDetailPage() {
     setCartFeedback(
       `${product.name} added to cart (${selectedColor}${
         selectedSize ? ` / ${selectedSize}` : ""
-
       }) x${selectedQuantity}`
-
-  );
+    );
   };
 
   const handleToggleWishlist = () => {
@@ -1001,6 +1137,8 @@ export default function ProductDetailPage() {
       itemId: resolvedItemId,
     });
 
+    console.log('Size API Response:', { data, error }); // Debug log
+
     if (error) {
       setSizeError(error);
       setSizeRecommendation(null);
@@ -1034,6 +1172,16 @@ export default function ProductDetailPage() {
       startingItemId: resolvedItemId,
       style: null,
       maxItems: 4,
+    });
+
+    // Debug: log the raw response and check for store_id
+    console.log('🔍 DEBUG Outfit Response:', {
+      rawResponse: data,
+      firstItem: data?.data?.outfit?.outfit_items?.[0],
+      allItems: data?.data?.outfit?.outfit_items,
+      // Check for store_id
+      firstItemHasStoreId: data?.data?.outfit?.outfit_items?.[0]?.store_id,
+      firstItemHasStoreIdAlt: data?.data?.outfit?.outfit_items?.[0]?.storeId,
     });
 
     if (error) {
@@ -1112,15 +1260,207 @@ export default function ProductDetailPage() {
       </button>
 
       <div className="product-detail-container">
-        <div className="product-detail-image">
-          {getItemImage(product) ? (
-            <img
-              src={getItemImage(product)}
-              alt={product.name || "Product"}
-            />
-          ) : (
-            <div className="image-placeholder-large">
-              {product.name?.slice(0, 1) || "P"}
+        <div>
+          <div className="product-detail-image">
+            {getItemImage(product) ? (
+              <img
+                src={getItemImage(product)}
+                alt={product.name || "Product"}
+              />
+            ) : (
+              <div className="image-placeholder-large">
+                {product.name?.slice(0, 1) || "P"}
+              </div>
+            )}
+          </div>
+          
+          {/* Style Outfit Section under image */}
+          <div className="ai-action" style={{ marginTop: '20px' }}>
+            <button
+              type="button"
+              className={`ai-button secondary ${outfitLoading ? 'loading' : ''}`}
+              onClick={handleOutfitAssist}
+              disabled={outfitLoading}
+            >
+              {outfitLoading ? (
+                <>
+                  <span className="spinner"></span>
+                  Curating outfit...
+                </>
+              ) : (
+                "Style this outfit"
+              )}
+            </button>
+
+            {outfitError && <p className="ai-message error">{outfitError}</p>}
+          </div>
+
+          {/* Outfit Suggestions under image */}
+          {outfitItems.length > 0 && (
+            <div className={`ai-outfit ${outfitSourceInfo.isRealAI ? 'real-ai-outfit' : 'fallback-outfit'}`} style={{ marginTop: '15px' }}>
+              <div className="ai-outfit-header">
+                <div className="ai-result-heading">
+                  <h3>Complete Outfit Suggestion</h3>
+                  <div className="outfit-source-indicator">
+                    <span className={`ai-source-badge ${outfitSourceInfo.isRealAI ? 'ai-badge' : 'fallback-badge'}`}>
+                      {outfitSourceInfo.isRealAI ? '🤖 AI Generated' : '📊 Basic Match'}
+                    </span>
+                    {outfitSuggestion.data?.outfit?.compatibility_score !== undefined && (
+                      <span className="ai-chip">
+                        {Math.round(outfitSuggestion.data.outfit.compatibility_score)}% match
+                      </span>
+                    )}
+                    {outfitSuggestion.data?.outfit?.style_theme && (
+                      <span className="ai-chip secondary">
+                        {outfitSuggestion.data.outfit.style_theme.replace(/_/g, ' ')}
+                      </span>
+                    )}
+                  </div>
+                </div>
+
+                {outfitSuggestion.data?.outfit?.description && (
+                  <p className="outfit-description">
+                    {outfitSuggestion.data.outfit.description}
+                  </p>
+                )}
+
+                <div className="outfit-meta-info">
+                  <span className="outfit-item-count">
+                    {outfitItems.length} items · ${outfitTotalPrice.toFixed(2)}
+                  </span>
+                </div>
+              </div>
+
+              <div className="ai-outfit-grid">
+                {outfitItems.map((item, index) => {
+                  const itemId = item.id || item.item_id || index;
+                  const recommendedSize = outfitSizeMap[item.id] || outfitSizeMap[itemId] || 'Standard';
+                  const isRealItem = item.name && !item.name.startsWith('Item ');
+
+                  return (
+                    <div
+                      key={itemId}
+                      className="ai-outfit-card clickable"
+                      style={{ cursor: isRealItem ? 'pointer' : 'default' }}
+                      onClick={() => {
+                        if (!isRealItem) return;
+
+                        // Try multiple ways to get store ID
+                        const navStoreId =
+                          item.store_id ||
+                          item.storeId ||
+                          item.store_id_alt ||
+                          storeId; // fallback to current store
+
+                        console.log('🖱️ Clicking outfit item:', {
+                          itemId,
+                          itemName: item.name,
+                          hasStoreId: Boolean(item.store_id || item.storeId),
+                          navStoreId,
+                          itemData: item
+                        });
+
+                        if (itemId && navStoreId) {
+                          navigate(`/stores/${navStoreId}/product/${itemId}`);
+                        } else {
+                          console.warn('Cannot navigate: missing store ID', {
+                            itemId,
+                            itemName: item.name,
+                            hasStoreId: Boolean(item.store_id || item.storeId),
+                            item
+                          });
+                          setCartFeedback(`Sorry, "${item.name}" doesn't have store information.`);
+                        }
+                      }}
+                    >
+                      <div className="outfit-card-image">
+                        {item.image_url || item.image ? (
+                          <img
+                            src={item.image_url || item.image}
+                            alt={item.name || item.item_name || "Outfit item"}
+                            className="outfit-item-image"
+                          />
+                        ) : (
+                          <div className="ai-outfit-placeholder">
+                            {(item.name || item.item_name || "?").slice(0, 1)}
+                          </div>
+                        )}
+                        {!isRealItem && (
+                          <div className="item-source-indicator">
+                            <span className="item-source-badge">Generic</span>
+                          </div>
+                        )}
+                      </div>
+                      <div className="ai-outfit-info">
+                        <p className="ai-outfit-name">
+                          {item.name || item.item_name || "Curated piece"}
+                          {!isRealItem && <span className="item-generic-indicator"> (example)</span>}
+                        </p>
+                        {item.price && (
+                          <p className="ai-outfit-price">
+                            ${parseFloat(item.price).toFixed(2)}
+                          </p>
+                        )}
+                        <p className="ai-outfit-meta">
+                          {item.garment_type || item.garment_category || ''}
+                        </p>
+                        {isRealItem && (
+                          <button
+                            className="outfit-item-add-btn"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              addToCart({
+                                id: item.id,
+                                name: item.name || item.item_name,
+                                price: item.price,
+                                image: item.image_url || item.image,
+                                size: outfitSizeMap[item.id] || 'Standard',
+                                storeId: item.store_id || item.storeId || storeId,
+                                quantity: 1
+                              });
+                              setCartFeedback(`Added ${item.name || item.item_name} to cart`);
+                            }}
+                          >
+                            Add to Cart
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+
+              <div className="outfit-actions">
+                <button
+                  className="outfit-add-all"
+                  onClick={() => {
+                    const validItems = outfitItems.filter(i => i.id && i.name && !i.name.startsWith('Item '));
+                    const totalOriginalPrice = validItems.reduce((sum, item) => sum + parseFloat(item.price || 0), 0);
+                    const savings = totalOriginalPrice * 0.20;
+                    
+                    validItems.forEach(item => {
+                      addToCart({
+                        id: item.id,
+                        name: item.name || item.item_name,
+                        price: item.price,
+                        image: item.image_url || item.image,
+                        size: outfitSizeMap[item.id] || 'Standard',
+                        storeId: storeId,
+                        quantity: 1,
+                        bundleDiscount: 20
+                      });
+                    });
+                    setCartFeedback(`Added ${validItems.length} items to cart with 20% off! You saved $${savings.toFixed(2)}`);
+                  }}
+                  disabled={outfitItems.every(item => !item.id || item.name?.startsWith('Item '))}
+                >
+                  <span className="outfit-add-all-text">Add all to cart</span>
+                  <span className="outfit-add-all-prices">
+                    <span className="outfit-original-price">${outfitTotalPrice.toFixed(2)}</span>
+                    <span className="outfit-discounted-price">${(outfitTotalPrice * 0.8).toFixed(2)}</span>
+                  </span>
+                </button>
+              </div>
             </div>
           )}
         </div>
@@ -1128,13 +1468,12 @@ export default function ProductDetailPage() {
         <div className="product-detail-info">
           <div className="product-detail-header">
             <div>
-              <div className="best-fit-badge-large">Best Fit: Medium - 90% Match!</div>
               <h1>{product.name}</h1>
               {product.price && (
                 <p className="price-large">{formatPrice(product.price)}</p>
               )}
             </div>
-            
+
             <button
               onClick={handleToggleWishlist}
               aria-label="Add to wishlist"
@@ -1253,7 +1592,7 @@ export default function ProductDetailPage() {
                   +
                 </button>
               </div>
-             
+
             </div>
 
             <div className="option-section">
@@ -1282,84 +1621,6 @@ export default function ProductDetailPage() {
             </div>
           </div>
 
-          <div className="ai-assist">
-            <div className="ai-action">
-              <button
-                type="button"
-                className="ai-button"
-                onClick={handleSizeAssist}
-                disabled={sizeLoading}
-              >
-                {sizeLoading ? "Finding your size..." : "Find my best size"}
-              </button>
-              {sizeError && <p className="ai-message error">{sizeError}</p>}
-              {sizeSummary && (
-                <div className="ai-result">
-                  <p className="ai-result-title">Recommended size</p>
-                  <p className="ai-result-value">{sizeSummary.size || "We need more data."}</p>
-                  <p className="ai-result-meta">
-                    {sizeSummary.method ? `Method · ${sizeSummary.method}` : "AI confidence"}
-                    {typeof sizeSummary.fitScore === "number"
-                      ? ` · ${(sizeSummary.fitScore * 100).toFixed(0)}%`
-                      : ""}
-                  </p>
-                </div>
-              )}
-            </div>
-
-            <div className="ai-action">
-              <button
-                type="button"
-                className="ai-button secondary"
-                onClick={handleOutfitAssist}
-                disabled={outfitLoading}
-              >
-                {outfitLoading ? "Curating outfit..." : "Style this outfit"}
-              </button>
-              {outfitError && <p className="ai-message error">{outfitError}</p>}
-            </div>
-
-            {outfitItems.length > 0 && (
-              <div className="ai-outfit">
-                <div className="ai-result-heading">
-                  <h3>Suggested outfit</h3>
-                  {outfitSuggestion?.compatibility_score !== undefined && (
-                    <span className="ai-chip">
-                      {Math.round(outfitSuggestion.compatibility_score)}% match
-                    </span>
-                  )}
-                </div>
-                <div className="ai-outfit-grid">
-                  {outfitItems.map((item) => {
-                    const mapKey = item.id || item.item_id || item.slug || item.name;
-                    const recommended = outfitSizeMap?.[mapKey] || {};
-
-                    return (
-                      <div key={mapKey} className="ai-outfit-card">
-                        {item.image_url || item.image ? (
-                          <img
-                            src={item.image_url || item.image}
-                            alt={item.name || "Outfit item"}
-                          />
-                        ) : (
-                          <div className="ai-outfit-placeholder">
-                            {(item.name || "?").slice(0, 1)}
-                          </div>
-                        )}
-                        <div className="ai-outfit-info">
-                          <p className="ai-outfit-name">{item.name || "Curated piece"}</p>
-                          <p className="ai-outfit-meta">
-                            {recommended.size ? `Suggested size ${recommended.size}` : "Best available size"}
-                          </p>
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              </div>
-            )}
-          </div>
-
           <div className="product-actions-detail">
             <button
               type="button"
@@ -1370,6 +1631,82 @@ export default function ProductDetailPage() {
                {isOutOfStock ? "Out of Stock" : "Add to Cart"}
             </button>
           </div>
+
+          {/* AI Assist Section with Source Indicators */}
+          <div className="ai-assist">
+            <div className="ai-action">
+              {sizeLoading && (
+                <p className="ai-message loading">
+                  <span className="spinner"></span>
+                  Finding your best size...
+                </p>
+              )}
+
+              {sizeError && <p className="ai-message error">{sizeError}</p>}
+
+              {sizeSummary && (
+                <div className={`ai-result ${sizeSummary.isFallback ? 'fallback' : 'real-ai'}`}>
+                  <div className="ai-result-header">
+                    <p className="ai-result-title">
+                      {sizeSummary.size ? `Recommended size: ${sizeSummary.size}` : "Size recommendation"}
+                    </p>
+                    <div className="ai-source-indicator">
+                      <span className={`ai-source-badge ${sizeSummary.isFallback ? 'fallback-badge' : 'ai-badge'}`}>
+                        {sizeSummary.isFallback ? '📊 Fallback' : '🤖 AI'}
+                      </span>
+                    </div>
+                  </div>
+
+                  {sizeSummary.fitScore !== null && (
+                    <div className="ai-confidence">
+                      <div className="confidence-meter">
+                        <div
+                          className={`confidence-fill ${sizeSummary.isFallback ? 'fallback-fill' : 'ai-fill'}`}
+                          style={{
+                            width: typeof sizeSummary.fitScore === 'number'
+                              ? `${Math.min(sizeSummary.fitScore * 100, 100)}%`
+                              : '0%'
+                          }}
+                        ></div>
+                      </div>
+                      <div className="confidence-info">
+                        <span className="confidence-score">
+                          Confidence: <strong>{formatFitScore(sizeSummary.fitScore)}</strong>
+                        </span>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Show top recommendations if available */}
+                  {sizeSummary.recommendations && sizeSummary.recommendations.length > 0 && (
+                    <div className="ai-recommendations">
+                      <p className="recommendations-label">Top matches:</p>
+                      <div className="recommendations-list">
+                        {sizeSummary.recommendations.slice(0, 3).map((rec, idx) => (
+                          <div key={idx} className="recommendation-item">
+                            <span className="rec-name">{rec.item_name}</span>
+                            <span className="rec-size">Size {rec.recommended_size}</span>
+                            <span className="rec-score">{formatFitScore(rec.overall_fit_score)}</span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Debug info (visible in development) */}
+                  {process.env.NODE_ENV === 'development' && (
+                    <div className="debug-info">
+                      <small>
+                        Source: {sizeSummary.sourceInfo.source} |
+                        Fallback: {sizeSummary.isFallback ? 'Yes' : 'No'}
+                      </small>
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+          </div>
+
           <div className="detail-sections">
             <div className="detail-card">
               <h3>Highlights</h3>
@@ -1452,6 +1789,204 @@ export default function ProductDetailPage() {
           </div>
         </div>
       </div>
+
+      {/* CSS Styles (Add to your CSS file) */}
+      <style jsx>{`
+        .ai-source-indicator {
+          display: flex;
+          align-items: center;
+          gap: 8px;
+          margin-left: auto;
+        }
+
+        .ai-source-badge {
+          padding: 4px 8px;
+          border-radius: 12px;
+          font-size: 0.8em;
+          font-weight: 600;
+          display: inline-flex;
+          align-items: center;
+          gap: 4px;
+        }
+
+        .ai-badge {
+          background: #e3f2fd;
+          color: #1976d2;
+          border: 1px solid #90caf9;
+        }
+
+        .fallback-badge {
+          background: #fff3cd;
+          color: #856404;
+          border: 1px solid #ffeaa7;
+        }
+
+        .ai-model-info {
+          font-size: 0.8em;
+          color: #666;
+          background: #f5f5f5;
+          padding: 2px 6px;
+          border-radius: 4px;
+        }
+
+        .ai-result-header {
+          display: flex;
+          justify-content: space-between;
+          align-items: flex-start;
+          margin-bottom: 12px;
+        }
+
+        .confidence-fill.ai-fill {
+          background: linear-gradient(90deg, #4CAF50, #8BC34A);
+        }
+
+        .confidence-fill.fallback-fill {
+          background: linear-gradient(90deg, #FF9800, #FFC107);
+        }
+
+        .confidence-info {
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+          margin-top: 8px;
+        }
+
+        .ai-recommendations {
+          margin-top: 16px;
+          padding-top: 16px;
+          border-top: 1px solid #eee;
+        }
+
+        .recommendations-list {
+          display: flex;
+          flex-direction: column;
+          gap: 8px;
+          margin-top: 8px;
+        }
+
+        .recommendation-item {
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+          padding: 8px;
+          background: #f9f9f9;
+          border-radius: 4px;
+          font-size: 0.9em;
+        }
+
+        .rec-name {
+          flex: 2;
+          overflow: hidden;
+          text-overflow: ellipsis;
+          white-space: nowrap;
+        }
+
+        .rec-size {
+          flex: 1;
+          text-align: center;
+          font-weight: 600;
+          color: #1976d2;
+        }
+
+        .rec-score {
+          flex: 1;
+          text-align: right;
+          font-weight: 600;
+          color: #4CAF50;
+        }
+
+        .ai-button.loading {
+          opacity: 0.8;
+          cursor: not-allowed;
+        }
+
+        .spinner {
+          display: inline-block;
+          width: 16px;
+          height: 16px;
+          border: 2px solid rgba(255,255,255,0.3);
+          border-radius: 50%;
+          border-top-color: white;
+          animation: spin 1s ease-in-out infinite;
+          margin-right: 8px;
+        }
+
+        @keyframes spin {
+          to { transform: rotate(360deg); }
+        }
+
+        .outfit-source-indicator {
+          display: flex;
+          align-items: center;
+          gap: 8px;
+        }
+
+        .outfit-meta-info {
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+          margin-top: 12px;
+          font-size: 0.9em;
+          color: #666;
+        }
+
+        .outfit-model {
+          background: #f0f0f0;
+          padding: 4px 8px;
+          border-radius: 4px;
+        }
+
+        .item-source-indicator {
+          position: absolute;
+          top: 8px;
+          right: 8px;
+          z-index: 2;
+        }
+
+        .item-source-badge {
+          background: rgba(255,152,0,0.9);
+          color: white;
+          padding: 2px 6px;
+          border-radius: 10px;
+          font-size: 0.7em;
+          font-weight: 600;
+        }
+
+        .item-generic-indicator {
+          color: #FF9800;
+          font-size: 0.8em;
+          margin-left: 4px;
+        }
+
+        .outfit-card-image {
+          position: relative;
+        }
+
+        .debug-info {
+          margin-top: 8px;
+          padding: 8px;
+          background: #f5f5f5;
+          border-radius: 4px;
+          font-size: 0.8em;
+          color: #666;
+        }
+
+        .ai-result.fallback {
+          border-left-color: #FF9800;
+        }
+
+        .ai-result.real-ai {
+          border-left-color: #4CAF50;
+        }
+
+        .real-ai-outfit {
+          border: 2px solid #4CAF50;
+        }
+
+        .fallback-outfit {
+          border: 2px solid #FF9800;
+        }
+      `}</style>
     </div>
   );
 }

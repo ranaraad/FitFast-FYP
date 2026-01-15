@@ -69,57 +69,20 @@ export default function HomePage() {
             <br />
             <span>Faster Delivery</span>
           </h1>
-          <button>Browse Now</button>
+          <button onClick={() => navigate("/browse")}>Browse Now</button>
         </div>
       </div>
 
-      <section className="home-header">
-        <div>
-          <div className="home-search-row">
-            <input
-              type="text"
-              value={search}
-              onChange={handleSearch}
-              placeholder="Search for a store, style, or brand..."
-              className="home-search-input"
-            />
-          </div>
-
-          <div className="chip-row">
-            <button
-              type="button"
-              className="chip"
-              onClick={() => setFilteredStores(stores)}
-            >
-              All
-            </button>
-            <button
-              type="button"
-              className="chip"
-              onClick={() => {
-                const topRated = [...stores].sort(
-                  (a, b) => (b.rating || 0) - (a.rating || 0)
-                );
-                setFilteredStores(topRated);
-              }}
-            >
-              Top Rated
-            </button>
-            <button
-              type="button"
-              className="chip"
-              onClick={() => {
-                const fast = stores.filter(
-                  (store) => store.eta_minutes && store.eta_minutes <= 30
-                );
-                setFilteredStores(fast);
-              }}
-            >
-              Fast Delivery
-            </button>
-          </div>
-        </div>
-      </section>
+      {/* Search bar restored */}
+      <div className="home-search-row" style={{ margin: "32px 0 0 0" }}>
+        <input
+          type="text"
+          value={search}
+          onChange={handleSearch}
+          placeholder="Search for a store, style, or brand..."
+          className="home-search-input"
+        />
+      </div>
 
       <section className="home-stores-section">
         <div className="home-stores-header">

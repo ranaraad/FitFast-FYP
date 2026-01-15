@@ -1060,6 +1060,11 @@ export default function ProductDetailPage() {
   const handleAddToCart = () => {
     const maxQuantity = getAvailableQuantity();
 
+    if (!selectedColor || !selectedSize) {
+      setCartFeedback("Please choose a color and size before adding to cart.");
+      return;
+    }
+
     if (maxQuantity <= 0) {
       setCartFeedback("This item is currently out of stock.");
       return;

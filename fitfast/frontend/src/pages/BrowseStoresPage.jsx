@@ -133,8 +133,10 @@ export default function BrowseStoresPage() {
     setFilteredStores(filtered);
   }, [search, storesWithItems]);
 
-  const handleAddToCart = (store, item) => {
+  const handleAddToCart = (store, item, options = {}) => {
     const itemId = getItemId(item) ?? item.name;
+
+    const selectionLabel = [options.color, options.size].filter(Boolean).join(" / ");
 
     addToCart({
       id: itemId,
@@ -144,9 +146,13 @@ export default function BrowseStoresPage() {
       image: getItemImage(item),
       storeName: store.name,
       quantity: 1,
+      size: options.size || null,
+      color: options.color || null,
     });
 
-    setCartFeedback(`${item.name || "Item"} added to cart`);
+    setCartFeedback(
+      `${item.name || "Item"} added to cart${selectionLabel ? ` (${selectionLabel})` : ""}`
+    );
   };
 
   const handleToggleWishlist = (store, item) => {

@@ -337,8 +337,10 @@ export default function StorePage() {
     navigate(`/stores/${storeId}/product/${itemId}`);
   };
 
-  const handleAddToCart = (item) => {
+  const handleAddToCart = (item, options = {}) => {
     const itemId = getItemId(item) ?? item.name;
+
+    const selectionLabel = [options.color, options.size].filter(Boolean).join(" / ");
 
     addToCart({
       id: itemId,
@@ -348,8 +350,12 @@ export default function StorePage() {
       image: getItemImage(item),
       storeName: store?.name,
       quantity: 1,
+      size: options.size || null,
+      color: options.color || null,
     });
-    setCartFeedback(`${item.name || "Item"} added to cart`);
+    setCartFeedback(
+      `${item.name || "Item"} added to cart${selectionLabel ? ` (${selectionLabel})` : ""}`
+    );
   };
 
   const handleToggleWishlist = (item) => {

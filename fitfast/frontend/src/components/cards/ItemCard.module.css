@@ -32,6 +32,7 @@
   box-shadow: 0 16px 28px rgba(100, 27, 46, 0.15);
   display: grid;
   gap: 0.85rem;
+  text-align: left;
 }
 
 .quickAddHeader {
@@ -63,10 +64,13 @@
   border-radius: 10px;
   width: 32px;
   height: 32px;
-  font-size: 1.2rem;
+  font-size: 1.1rem;
+  line-height: 1;
+  font-weight: 700;
   cursor: pointer;
-  display: grid;
-  place-items: center;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   transition: background 0.2s ease, transform 0.2s ease;
 }
 
@@ -136,17 +140,20 @@
 }
 
 .quickAddGhost {
-  background: transparent;
-  border: none;
-  color: #9a5a55;
+  background: rgba(100, 27, 46, 0.08);
+  border: 1px solid rgba(100, 27, 46, 0.2);
+  color: #641b2e;
   font-weight: 600;
   cursor: pointer;
-  padding: 0;
-  transition: color 0.2s ease;
+  padding: 0.45rem 1rem;
+  border-radius: 999px;
+  transition: color 0.2s ease, background 0.2s ease, transform 0.2s ease;
 }
 
 .quickAddGhost:hover {
   color: #641b2e;
+  background: rgba(100, 27, 46, 0.16);
+  transform: translateY(-1px);
 }
 
 .quickAddConfirm {

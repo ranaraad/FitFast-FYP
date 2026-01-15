@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import WishlistButton from "../buttons/WishlistButton";
 import styles from "./ItemCard.module.css";
 import {
@@ -33,6 +33,7 @@ export default function ItemCard({
   const [showQuickAdd, setShowQuickAdd] = useState(false);
   const [selectedSize, setSelectedSize] = useState("");
   const [selectedColor, setSelectedColor] = useState("");
+  const quickAddRef = useRef(null);
 
   const name = getItemName(item);
   const image = getItemImage(item);
@@ -257,6 +258,17 @@ export default function ItemCard({
     setSelectedColor("");
   }, [item, badgeContent]);
 
+  useEffect(() => {
+    if (!showQuickAdd || !quickAddRef.current) return;
+
+    const node = quickAddRef.current;
+    const raf = requestAnimationFrame(() => {
+      node.scrollIntoView({ behavior: "smooth", block: "nearest" });
+    });
+
+    return () => cancelAnimationFrame(raf);
+  }, [showQuickAdd]);
+
   return (
     <article
       className={articleClassName}
@@ -314,7 +326,7 @@ export default function ItemCard({
             <span className="price-modern">{priceLabel}</span>
           )}
 
-          {showAddToCart && typeof onAddToCart === "function" && (
+          {showAddToCart && !showQuickAdd && typeof onAddToCart === "function" && (
             <button
               type="button"
               className="add-to-cart-btn"
@@ -334,10 +346,10 @@ export default function ItemCard({
             onClick={(event) => event.stopPropagation()}
             role="dialog"
             aria-label={`Choose size and color for ${name}`}
+            ref={quickAddRef}
           >
             <div className={styles.quickAddHeader}>
               <div>
-                <p className={styles.quickAddTitle}>Quick add</p>
                 <p className={styles.quickAddSubtitle}>Pick a size and color.</p>
               </div>
               <button

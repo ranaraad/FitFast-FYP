@@ -147,3 +147,24 @@ export function clearCart() {
   writeStorage([]);
   return { items: [] };
 }
+
+export function clearUserCartData(userId) {
+  if (!isBrowser) return;
+
+  try {
+    // Clear the specific user's cart
+    if (userId) {
+      const userCartKey = `${STORAGE_KEY_PREFIX}_${userId}`;
+      window.localStorage.removeItem(userCartKey);
+    }
+
+    // Also clear guest cart to ensure clean state
+    const guestCartKey = `${STORAGE_KEY_PREFIX}_guest`;
+    window.localStorage.removeItem(guestCartKey);
+
+    // Dispatch event to update UI
+    window.dispatchEvent(new Event("cart-updated"));
+  } catch (err) {
+    console.error("Failed to clear user cart data", err);
+  }
+}

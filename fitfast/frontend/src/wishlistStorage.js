@@ -81,3 +81,21 @@ export function toggleWishlistEntry(entry) {
   writeStorage(wishlist);
   return { items: wishlist, added };
 }
+
+export function clearUserWishlistData(userId) {
+  if (!isBrowser) return;
+
+  try {
+    // Clear the specific user's wishlist
+    if (userId) {
+      const userWishlistKey = `${STORAGE_KEY_PREFIX}_${userId}`;
+      window.localStorage.removeItem(userWishlistKey);
+    }
+
+    // Also clear guest wishlist to ensure clean state
+    const guestWishlistKey = `${STORAGE_KEY_PREFIX}_guest`;
+    window.localStorage.removeItem(guestWishlistKey);
+  } catch (err) {
+    console.error("Failed to clear user wishlist data", err);
+  }
+}

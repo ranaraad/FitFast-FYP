@@ -1518,7 +1518,7 @@ export default function ProductDetailPage() {
 
                 <div className="outfit-meta-info">
                   <span className="outfit-item-count">
-                    {outfitItems.length} items · ${outfitTotalPrice.toFixed(2)}
+                    {outfitItems.length} items - ${outfitTotalPrice.toFixed(2)}
                   </span>
                 </div>
               </div>
@@ -2205,6 +2205,58 @@ export default function ProductDetailPage() {
           display: flex;
           align-items: center;
           gap: 8px;
+          flex-wrap: wrap;
+        }
+
+        .ai-outfit {
+          background: linear-gradient(180deg, #ffffff 0%, #fbf7f6 100%);
+          border-radius: 18px;
+          padding: 18px;
+          box-shadow: 0 12px 24px rgba(15, 23, 42, 0.08);
+        }
+
+        .ai-outfit-header {
+          display: flex;
+          flex-direction: column;
+          gap: 10px;
+        }
+
+        .ai-result-heading {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          gap: 12px;
+          flex-wrap: wrap;
+        }
+
+        .ai-result-heading h3 {
+          margin: 0;
+          font-size: 1.05rem;
+          color: #3f1a24;
+        }
+
+        .ai-chip {
+          padding: 4px 10px;
+          border-radius: 999px;
+          font-size: 0.75rem;
+          font-weight: 700;
+          letter-spacing: 0.04em;
+          text-transform: uppercase;
+          background: #f8e9e7;
+          color: #641b2e;
+          border: 1px solid #f0c9c2;
+        }
+
+        .ai-chip.secondary {
+          background: #fff1ed;
+          color: #7a3b2e;
+          border-color: #f7c9c1;
+        }
+
+        .outfit-description {
+          margin: 0;
+          font-size: 0.95rem;
+          color: #4b5563;
         }
 
         .outfit-meta-info {
@@ -2213,13 +2265,41 @@ export default function ProductDetailPage() {
           align-items: center;
           margin-top: 12px;
           font-size: 0.9em;
-          color: #666;
+          color: #4b5563;
+        }
+
+        .outfit-item-count {
+          font-weight: 600;
+          color: #3f1a24;
         }
 
         .outfit-model {
           background: #f0f0f0;
           padding: 4px 8px;
           border-radius: 4px;
+        }
+
+        .ai-outfit-grid {
+          display: grid;
+          grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+          gap: 14px;
+          margin-top: 16px;
+        }
+
+        .ai-outfit-card {
+          background: #ffffff;
+          border: 1px solid #eee3e1;
+          border-radius: 16px;
+          overflow: hidden;
+          display: flex;
+          flex-direction: column;
+          box-shadow: 0 8px 16px rgba(15, 23, 42, 0.08);
+          transition: transform 0.2s ease, box-shadow 0.2s ease;
+        }
+
+        .ai-outfit-card.clickable:hover {
+          transform: translateY(-2px);
+          box-shadow: 0 12px 22px rgba(15, 23, 42, 0.12);
         }
 
         .item-source-indicator {
@@ -2230,8 +2310,8 @@ export default function ProductDetailPage() {
         }
 
         .item-source-badge {
-          background: rgba(255,152,0,0.9);
-          color: white;
+          background: rgba(122, 59, 46, 0.92);
+          color: #fff;
           padding: 2px 6px;
           border-radius: 10px;
           font-size: 0.7em;
@@ -2239,13 +2319,139 @@ export default function ProductDetailPage() {
         }
 
         .item-generic-indicator {
-          color: #FF9800;
+          color: #7a3b2e;
           font-size: 0.8em;
           margin-left: 4px;
         }
 
         .outfit-card-image {
           position: relative;
+          height: 160px;
+          overflow: hidden;
+          background: #f5f1f0;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+        }
+
+        .outfit-item-image {
+          width: 100%;
+          height: 100%;
+          object-fit: cover;
+        }
+
+        .ai-outfit-placeholder {
+          width: 100%;
+          height: 100%;
+          display: grid;
+          place-items: center;
+          color: #7a3b2e;
+          font-size: 2rem;
+          font-weight: 700;
+          background: linear-gradient(135deg, #fbeaea, #f7d8d2);
+        }
+
+        .ai-outfit-info {
+          padding: 12px 14px 16px;
+          display: flex;
+          flex-direction: column;
+          gap: 6px;
+        }
+
+        .ai-outfit-name {
+          margin: 0;
+          font-weight: 600;
+          color: #1f2937;
+        }
+
+        .ai-outfit-price {
+          margin: 0;
+          font-weight: 700;
+          color: #641b2e;
+        }
+
+        .ai-outfit-meta {
+          margin: 0;
+          font-size: 0.85rem;
+          color: #6b7280;
+        }
+
+        .ai-outfit-prefs {
+          display: flex;
+          flex-direction: column;
+          gap: 4px;
+          margin-top: 2px;
+        }
+
+        .outfit-pref {
+          font-size: 0.8rem;
+          font-weight: 600;
+          color: #7a3b2e;
+          background: #fbeaea;
+          padding: 4px 8px;
+          border-radius: 10px;
+          align-self: flex-start;
+        }
+
+        .outfit-item-add-btn {
+          margin-top: 6px;
+          background: linear-gradient(135deg, #641b2e, #be5b50);
+          color: #fff;
+          border: none;
+          border-radius: 12px;
+          padding: 8px 12px;
+          font-weight: 600;
+          cursor: pointer;
+          transition: transform 0.2s ease, box-shadow 0.2s ease;
+          box-shadow: 0 10px 16px rgba(100, 27, 46, 0.22);
+        }
+
+        .outfit-item-add-btn:hover {
+          transform: translateY(-1px);
+          box-shadow: 0 12px 20px rgba(100, 27, 46, 0.28);
+        }
+
+        .outfit-actions {
+          margin-top: 16px;
+        }
+
+        .outfit-add-all {
+          width: 100%;
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          gap: 12px;
+          border: none;
+          border-radius: 16px;
+          padding: 12px 16px;
+          background: #fff3f1;
+          color: #641b2e;
+          font-weight: 700;
+          cursor: pointer;
+          box-shadow: inset 0 0 0 1px #f2c8c0;
+        }
+
+        .outfit-add-all:disabled {
+          opacity: 0.6;
+          cursor: not-allowed;
+        }
+
+        .outfit-add-all-prices {
+          display: flex;
+          align-items: baseline;
+          gap: 8px;
+          font-weight: 700;
+        }
+
+        .outfit-original-price {
+          text-decoration: line-through;
+          color: #9ca3af;
+          font-weight: 600;
+        }
+
+        .outfit-discounted-price {
+          color: #641b2e;
+          font-size: 1.05rem;
         }
 
         .debug-info {
@@ -2266,11 +2472,11 @@ export default function ProductDetailPage() {
         }
 
         .real-ai-outfit {
-          border: 2px solid #4CAF50;
+          border: 2px solid #641b2e;
         }
 
         .fallback-outfit {
-          border: 2px solid #FF9800;
+          border: 2px solid #be5b50;
         }
       `}</style>
     </div>

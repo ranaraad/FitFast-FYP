@@ -267,6 +267,23 @@ export default function StorePage() {
   const categories = useMemo(() => rawCategories ?? [], [rawCategories]);
 
   const normalizedItemSearch = itemSearch.trim().toLowerCase();
+  const matchedCategory = useMemo(() => {
+    if (!normalizedItemSearch) return null;
+    const exactMatch = categories.find(
+      (category) =>
+        (category?.name || "").toLowerCase() === normalizedItemSearch
+    );
+    if (exactMatch) return exactMatch;
+    const startsWithMatch = categories.find((category) =>
+      (category?.name || "").toLowerCase().startsWith(normalizedItemSearch)
+    );
+    if (startsWithMatch) return startsWithMatch;
+    return (
+      categories.find((category) =>
+        (category?.name || "").toLowerCase().includes(normalizedItemSearch)
+      ) || null
+    );
+  }, [categories, normalizedItemSearch]);
 
   const filteredItems = useMemo(() => {
     let items = [];
@@ -314,6 +331,15 @@ export default function StorePage() {
   }, [categories, normalizedItemSearch, selectedCategory, priceSort]);
 
   const showingSearchResults = normalizedItemSearch.length > 0;
+  const displayCategoryEntry =
+    showingSearchResults && matchedCategory
+      ? decoratedCategories.find(
+          ({ category }) => category === matchedCategory
+        ) || selectedCategoryEntry
+      : selectedCategoryEntry;
+  const displayCategory = displayCategoryEntry?.category || selectedCategory;
+  const displayCategoryTheme =
+    displayCategoryEntry?.theme || selectedCategoryTheme;
   const categoryCountLabel = showingSearchResults
     ? `${filteredItems.length} ${filteredItems.length === 1 ? "match" : "matches"}`
     : `${filteredItems.length} ${filteredItems.length === 1 ? "piece" : "pieces"}`;
@@ -451,37 +477,33 @@ export default function StorePage() {
           <section
             className="category-detail"
             style={
-              selectedCategoryTheme
+              displayCategoryTheme
                 ? {
-                    "--category-accent": selectedCategoryTheme.accent,
-                    "--category-surface": selectedCategoryTheme.surface,
+                    "--category-accent": displayCategoryTheme.accent,
+                    "--category-surface": displayCategoryTheme.surface,
                   }
                 : undefined
             }
           >
             <div className="category-heading">
               <div>
-                <p className="eyebrow">Browse by style</p>
-                <h2>{selectedCategory?.name || "Category"}</h2>
+                <p className="eyebrow">
+                  {showingSearchResults && matchedCategory
+                    ? "Search spotlight"
+                    : "Browse by style"}
+                </p>
+                <h2>{displayCategory?.name || "Category"}</h2>
                 <p className="muted">
-                  {selectedCategory ? getCategoryBlurb(selectedCategory, selectedCategoryTheme) : "Curated edits tailored to the store's vibe."}
+                  {displayCategory
+                    ? getCategoryBlurb(displayCategory, displayCategoryTheme)
+                    : "Curated edits tailored to the store's vibe."}
                 </p>
               </div>
-              <div className="category-meta" style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
-                <div className="price-sort" style={{ marginRight: '1rem' }}>
+              <div className="category-meta">
+                <div className="price-sort">
                   <select
                     value={priceSort}
                     onChange={e => setPriceSort(e.target.value)}
-                    style={{
-                      borderRadius: '999px',
-                      padding: '6px 18px',
-                      fontWeight: 600,
-                      border: '1px solid #ddd',
-                      background: '#faf9fa',
-                      color: '#641b2e',
-                      outline: 'none',
-                      fontSize: '1rem',
-                    }}
                   >
                     <option value="">Sort by price</option>
                     <option value="low">Price: Low to High</option>

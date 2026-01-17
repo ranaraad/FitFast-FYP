@@ -1,4 +1,5 @@
 import { Routes, Route, useLocation } from "react-router-dom";
+import { useEffect } from "react";
 import Navbar from "./components/layout/NavBar.jsx";
 import ProtectedRoute from "./components/auth/ProtectedRoute.jsx";
 import RegisterPage from "./pages/RegisterPage.jsx";
@@ -21,6 +22,10 @@ export default function App() {
   // These paths will NOT show the navbar
   const hideNavbarOn = ["/login", "/register", "/error/401"];
   const shouldHideNavbar = hideNavbarOn.includes(location.pathname);
+
+  useEffect(() => {
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  }, [location.pathname]);
 
   return (
     <>

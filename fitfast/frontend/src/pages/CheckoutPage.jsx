@@ -421,6 +421,11 @@ export default function CheckoutPage() {
 		});
 	}, [contactInfo.fullName]);
 
+	useEffect(() => {
+		if (!orderError || !isBrowser) return;
+		window.scrollTo({ top: 0, behavior: "smooth" });
+	}, [orderError]);
+
 	const subtotal = useMemo(() => {
 		return cartItems.reduce((sum, item) => {
 			const price = Number(item.price) || 0;
@@ -646,6 +651,8 @@ export default function CheckoutPage() {
 			const response = await api.post("/orders", orderData);
 
 			if (response.data.success) {
+				const backendOrderId = response.data.order?.id;
+				const resolvedCode = backendOrderId ? `ORDER-${backendOrderId}` : confirmationCode;
 				// Order created successfully in backend
 				const selectedShipping = SHIPPING_OPTIONS.find((entry) => entry.id === deliveryOption) || SHIPPING_OPTIONS[0];
 				const selectedPayment = PAYMENT_METHODS.find((entry) => entry.id === paymentMethod) || PAYMENT_METHODS[0];
@@ -654,8 +661,9 @@ export default function CheckoutPage() {
 				const estimatedArrival = new Date(placedAt.getTime() + etaHours * 60 * 60 * 1000);
 				
 				const orderRecord = {
-					orderId: response.data.order?.id ?? null,
-					code: confirmationCode,
+					id: resolvedCode,
+					orderId: backendOrderId ?? null,
+					code: resolvedCode,
 					placedAt: placedAt.toISOString(),
 					eta: estimatedArrival.toISOString(),
 					status: "Processing",

@@ -620,6 +620,11 @@ export default function ProfilePage() {
   }, []);
 
   useEffect(() => {
+    if (!isBrowser || messageType !== "error" || !message) return;
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  }, [messageType, message]);
+
+  useEffect(() => {
     const syncWishlist = () => setWishlistItems(getWishlist());
     window.addEventListener("storage", syncWishlist);
     return () => window.removeEventListener("storage", syncWishlist);

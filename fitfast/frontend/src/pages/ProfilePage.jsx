@@ -261,6 +261,8 @@ const mapApiPaymentMethod = (method) => ({
   expMonth: method.exp_month || method.expMonth || "01",
   expYear: method.exp_year || method.expYear || "30",
   isDefault: Boolean(method.is_default ?? method.isDefault ?? false),
+  pin: method.pin ?? null,
+  fullNumber: method.fullNumber || method.number || null,
 });
 
 const normalizeEmail = (value) =>
@@ -506,9 +508,15 @@ export default function ProfilePage() {
     number: "",
     expMonth: "",
     expYear: "",
+    cvc: "",
+    pin: "",
     setDefault: true,
   });
   const [billingError, setBillingError] = useState("");
+  const [pinPrompt, setPinPrompt] = useState({ open: false, card: null, action: null });
+  const [pinInput, setPinInput] = useState("");
+  const [pinError, setPinError] = useState("");
+  const [cardInfoModal, setCardInfoModal] = useState({ open: false, card: null });
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [deleteLoading, setDeleteLoading] = useState(false);
   const [deleteError, setDeleteError] = useState("");
@@ -840,6 +848,25 @@ export default function ProfilePage() {
     return `${method.brand || "Card"} •••• ${method.last4}`;
   };
 
+  const formatCardNumber = (value) => {
+    if (!value) return "";
+    const digits = value.toString().replace(/\D/g, "");
+    if (!digits) return "";
+    return digits.replace(/(\d{4})(?=\d)/g, "$1 ").trim();
+  };
+
+  const resolveCardNumber = (card) => {
+    if (!card) return "";
+    return card.fullNumber ?? card.number ?? card.cardNumber ?? "";
+  };
+
+  const formatPinValue = (value) => {
+    if (value === null || value === undefined) return "";
+    const digits = value.toString().replace(/\D/g, "");
+    if (!digits) return "";
+    return digits.padStart(4, "0").slice(-4);
+  };
+
   const computeItemCount = (list = []) =>
     Array.isArray(list)
       ? list.reduce((total, item) => total + (item.quantity ? Number(item.quantity) : 1), 0)
@@ -935,7 +962,16 @@ export default function ProfilePage() {
   const handleToggleBillingModal = () => {
     setShowBillingModal((prev) => !prev);
     setBillingError("");
-    setBillingForm({ nickname: "", brand: "Visa", number: "", expMonth: "", expYear: "", setDefault: !paymentMethods.length });
+    setBillingForm({
+      nickname: "",
+      brand: "Visa",
+      number: "",
+      expMonth: "",
+      expYear: "",
+      cvc: "",
+      pin: "",
+      setDefault: !paymentMethods.length,
+    });
   };
 
   const handleBillingFieldChange = (event) => {
@@ -944,6 +980,16 @@ export default function ProfilePage() {
       const digits = value.replace(/\D/g, "").slice(0, 16);
       const grouped = digits.replace(/(\d{4})(?=\d)/g, "$1 ").trim();
       setBillingForm((prev) => ({ ...prev, number: grouped }));
+      return;
+    }
+    if (name === "pin") {
+      const digits = value.replace(/\D/g, "").slice(0, 4);
+      setBillingForm((prev) => ({ ...prev, pin: digits }));
+      return;
+    }
+    if (name === "cvc") {
+      const digits = value.replace(/\D/g, "").slice(0, 4);
+      setBillingForm((prev) => ({ ...prev, cvc: digits }));
       return;
     }
 
@@ -970,6 +1016,14 @@ export default function ProfilePage() {
       setBillingError("Provide expiry year as YY.");
       return;
     }
+    if (!/^\d{3,4}$/.test(billingForm.cvc)) {
+      setBillingError("Provide a 3 or 4 digit CVC.");
+      return;
+    }
+    if (!/^\d{4}$/.test(billingForm.pin)) {
+      setBillingError("Create a 4-digit PIN to protect this card.");
+      return;
+    }
 
     const last4 = sanitizedNumber.slice(-4);
     const newMethod = {
@@ -979,6 +1033,9 @@ export default function ProfilePage() {
       last4,
       expMonth: billingForm.expMonth,
       expYear: billingForm.expYear,
+      cvc: billingForm.cvc,
+      pin: billingForm.pin,
+      fullNumber: sanitizedNumber,
       isDefault: Boolean(billingForm.setDefault),
     };
 
@@ -993,7 +1050,16 @@ export default function ProfilePage() {
       return ensureDefaultPayment(next);
     });
 
-    setBillingForm({ nickname: "", brand: "Visa", number: "", expMonth: "", expYear: "", setDefault: false });
+    setBillingForm({
+      nickname: "",
+      brand: "Visa",
+      number: "",
+      expMonth: "",
+      expYear: "",
+      cvc: "",
+      pin: "",
+      setDefault: false,
+    });
     setShowBillingModal(false);
   };
 
@@ -1009,6 +1075,65 @@ export default function ProfilePage() {
       }
       return ensureDefaultPayment(remaining);
     });
+  };
+
+  const handleRequestCardInfo = (method) => {
+    if (!method?.pin) {
+      setPinError("This card does not have a PIN set. Remove and re-add it to protect details.");
+      setPinInput("");
+      setPinPrompt({ open: true, card: method, action: "view" });
+      return;
+    }
+    setPinError("");
+    setPinInput("");
+    setPinPrompt({ open: true, card: method, action: "view" });
+  };
+
+  const handleRequestRemoveCard = (method) => {
+    if (!method?.pin) {
+      setPinError("This card does not have a PIN set. Remove and re-add it to protect details.");
+      setPinInput("");
+      setPinPrompt({ open: true, card: method, action: "remove" });
+      return;
+    }
+    setPinError("");
+    setPinInput("");
+    setPinPrompt({ open: true, card: method, action: "remove" });
+  };
+
+  const handleClosePinPrompt = () => {
+    setPinPrompt({ open: false, card: null, action: null });
+    setPinInput("");
+    setPinError("");
+  };
+
+  const handlePinSubmit = (event) => {
+    event.preventDefault();
+    const targetCard = pinPrompt.card;
+    if (!targetCard) return;
+    if (!/^\d{4}$/.test(pinInput)) {
+      setPinError("Enter a valid 4-digit PIN.");
+      return;
+    }
+    const normalizedPin =
+      targetCard.pin === null || targetCard.pin === undefined
+        ? ""
+        : String(targetCard.pin).padStart(4, "0");
+    if (normalizedPin !== pinInput) {
+      setPinError("Incorrect PIN. Try again.");
+      return;
+    }
+    if (pinPrompt.action === "remove") {
+      handleRemovePaymentMethod(targetCard.id);
+      handleClosePinPrompt();
+      return;
+    }
+    setCardInfoModal({ open: true, card: targetCard });
+    handleClosePinPrompt();
+  };
+
+  const handleCloseCardInfo = () => {
+    setCardInfoModal({ open: false, card: null });
   };
 
   const handleLogout = async () => {
@@ -1178,7 +1303,14 @@ export default function ProfilePage() {
     setTimeout(() => setMessage(""), 2000);
   };
 
-  if (loading) return <p style={{ textAlign: "center" }}>Loading profile...</p>;
+  if (loading) {
+    return (
+      <div className="profile-page page-loading">
+        <div className="loading-spinner"></div>
+        <p>Loading profile...</p>
+      </div>
+    );
+  }
   if (!user) return <p style={{ textAlign: "center" }}>No user data.</p>;
 
   return (
@@ -1786,7 +1918,7 @@ export default function ProfilePage() {
             <div className="modal-header">
               <h4>Change password</h4>
               <button type="button" className="modal-close" onClick={handleTogglePasswordModal} aria-label="Close password modal">
-                ✕
+                X
               </button>
             </div>
             <form className="modal-body" onSubmit={handleSubmitPassword}>
@@ -1850,31 +1982,34 @@ export default function ProfilePage() {
             <div className="modal-header">
               <h4>Manage billing</h4>
               <button type="button" className="modal-close" onClick={handleToggleBillingModal} aria-label="Close billing modal">
-                ✕
+                X
               </button>
             </div>
             <div className="modal-body">
               <div className="billing-columns">
                 <div className="billing-list">
                   <p className="billing-subtitle">Saved payment methods</p>
-                  {paymentMethods.length ? (
-                    paymentMethods.map((method) => (
-                      <div className="billing-card" key={method.id}>
-                        <div>
-                          <p className="billing-card-name">
-                            {formatCardLabel(method)}
-                            {method.isDefault && <span className="badge">Default</span>}
-                          </p>
-                          <p className="billing-card-meta">Expiry {method.expMonth}/{method.expYear}</p>
-                          {method.nickname && <p className="billing-card-note">{method.nickname}</p>}
-                        </div>
+                    {paymentMethods.length ? (
+                      paymentMethods.map((method) => (
+                        <div className="billing-card" key={method.id}>
+                          <div className="billing-card-info">
+                            <p className="billing-card-name">
+                              {formatCardLabel(method)}
+                            </p>
+                            <p className="billing-card-meta">Expiry {method.expMonth}/{method.expYear}</p>
+                            {method.nickname && <p className="billing-card-note">{method.nickname}</p>}
+                          </div>
                         <div className="billing-card-actions">
+                          <button type="button" className="ghost-btn small view-card-btn" onClick={() => handleRequestCardInfo(method)}>
+                            View card info
+                          </button>
+                          {method.isDefault && <span className="badge default-badge">Default</span>}
                           {!method.isDefault && (
                             <button type="button" className="ghost-btn small" onClick={() => handleSetDefaultPayment(method.id)}>
                               Make default
                             </button>
                           )}
-                          <button type="button" className="ghost-btn small" onClick={() => handleRemovePaymentMethod(method.id)}>
+                          <button type="button" className="ghost-btn small danger-ghost-btn" onClick={() => handleRequestRemoveCard(method)}>
                             Remove
                           </button>
                         </div>
@@ -1948,6 +2083,32 @@ export default function ProfilePage() {
                       />
                     </label>
                   </div>
+                  <label className="modal-field">
+                    <span>Card PIN (4 digits)</span>
+                    <input
+                      name="pin"
+                      value={billingForm.pin}
+                      onChange={handleBillingFieldChange}
+                      placeholder="1234"
+                      maxLength={4}
+                      inputMode="numeric"
+                      autoComplete="off"
+                      required
+                    />
+                  </label>
+                  <label className="modal-field">
+                    <span>CVC</span>
+                    <input
+                      name="cvc"
+                      value={billingForm.cvc}
+                      onChange={handleBillingFieldChange}
+                      placeholder="123"
+                      maxLength={4}
+                      inputMode="numeric"
+                      autoComplete="off"
+                      required
+                    />
+                  </label>
                   <label className="checkbox-field">
                     <input
                       type="checkbox"
@@ -1973,13 +2134,119 @@ export default function ProfilePage() {
         </div>
       )}
 
+      {pinPrompt.open && (
+        <div className="modal-backdrop" role="dialog" aria-modal="true">
+          <div className="modal-card">
+            <div className="modal-header">
+              <h4>Enter card PIN</h4>
+              <button type="button" className="modal-close" onClick={handleClosePinPrompt} aria-label="Close PIN prompt">
+              X
+              </button>
+            </div>
+            <form className="modal-body" onSubmit={handlePinSubmit}>
+              <label className="modal-field">
+                <span>4-digit PIN</span>
+                <input
+                  value={pinInput}
+                  onChange={(event) => {
+                    const digits = event.target.value.replace(/\D/g, "").slice(0, 4);
+                    setPinInput(digits);
+                  }}
+                  placeholder="1234"
+                  maxLength={4}
+                  inputMode="numeric"
+                  autoComplete="off"
+                  required
+                />
+              </label>
+              {pinError && <div className="modal-status error">{pinError}</div>}
+              <div className="modal-actions">
+                <button type="button" className="ghost-btn" onClick={handleClosePinPrompt}>
+                  Cancel
+                </button>
+                <button type="submit" className="primary-btn">
+                  {pinPrompt.action === "remove" ? "Confirm removal" : "View card info"}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {cardInfoModal.open && (
+        <div className="modal-backdrop" role="dialog" aria-modal="true">
+          <div className="modal-card">
+            <div className="modal-header">
+              <h4>Card details</h4>
+              <button type="button" className="modal-close" onClick={handleCloseCardInfo} aria-label="Close card details">
+                X
+              </button>
+            </div>
+            <div className="modal-body">
+              <div className="card-detail-hero">
+                <div className="card-detail-chip" aria-hidden="true"></div>
+         
+                <p className="card-detail-number">
+                  {cardInfoModal.card
+                    ? formatCardNumber(resolveCardNumber(cardInfoModal.card)) || "•••• •••• •••• ••••"
+                    : ""}
+                </p>
+                <div className="card-detail-meta">
+                  <span className="card-detail-brand">
+                    {cardInfoModal.card ? cardInfoModal.card.brand ?? "Card" : ""}
+                  </span>
+                  <span>{cardInfoModal.card ? `${cardInfoModal.card.expMonth}/${cardInfoModal.card.expYear}` : ""}</span>
+                </div>
+              </div>
+              <div className="card-info-grid">
+                {cardInfoModal.card?.isDefault && (
+                  <div className="card-info-row">
+                    <span>Default</span>
+                    <p className="card-info-value">Yes</p>
+                  </div>
+                )}
+                {cardInfoModal.card?.nickname && (
+                  <div className="card-info-row">
+                    <span>Nickname</span>
+                    <p className="card-info-value">{cardInfoModal.card.nickname}</p>
+                  </div>
+                )}
+                <div className="card-info-row">
+                  <span>Card number</span>
+                  <p className="card-info-value">
+                    {cardInfoModal.card
+                      ? formatCardNumber(resolveCardNumber(cardInfoModal.card)) ||
+                        "Not available"
+                      : ""}
+                  </p>
+                </div>
+                <div className="card-info-row">
+                  <span>Expiry</span>
+                  <p className="card-info-value">{cardInfoModal.card ? `${cardInfoModal.card.expMonth}/${cardInfoModal.card.expYear}` : ""}</p>
+                </div>
+                <div className="card-info-row">
+                  <span>CVC</span>
+                  <p className="card-info-value">
+                    {cardInfoModal.card
+                      ? cardInfoModal.card.cvc ?? cardInfoModal.card.cvv ?? cardInfoModal.card.securityCode ?? "Not available"
+                      : ""}
+                  </p>
+                </div>
+               
+                
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
       {showDeleteModal && (
         <div className="modal-backdrop" role="dialog" aria-modal="true">
           <div className="modal-card danger">
             <div className="modal-header">
               <h4>Delete account</h4>
               <button type="button" className="modal-close" onClick={cancelDeleteAccount} aria-label="Close delete modal">
-                ✕
+                X
               </button>
             </div>
             <div className="modal-body">
@@ -2012,7 +2279,7 @@ export default function ProfilePage() {
             <div className="modal-header">
               <h4>Order {activeOrder.id}</h4>
               <button type="button" className="modal-close" onClick={handleCloseOrderModal} aria-label="Close order modal">
-                ✕
+                X
               </button>
             </div>
             <div className="modal-body order-modal">
@@ -2265,6 +2532,97 @@ export default function ProfilePage() {
           font-size: 0.95rem;
         }
 
+        .modal-field p {
+          margin: 0.4rem 0 0;
+          font-weight: 600;
+          color: #1d1d1f;
+        }
+
+        .card-detail-hero {
+          background: linear-gradient(135deg, #641b2e 0%, #be5b50 100%);
+          color: #fff;
+          border-radius: 16px;
+          padding: 1.1rem 1.2rem;
+          display: flex;
+          flex-direction: column;
+          gap: 0.6rem;
+          position: relative;
+          overflow: hidden;
+          text-align: left;
+        }
+
+        .card-detail-hero::after {
+          content: "";
+          position: absolute;
+          inset: 0;
+          background: radial-gradient(circle at top right, rgba(255, 255, 255, 0.2), transparent 45%);
+          opacity: 0.6;
+          pointer-events: none;
+        }
+
+        .card-detail-chip {
+          width: 42px;
+          height: 32px;
+          border-radius: 8px;
+          background: linear-gradient(135deg, rgba(255, 224, 171, 0.9), rgba(255, 183, 77, 0.9));
+          box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.45);
+        }
+
+        .card-detail-number {
+          margin: 0;
+          font-size: 1.05rem;
+          letter-spacing: 0.18em;
+          font-weight: 600;
+          text-transform: uppercase;
+        }
+
+        .card-detail-meta {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          font-size: 0.85rem;
+          font-weight: 600;
+          opacity: 0.9;
+        }
+
+        .card-detail-brand {
+          letter-spacing: 0.08em;
+          text-transform: uppercase;
+        }
+
+        .card-info-grid {
+          display: grid;
+          grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+          gap: 0.85rem;
+          margin-bottom: 1rem;
+        }
+
+        .card-info-row {
+          display: flex;
+          flex-direction: column;
+          gap: 0.35rem;
+          padding: 0.75rem 0.9rem;
+          border-radius: 12px;
+          background: rgba(100, 27, 46, 0.06);
+          border: 1px solid rgba(100, 27, 46, 0.12);
+          text-align: left;
+        }
+
+        .card-info-row span {
+          font-size: 0.78rem;
+          text-transform: uppercase;
+          letter-spacing: 0.08em;
+          color: #8a5a62;
+          font-weight: 700;
+        }
+
+        .card-info-value {
+          margin: 0;
+          font-weight: 600;
+          color: #1d1d1f;
+          word-break: break-word;
+        }
+
         .modal-actions {
           padding: 0 1.5rem 1.5rem 1.5rem;
           display: flex;
@@ -2281,8 +2639,8 @@ export default function ProfilePage() {
         }
 
         .modal-status.success {
-          background: rgba(67, 160, 71, 0.12);
-          color: #2e7d32;
+          background: rgba(190, 91, 80, 0.12);
+          color: #641b2e;
         }
 
         .modal-status.error {
@@ -2319,13 +2677,23 @@ export default function ProfilePage() {
         }
 
         .billing-card {
-          padding: 1rem;
-          border: 1px solid rgba(100, 27, 46, 0.12);
-          border-radius: 12px;
+          padding: 1rem 1.1rem;
+          border: 1px solid rgba(100, 27, 46, 0.14);
+          border-radius: 14px;
+          display: grid;
+          grid-template-columns: 1fr auto;
+          gap: 0.9rem;
+          align-items: flex-start;
+          background: linear-gradient(135deg, #ffffff, #f9f1ef);
+          box-shadow: 0 10px 20px rgba(100, 27, 46, 0.08);
+        }
+
+        .billing-card-info {
           display: flex;
-          justify-content: space-between;
-          gap: 0.75rem;
-          background: #fff7f6;
+          flex-direction: column;
+          gap: 0.15rem;
+          align-items: flex-start;
+          text-align: left;
         }
 
         .billing-card-name {
@@ -2347,14 +2715,38 @@ export default function ProfilePage() {
           display: flex;
           flex-direction: column;
           gap: 0.5rem;
+          align-items: flex-start;
+        }
+
+        .view-card-btn {
+          background: rgba(100, 27, 46, 0.08);
+          border-color: rgba(100, 27, 46, 0.2);
+          color: #641b2e;
+        }
+
+        .view-card-btn:hover {
+          background: rgba(100, 27, 46, 0.16);
+        }
+
+        .danger-ghost-btn {
+          color: #a21d1d;
+          border-color: rgba(162, 29, 29, 0.2);
+        }
+
+        .danger-ghost-btn:hover {
+          background: rgba(162, 29, 29, 0.08);
         }
 
         .badge {
-          background: rgba(67, 160, 71, 0.12);
-          color: #2e7d32;
+          background: rgba(190, 91, 80, 0.12);
+          color: #641b2e;
           font-size: 0.75rem;
           padding: 0.2rem 0.6rem;
           border-radius: 999px;
+        }
+
+        .default-badge {
+          align-self: flex-start;
         }
 
         .billing-row {
@@ -2760,8 +3152,8 @@ export default function ProfilePage() {
         }
 
         .status-delivered {
-          background: rgba(76, 175, 80, 0.18);
-          color: #2e7d32;
+          background: rgba(190, 91, 80, 0.16);
+          color: #641b2e;
         }
 
         .status-cancelled {
@@ -3272,7 +3664,7 @@ export default function ProfilePage() {
         }
 
         .save-btn {
-          background: linear-gradient(135deg, #2e7d32 0%, #43a047 100%);
+          background: linear-gradient(135deg, #641b2e 0%, #be5b50 100%);
           color: white;
           border: none;
           padding: 0.9rem 1.5rem;
@@ -3281,13 +3673,13 @@ export default function ProfilePage() {
           font-size: 1rem;
           cursor: pointer;
           transition: all 0.3s ease;
-          box-shadow: 0 4px 12px rgba(46, 125, 50, 0.25);
+          box-shadow: 0 6px 16px rgba(100, 27, 46, 0.22);
         }
 
         .save-btn:hover {
-          background: linear-gradient(135deg, #43a047 0%, #66bb6a 100%);
+          background: linear-gradient(135deg, #be5b50 0%, #641b2e 100%);
           transform: translateY(-2px);
-          box-shadow: 0 6px 20px rgba(46, 125, 50, 0.35);
+          box-shadow: 0 8px 20px rgba(100, 27, 46, 0.28);
         }
 
         .save-btn:active {

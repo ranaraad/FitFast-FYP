@@ -212,6 +212,91 @@ const pickFirstMeaningfulText = (...candidates) => {
   return "";
 };
 
+const normalizeOutfitSizeLabel = (value) => {
+  if (!value && value !== 0) {
+    return "";
+  }
+
+  if (typeof value === "object") {
+    return normalizeSizeValue(
+      pickFirstMeaningfulText(
+        value.recommended_size,
+        value.recommendedSize,
+        value.size,
+        value.label,
+        value.value
+      )
+    );
+  }
+
+  return normalizeSizeValue(value);
+};
+
+const normalizeColorValue = (value) => {
+  if (!value && value !== 0) {
+    return "";
+  }
+
+  return value.toString().trim();
+};
+
+const normalizeOutfitColorLabel = (value) => {
+  if (!value && value !== 0) {
+    return "";
+  }
+
+  if (typeof value === "object") {
+    return normalizeColorValue(
+      pickFirstMeaningfulText(
+        value.color,
+        value.recommended_color,
+        value.recommendedColor,
+        value.name,
+        value.label,
+        value.value
+      )
+    );
+  }
+
+  return normalizeColorValue(value);
+};
+
+const buildOutfitRecommendationMap = (raw) => {
+  if (!raw) {
+    return {};
+  }
+
+  if (Array.isArray(raw)) {
+    return raw.reduce((acc, entry) => {
+      if (!entry) {
+        return acc;
+      }
+
+      const key = pickFirstMeaningfulText(
+        entry.id,
+        entry.item_id,
+        entry.itemId,
+        entry.store_id,
+        entry.storeId,
+        entry.name
+      );
+
+      if (!key) {
+        return acc;
+      }
+
+      acc[key] = entry;
+      return acc;
+    }, {});
+  }
+
+  if (typeof raw === "object") {
+    return raw;
+  }
+
+  return {};
+};
+
 const parseSizingPayload = (raw) => {
   if (!raw) {
     return null;
@@ -521,7 +606,20 @@ export default function ProductDetailPage() {
     const data = outfitSuggestion.data || outfitSuggestion;
     const outfit = data.outfit || data;
 
-    return outfit.size_recommendations || outfit.sizeRecommendations || {};
+    return buildOutfitRecommendationMap(
+      outfit.size_recommendations || outfit.sizeRecommendations || {}
+    );
+  }, [outfitSuggestion]);
+
+  const outfitColorMap = useMemo(() => {
+    if (!outfitSuggestion) return {};
+
+    const data = outfitSuggestion.data || outfitSuggestion;
+    const outfit = data.outfit || data;
+
+    return buildOutfitRecommendationMap(
+      outfit.color_recommendations || outfit.colorRecommendations || {}
+    );
   }, [outfitSuggestion]);
 
   const outfitSourceInfo = useMemo(() => {
@@ -542,6 +640,100 @@ export default function ProductDetailPage() {
   }, [outfitItems, outfitSuggestion]);
 
   const sizeGuide = useMemo(() => buildSizeGuide(product), [product]);
+
+  const getAvailableSizeForItem = (item, preferredSize) => {
+    const sizes = getSizes(item, []);
+    if (!sizes.length) {
+      return normalizeSizeValue(preferredSize);
+    }
+
+    const sizeStock = normalizeSizeStock(item);
+    const hasSizeStock = Object.keys(sizeStock).length > 0;
+    const normalizedPreferred = normalizeSizeValue(preferredSize);
+    const preferredMatch = normalizedPreferred
+      ? sizes.find(
+          (size) =>
+            normalizeSizeValue(size).toLowerCase() ===
+            normalizedPreferred.toLowerCase()
+        )
+      : "";
+
+    if (preferredMatch) {
+      if (!hasSizeStock || (sizeStock[preferredMatch] || 0) > 0) {
+        return preferredMatch;
+      }
+    }
+
+    if (hasSizeStock) {
+      const inStockSize = sizes.find((size) => (sizeStock[size] || 0) > 0);
+      if (inStockSize) return inStockSize;
+    }
+
+    return sizes[0];
+  };
+
+  const getAvailableColorForItem = (item, preferredColor) => {
+    const colors = getColors(item, []);
+    if (!colors.length) {
+      return normalizeColorValue(preferredColor);
+    }
+
+    const normalizedPreferred = normalizeColorValue(preferredColor).toLowerCase();
+    const preferredMatch = normalizedPreferred
+      ? colors.find(
+          (color) =>
+            normalizeColorValue(color).toLowerCase() === normalizedPreferred
+        )
+      : "";
+
+    return preferredMatch || colors[0];
+  };
+
+  const getOutfitMapValue = (map, item, itemId) => {
+    const keys = [
+      itemId,
+      item?.id,
+      item?.item_id,
+      item?.itemId,
+      item?.store_id,
+      item?.storeId,
+      item?.name,
+    ].filter((key) => key !== null && key !== undefined && key !== "");
+
+    for (const key of keys) {
+      if (map && Object.prototype.hasOwnProperty.call(map, key)) {
+        return map[key];
+      }
+    }
+
+    return null;
+  };
+
+  const getOutfitItemSelection = (item, itemId) => {
+    const rawSize = getOutfitMapValue(outfitSizeMap, item, itemId);
+    const rawColor = getOutfitMapValue(outfitColorMap, item, itemId);
+    const preferredSize = normalizeOutfitSizeLabel(rawSize);
+    const preferredColor = normalizeOutfitColorLabel(
+      pickFirstMeaningfulText(
+        rawColor,
+        item?.color,
+        item?.color_name,
+        item?.colorName,
+        item?.colorway
+      )
+    );
+    const resolvedSize =
+      getAvailableSizeForItem(item, preferredSize) || preferredSize;
+    const resolvedColor =
+      getAvailableColorForItem(item, preferredColor) || preferredColor;
+
+    return {
+      preferredSize,
+      preferredColor,
+      resolvedSize,
+      resolvedColor,
+    };
+  };
 
   const normalizeOptions = (value, fallback = []) => {
     if (Array.isArray(value)) return value.filter(Boolean);
@@ -577,7 +769,7 @@ export default function ProductDetailPage() {
 
   const getSizeStock = (item, size) => normalizeSizeStock(item)[size] || 0;
 
-  const getSizes = (item) => {
+  const getSizes = (item, fallback = ["XS", "S", "M", "L", "XL"]) => {
     const sizeStock = normalizeSizeStock(item);
     const stockSizes = Object.keys(sizeStock);
 
@@ -585,11 +777,11 @@ export default function ProductDetailPage() {
 
     return normalizeOptions(
       item?.sizes || item?.available_sizes || item?.size_options,
-      ["XS", "S", "M", "L", "XL"]
+      fallback
     );
   };
 
-  const getColors = (item) => {
+  const getColors = (item, fallback = ["Charcoal", "Sand", "Rose"]) => {
     const variants =
       item?.color_variants || item?.available_colors || item?.color_options || [];
 
@@ -605,7 +797,7 @@ export default function ProductDetailPage() {
         .filter(Boolean);
     }
 
-    return ["Charcoal", "Sand", "Rose"];
+    return fallback;
   };
 
   const getAvailableQuantity = () => {
@@ -1303,7 +1495,7 @@ export default function ProductDetailPage() {
                   <h3>Complete Outfit Suggestion</h3>
                   <div className="outfit-source-indicator">
                     <span className={`ai-source-badge ${outfitSourceInfo.isRealAI ? 'ai-badge' : 'fallback-badge'}`}>
-                      {outfitSourceInfo.isRealAI ? '🤖 AI Generated' : '📊 Basic Match'}
+                      {outfitSourceInfo.isRealAI ? 'AI Generated' : 'Basic Match'}
                     </span>
                     {outfitSuggestion.data?.outfit?.compatibility_score !== undefined && (
                       <span className="ai-chip">
@@ -1326,7 +1518,7 @@ export default function ProductDetailPage() {
 
                 <div className="outfit-meta-info">
                   <span className="outfit-item-count">
-                    {outfitItems.length} items · ${outfitTotalPrice.toFixed(2)}
+                    {outfitItems.length} items - ${outfitTotalPrice.toFixed(2)}
                   </span>
                 </div>
               </div>
@@ -1334,7 +1526,14 @@ export default function ProductDetailPage() {
               <div className="ai-outfit-grid">
                 {outfitItems.map((item, index) => {
                   const itemId = item.id || item.item_id || index;
-                  const recommendedSize = outfitSizeMap[item.id] || outfitSizeMap[itemId] || 'Standard';
+                  const {
+                    preferredSize,
+                    preferredColor,
+                    resolvedSize,
+                    resolvedColor,
+                  } = getOutfitItemSelection(item, itemId);
+                  const displaySize = preferredSize;
+                  const displayColor = preferredColor;
                   const isRealItem = item.name && !item.name.startsWith('Item ');
 
                   return (
@@ -1404,6 +1603,20 @@ export default function ProductDetailPage() {
                         <p className="ai-outfit-meta">
                           {item.garment_type || item.garment_category || ''}
                         </p>
+                        {(displaySize || displayColor) && (
+                          <div className="ai-outfit-prefs">
+                            {displaySize && (
+                              <span className="outfit-pref">
+                                Recommended size: {displaySize}
+                              </span>
+                            )}
+                            {displayColor && (
+                              <span className="outfit-pref">
+                                Color: {displayColor}
+                              </span>
+                            )}
+                          </div>
+                        )}
                         {isRealItem && (
                           <button
                             className="outfit-item-add-btn"
@@ -1414,7 +1627,8 @@ export default function ProductDetailPage() {
                                 name: item.name || item.item_name,
                                 price: item.price,
                                 image: item.image_url || item.image,
-                                size: outfitSizeMap[item.id] || 'Standard',
+                                size: resolvedSize,
+                                color: resolvedColor || null,
                                 storeId: item.store_id || item.storeId || storeId,
                                 quantity: 1
                               });
@@ -1439,12 +1653,17 @@ export default function ProductDetailPage() {
                     const savings = totalOriginalPrice * 0.20;
                     
                     validItems.forEach(item => {
+                      const { resolvedSize, resolvedColor } = getOutfitItemSelection(
+                        item,
+                        item.id || item.item_id
+                      );
                       addToCart({
                         id: item.id,
                         name: item.name || item.item_name,
                         price: item.price,
                         image: item.image_url || item.image,
-                        size: outfitSizeMap[item.id] || 'Standard',
+                        size: resolvedSize,
+                        color: resolvedColor || null,
                         storeId: storeId,
                         quantity: 1,
                         bundleDiscount: 20
@@ -1652,7 +1871,7 @@ export default function ProductDetailPage() {
                     </p>
                     <div className="ai-source-indicator">
                       <span className={`ai-source-badge ${sizeSummary.isFallback ? 'fallback-badge' : 'ai-badge'}`}>
-                        {sizeSummary.isFallback ? '📊 Fallback' : '🤖 AI'}
+                        {sizeSummary.isFallback ? 'Fallback' : 'AI'}
                       </span>
                     </div>
                   </div>
@@ -1757,7 +1976,7 @@ export default function ProductDetailPage() {
                         <span>{size}</span>
                         {sizeGuide.measurements.map((measurementKey) => (
                           <span key={measurementKey}>
-                            {sizeGuide.values[size]?.[measurementKey] || "—"}
+                            {sizeGuide.values[size]?.[measurementKey] || "N/A"}
                           </span>
                         ))}
                       </div>
@@ -1792,6 +2011,50 @@ export default function ProductDetailPage() {
 
       {/* CSS Styles (Add to your CSS file) */}
       <style jsx>{`
+        .ai-assist {
+          margin-top: 20px;
+        }
+
+        .ai-result {
+          background: linear-gradient(180deg, #ffffff 0%, #fbfbfc 100%);
+          border: 1px solid #e6e6ea;
+          border-left: 4px solid #d1d1d6;
+          border-radius: 18px;
+          padding: 18px 20px;
+          box-shadow: 0 12px 24px rgba(15, 23, 42, 0.06);
+        }
+
+        .ai-result-header {
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+          gap: 12px;
+          margin-bottom: 14px;
+        }
+
+        .ai-result-title {
+          font-size: 0.95rem;
+          font-weight: 700;
+          letter-spacing: 0.08em;
+          text-transform: uppercase;
+          color: #7a3b2e;
+          margin: 0;
+        }
+
+        .ai-message {
+          margin: 0 0 12px;
+          font-size: 0.95rem;
+          color: #4b5563;
+        }
+
+        .ai-message.error {
+          color: #b42318;
+          background: #fef3f2;
+          border: 1px solid #fecdca;
+          padding: 10px 12px;
+          border-radius: 10px;
+        }
+
         .ai-source-indicator {
           display: flex;
           align-items: center;
@@ -1800,25 +2063,27 @@ export default function ProductDetailPage() {
         }
 
         .ai-source-badge {
-          padding: 4px 8px;
-          border-radius: 12px;
-          font-size: 0.8em;
-          font-weight: 600;
+          padding: 6px 12px;
+          border-radius: 999px;
+          font-size: 0.75rem;
+          font-weight: 700;
+          letter-spacing: 0.06em;
+          text-transform: uppercase;
           display: inline-flex;
           align-items: center;
-          gap: 4px;
+          gap: 6px;
         }
 
         .ai-badge {
-          background: #e3f2fd;
-          color: #1976d2;
-          border: 1px solid #90caf9;
+          background: #f0f7ff;
+          color: #1d4ed8;
+          border: 1px solid #bfdbfe;
         }
 
         .fallback-badge {
-          background: #fff3cd;
-          color: #856404;
-          border: 1px solid #ffeaa7;
+          background: #fff6e0;
+          color: #92400e;
+          border: 1px solid #fed7aa;
         }
 
         .ai-model-info {
@@ -1829,19 +2094,28 @@ export default function ProductDetailPage() {
           border-radius: 4px;
         }
 
-        .ai-result-header {
-          display: flex;
-          justify-content: space-between;
-          align-items: flex-start;
-          margin-bottom: 12px;
-        }
-
         .confidence-fill.ai-fill {
-          background: linear-gradient(90deg, #4CAF50, #8BC34A);
+          background: linear-gradient(90deg, #641b2e, #be5b50);
         }
 
         .confidence-fill.fallback-fill {
           background: linear-gradient(90deg, #FF9800, #FFC107);
+        }
+
+        .ai-confidence {
+          margin: 10px 0 6px;
+        }
+
+        .confidence-meter {
+          height: 10px;
+          background: #eceef2;
+          border-radius: 999px;
+          overflow: hidden;
+        }
+
+        .confidence-fill {
+          height: 100%;
+          border-radius: 999px;
         }
 
         .confidence-info {
@@ -1849,50 +2123,62 @@ export default function ProductDetailPage() {
           justify-content: space-between;
           align-items: center;
           margin-top: 8px;
+          font-size: 0.9rem;
+          color: #1f2937;
         }
 
         .ai-recommendations {
           margin-top: 16px;
           padding-top: 16px;
-          border-top: 1px solid #eee;
+          border-top: 1px solid #edf0f2;
+        }
+
+        .recommendations-label {
+          font-weight: 600;
+          color: #475467;
+          margin: 0 0 8px;
         }
 
         .recommendations-list {
           display: flex;
           flex-direction: column;
-          gap: 8px;
+          gap: 10px;
           margin-top: 8px;
         }
 
         .recommendation-item {
-          display: flex;
-          justify-content: space-between;
+          display: grid;
+          grid-template-columns: minmax(0, 2fr) auto auto;
           align-items: center;
-          padding: 8px;
-          background: #f9f9f9;
-          border-radius: 4px;
-          font-size: 0.9em;
+          gap: 12px;
+          padding: 10px 12px;
+          background: #f8fafc;
+          border: 1px solid #eef1f4;
+          border-radius: 12px;
+          font-size: 0.9rem;
         }
 
         .rec-name {
-          flex: 2;
           overflow: hidden;
           text-overflow: ellipsis;
           white-space: nowrap;
+          color: #111827;
+          font-weight: 500;
         }
 
         .rec-size {
-          flex: 1;
           text-align: center;
-          font-weight: 600;
-          color: #1976d2;
+          font-weight: 700;
+          color: #7a3b2e;
+          background: #fbeaea;
+          padding: 4px 10px;
+          border-radius: 999px;
         }
 
         .rec-score {
-          flex: 1;
           text-align: right;
-          font-weight: 600;
-          color: #4CAF50;
+          font-weight: 700;
+          color: #641b2e;
         }
 
         .ai-button.loading {
@@ -1919,6 +2205,58 @@ export default function ProductDetailPage() {
           display: flex;
           align-items: center;
           gap: 8px;
+          flex-wrap: wrap;
+        }
+
+        .ai-outfit {
+          background: linear-gradient(180deg, #ffffff 0%, #fbf7f6 100%);
+          border-radius: 18px;
+          padding: 18px;
+          box-shadow: 0 12px 24px rgba(15, 23, 42, 0.08);
+        }
+
+        .ai-outfit-header {
+          display: flex;
+          flex-direction: column;
+          gap: 10px;
+        }
+
+        .ai-result-heading {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          gap: 12px;
+          flex-wrap: wrap;
+        }
+
+        .ai-result-heading h3 {
+          margin: 0;
+          font-size: 1.05rem;
+          color: #3f1a24;
+        }
+
+        .ai-chip {
+          padding: 4px 10px;
+          border-radius: 999px;
+          font-size: 0.75rem;
+          font-weight: 700;
+          letter-spacing: 0.04em;
+          text-transform: uppercase;
+          background: #f8e9e7;
+          color: #641b2e;
+          border: 1px solid #f0c9c2;
+        }
+
+        .ai-chip.secondary {
+          background: #fff1ed;
+          color: #7a3b2e;
+          border-color: #f7c9c1;
+        }
+
+        .outfit-description {
+          margin: 0;
+          font-size: 0.95rem;
+          color: #4b5563;
         }
 
         .outfit-meta-info {
@@ -1927,13 +2265,41 @@ export default function ProductDetailPage() {
           align-items: center;
           margin-top: 12px;
           font-size: 0.9em;
-          color: #666;
+          color: #4b5563;
+        }
+
+        .outfit-item-count {
+          font-weight: 600;
+          color: #3f1a24;
         }
 
         .outfit-model {
           background: #f0f0f0;
           padding: 4px 8px;
           border-radius: 4px;
+        }
+
+        .ai-outfit-grid {
+          display: grid;
+          grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+          gap: 14px;
+          margin-top: 16px;
+        }
+
+        .ai-outfit-card {
+          background: #ffffff;
+          border: 1px solid #eee3e1;
+          border-radius: 16px;
+          overflow: hidden;
+          display: flex;
+          flex-direction: column;
+          box-shadow: 0 8px 16px rgba(15, 23, 42, 0.08);
+          transition: transform 0.2s ease, box-shadow 0.2s ease;
+        }
+
+        .ai-outfit-card.clickable:hover {
+          transform: translateY(-2px);
+          box-shadow: 0 12px 22px rgba(15, 23, 42, 0.12);
         }
 
         .item-source-indicator {
@@ -1944,8 +2310,8 @@ export default function ProductDetailPage() {
         }
 
         .item-source-badge {
-          background: rgba(255,152,0,0.9);
-          color: white;
+          background: rgba(122, 59, 46, 0.92);
+          color: #fff;
           padding: 2px 6px;
           border-radius: 10px;
           font-size: 0.7em;
@@ -1953,13 +2319,139 @@ export default function ProductDetailPage() {
         }
 
         .item-generic-indicator {
-          color: #FF9800;
+          color: #7a3b2e;
           font-size: 0.8em;
           margin-left: 4px;
         }
 
         .outfit-card-image {
           position: relative;
+          height: 160px;
+          overflow: hidden;
+          background: #f5f1f0;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+        }
+
+        .outfit-item-image {
+          width: 100%;
+          height: 100%;
+          object-fit: cover;
+        }
+
+        .ai-outfit-placeholder {
+          width: 100%;
+          height: 100%;
+          display: grid;
+          place-items: center;
+          color: #7a3b2e;
+          font-size: 2rem;
+          font-weight: 700;
+          background: linear-gradient(135deg, #fbeaea, #f7d8d2);
+        }
+
+        .ai-outfit-info {
+          padding: 12px 14px 16px;
+          display: flex;
+          flex-direction: column;
+          gap: 6px;
+        }
+
+        .ai-outfit-name {
+          margin: 0;
+          font-weight: 600;
+          color: #1f2937;
+        }
+
+        .ai-outfit-price {
+          margin: 0;
+          font-weight: 700;
+          color: #641b2e;
+        }
+
+        .ai-outfit-meta {
+          margin: 0;
+          font-size: 0.85rem;
+          color: #6b7280;
+        }
+
+        .ai-outfit-prefs {
+          display: flex;
+          flex-direction: column;
+          gap: 4px;
+          margin-top: 2px;
+        }
+
+        .outfit-pref {
+          font-size: 0.8rem;
+          font-weight: 600;
+          color: #7a3b2e;
+          background: #fbeaea;
+          padding: 4px 8px;
+          border-radius: 10px;
+          align-self: flex-start;
+        }
+
+        .outfit-item-add-btn {
+          margin-top: 6px;
+          background: linear-gradient(135deg, #641b2e, #be5b50);
+          color: #fff;
+          border: none;
+          border-radius: 12px;
+          padding: 8px 12px;
+          font-weight: 600;
+          cursor: pointer;
+          transition: transform 0.2s ease, box-shadow 0.2s ease;
+          box-shadow: 0 10px 16px rgba(100, 27, 46, 0.22);
+        }
+
+        .outfit-item-add-btn:hover {
+          transform: translateY(-1px);
+          box-shadow: 0 12px 20px rgba(100, 27, 46, 0.28);
+        }
+
+        .outfit-actions {
+          margin-top: 16px;
+        }
+
+        .outfit-add-all {
+          width: 100%;
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          gap: 12px;
+          border: none;
+          border-radius: 16px;
+          padding: 12px 16px;
+          background: #fff3f1;
+          color: #641b2e;
+          font-weight: 700;
+          cursor: pointer;
+          box-shadow: inset 0 0 0 1px #f2c8c0;
+        }
+
+        .outfit-add-all:disabled {
+          opacity: 0.6;
+          cursor: not-allowed;
+        }
+
+        .outfit-add-all-prices {
+          display: flex;
+          align-items: baseline;
+          gap: 8px;
+          font-weight: 700;
+        }
+
+        .outfit-original-price {
+          text-decoration: line-through;
+          color: #9ca3af;
+          font-weight: 600;
+        }
+
+        .outfit-discounted-price {
+          color: #641b2e;
+          font-size: 1.05rem;
         }
 
         .debug-info {
@@ -1976,15 +2468,15 @@ export default function ProductDetailPage() {
         }
 
         .ai-result.real-ai {
-          border-left-color: #4CAF50;
+          border-left-color: #641b2e;
         }
 
         .real-ai-outfit {
-          border: 2px solid #4CAF50;
+          border: 2px solid #641b2e;
         }
 
         .fallback-outfit {
-          border: 2px solid #FF9800;
+          border: 2px solid #be5b50;
         }
       `}</style>
     </div>

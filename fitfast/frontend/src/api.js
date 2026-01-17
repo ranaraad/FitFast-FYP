@@ -15,4 +15,18 @@ api.interceptors.request.use((config) => {
   return config;
 });
 
+api.interceptors.response.use(
+  (response) => response,
+  (error) => {
+    const status = error?.response?.status;
+    if (status === 401 && typeof window !== "undefined") {
+      const currentPath = window.location.pathname;
+      if (currentPath !== "/login" && currentPath !== "/error/401") {
+        window.location.assign("/error/401");
+      }
+    }
+    return Promise.reject(error);
+  }
+);
+
 export default api;

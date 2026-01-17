@@ -935,6 +935,13 @@ export default function ProfilePage() {
 
   const handleBillingFieldChange = (event) => {
     const { name, value, type, checked } = event.target;
+    if (name === "number") {
+      const digits = value.replace(/\D/g, "").slice(0, 16);
+      const grouped = digits.replace(/(\d{4})(?=\d)/g, "$1 ").trim();
+      setBillingForm((prev) => ({ ...prev, number: grouped }));
+      return;
+    }
+
     const nextValue = type === "checkbox" ? checked : value;
     setBillingForm((prev) => ({ ...prev, [name]: nextValue }));
   };

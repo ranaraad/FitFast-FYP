@@ -90,6 +90,7 @@ const PROMO_CODES = {
 const isBrowser = typeof window !== "undefined";
 const ORDER_STATUS_STORAGE = "fitfast_recent_order";
 const ORDER_HISTORY_PREFIX = "fitfast_account_orders";
+const PAYMENT_METHODS_STORAGE = "fitfast_payment_methods";
 
 function readStoredValue(key, fallback) {
 	if (!isBrowser || !key) return fallback;
@@ -139,6 +140,51 @@ function readAuthUser() {
 	}
 }
 
+function normalizeEmail(value) {
+	return typeof value === "string" ? value.trim().toLowerCase() : "";
+}
+
+function getPaymentMethodsKey(authUser) {
+	if (!authUser) return null;
+	if (authUser.id) return `${PAYMENT_METHODS_STORAGE}_${authUser.id}`;
+	const emailKey = normalizeEmail(authUser.email);
+	return emailKey ? `${PAYMENT_METHODS_STORAGE}_${emailKey}` : null;
+}
+
+function mapStoredPaymentMethod(method) {
+	return {
+		id: method.id || `pm-${method.last4 || Date.now()}`,
+		brand: method.brand || method.card_brand || "Card",
+		nickname: method.nickname || method.label || method.brand || "Saved card",
+		last4: method.last4 || method.card_last_four || "0000",
+		expMonth: method.exp_month || method.expMonth || "",
+		expYear: method.exp_year || method.expYear || "",
+		isDefault: Boolean(method.is_default ?? method.isDefault ?? false),
+	};
+}
+
+function loadSavedPaymentMethods(authUser) {
+	const paymentKey = getPaymentMethodsKey(authUser);
+	const primary = paymentKey ? readStoredValue(paymentKey, []) : [];
+	const legacy = readStoredValue(PAYMENT_METHODS_STORAGE, []);
+	const merged = [...(Array.isArray(primary) ? primary : []), ...(Array.isArray(legacy) ? legacy : [])]
+		.filter((entry) => entry && typeof entry === "object")
+		.map(mapStoredPaymentMethod);
+
+	const deduped = new Map();
+	merged.forEach((method) => {
+		const key = method.id || `${method.brand}-${method.last4}`;
+		const existing = deduped.get(key);
+		deduped.set(key, existing ? { ...existing, ...method } : method);
+	});
+
+	const normalized = Array.from(deduped.values());
+	if (!normalized.some((method) => method.isDefault) && normalized.length) {
+		normalized[0] = { ...normalized[0], isDefault: true };
+	}
+	return normalized;
+}
+
 function resolveOrderHistoryKey(authUser, contact) {
 	if (authUser?.id) return `${ORDER_HISTORY_PREFIX}_${authUser.id}`;
 	const email = (authUser?.email || contact?.email || "").trim().toLowerCase();
@@ -165,18 +211,16 @@ function appendOrderToAccountHistory(orderRecord, authUser) {
 
 function loadInitialContact(storageKey, authUser) {
 	const stored = storageKey ? readStoredValue(storageKey, null) : null;
-	if (stored) return { ...DEFAULT_CONTACT, ...stored };
-
+	const base = { ...DEFAULT_CONTACT, ...(stored || {}) };
 	const user = authUser || readAuthUser();
-	if (user) {
-		return {
-			fullName: user.name || "",
-			email: user.email || "",
-			phone: user.phone || "",
-		};
-	}
+	if (!user) return base;
 
-	return DEFAULT_CONTACT;
+	return {
+		...base,
+		fullName: base.fullName || user.name || "",
+		email: base.email || user.email || "",
+		phone: base.phone || user.phone || "",
+	};
 }
 
 function loadInitialAddress(storageKey) {
@@ -249,6 +293,14 @@ export default function CheckoutPage() {
 		return stored?.applied || null;
 	});
 	const [cardDetails, setCardDetails] = useState(() => ({ ...DEFAULT_CARD }));
+	const [savedPaymentMethods, setSavedPaymentMethods] = useState(() =>
+		loadSavedPaymentMethods(authUser)
+	);
+	const [selectedSavedCardId, setSelectedSavedCardId] = useState(() => {
+		const methods = loadSavedPaymentMethods(authUser);
+		const defaultMethod = methods.find((method) => method.isDefault) || methods[0];
+		return defaultMethod?.id || "new";
+	});
 	const [promoFeedback, setPromoFeedback] = useState("");
 	const [isSubmitting, setIsSubmitting] = useState(false);
 	const [orderError, setOrderError] = useState(null);
@@ -278,6 +330,51 @@ export default function CheckoutPage() {
 		setPromoInput(storedPromo.input || "");
 		setAppliedPromo(storedPromo.applied || null);
 	}, [storageKeys.contact, storageKeys.address, storageKeys.delivery, storageKeys.payment, storageKeys.promo, authUser]);
+
+	useEffect(() => {
+		const syncPaymentMethods = () => {
+			const methods = loadSavedPaymentMethods(authUser);
+			setSavedPaymentMethods(methods);
+			setSelectedSavedCardId((prev) => {
+				if (!methods.length) return "new";
+				if (prev && prev !== "new" && methods.some((method) => method.id === prev)) {
+					return prev;
+				}
+				const defaultMethod = methods.find((method) => method.isDefault) || methods[0];
+				return defaultMethod?.id || "new";
+			});
+		};
+
+		syncPaymentMethods();
+		if (!isBrowser) return undefined;
+		window.addEventListener("storage", syncPaymentMethods);
+		return () => window.removeEventListener("storage", syncPaymentMethods);
+	}, [authUser]);
+
+	const selectedSavedCard = useMemo(
+		() => savedPaymentMethods.find((method) => method.id === selectedSavedCardId),
+		[savedPaymentMethods, selectedSavedCardId]
+	);
+
+	useEffect(() => {
+		if (selectedSavedCardId === "new") {
+			setCardDetails((prev) => ({ ...prev, number: "", expiry: "", cvc: "" }));
+			return;
+		}
+		if (!selectedSavedCard) return;
+		const expiry = selectedSavedCard.expMonth && selectedSavedCard.expYear
+			? `${selectedSavedCard.expMonth}/${selectedSavedCard.expYear}`
+			: "";
+		const maskedNumber = selectedSavedCard.last4
+			? `**** **** **** ${selectedSavedCard.last4}`
+			: "**** **** **** ****";
+		setCardDetails((prev) => ({
+			...prev,
+			number: maskedNumber,
+			expiry,
+			cvc: "",
+		}));
+	}, [selectedSavedCard, selectedSavedCardId]);
 
 	useEffect(() => {
 		const syncCart = () => setCartItems(getCart());
@@ -375,6 +472,16 @@ export default function CheckoutPage() {
 	const handleCardInputChange = (event) => {
 		const { name, value } = event.target;
 
+		if (selectedSavedCardId !== "new") {
+			if (name === "cvc") {
+				const digits = value.replace(/\D/g, "").slice(0, 4);
+				setCardDetails((prev) => ({ ...prev, cvc: digits }));
+			} else if (name === "nameOnCard") {
+				setCardDetails((prev) => ({ ...prev, nameOnCard: value }));
+			}
+			return;
+		}
+
 		if (name === "number") {
 			const digits = value.replace(/\D/g, "").slice(0, 16);
 			const grouped = digits.replace(/(\d{4})(?=\d)/g, "$1 ").trim();
@@ -451,11 +558,13 @@ export default function CheckoutPage() {
 			if (!cardDetails.nameOnCard.trim()) {
 				issues.push("Name on card");
 			}
-			if (sanitizedNumber.length < 12) {
-				issues.push("Card number");
-			}
-			if (!/^(0[1-9]|1[0-2])\/\d{2}$/.test(cardDetails.expiry)) {
-				issues.push("Expiry (MM/YY)");
+			if (selectedSavedCardId === "new") {
+				if (sanitizedNumber.length < 12) {
+					issues.push("Card number");
+				}
+				if (!/^(0[1-9]|1[0-2])\/\d{2}$/.test(cardDetails.expiry)) {
+					issues.push("Expiry (MM/YY)");
+				}
 			}
 			if (!/^\d{3,4}$/.test(cardDetails.cvc)) {
 				issues.push("CVC");
@@ -496,7 +605,10 @@ export default function CheckoutPage() {
 
 		const confirmationCode = generateConfirmationCode();
 		const sanitizedNumber = paymentMethod === "card" ? cardDetails.number.replace(/\D/g, "") : "";
-		const cardLast4 = sanitizedNumber ? sanitizedNumber.slice(-4) : null;
+		const cardLast4 =
+			paymentMethod !== "card"
+				? null
+				: selectedSavedCard?.last4 || (sanitizedNumber ? sanitizedNumber.slice(-4) : null);
 		const authUser = readAuthUser();
 
 		try {
@@ -830,6 +942,25 @@ export default function CheckoutPage() {
 
 							{paymentMethod === "card" && (
 								<div className="card-fields">
+									{savedPaymentMethods.length > 0 && (
+										<label className="form-field full">
+											<span>Saved cards</span>
+											<select
+												name="savedCard"
+												value={selectedSavedCardId}
+												onChange={(event) => setSelectedSavedCardId(event.target.value)}
+											>
+												<option value="new">Use a new card</option>
+												{savedPaymentMethods.map((method) => (
+													<option key={method.id} value={method.id}>
+														{method.brand} **** {method.last4}
+														{method.expMonth && method.expYear ? ` (exp ${method.expMonth}/${method.expYear})` : ""}
+														{method.isDefault ? " - Default" : ""}
+													</option>
+												))}
+											</select>
+										</label>
+									)}
 									<label className="form-field full">
 										<span>Name on card</span>
 										<input
@@ -851,6 +982,7 @@ export default function CheckoutPage() {
 											value={cardDetails.number}
 											onChange={handleCardInputChange}
 											placeholder="1234 5678 9012 3456"
+											disabled={selectedSavedCardId !== "new"}
 										/>
 									</label>
 									<label className="form-field">
@@ -863,6 +995,7 @@ export default function CheckoutPage() {
 											value={cardDetails.expiry}
 											onChange={handleCardInputChange}
 											placeholder="MM/YY"
+											disabled={selectedSavedCardId !== "new"}
 										/>
 									</label>
 									<label className="form-field">

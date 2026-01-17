@@ -212,6 +212,91 @@ const pickFirstMeaningfulText = (...candidates) => {
   return "";
 };
 
+const normalizeOutfitSizeLabel = (value) => {
+  if (!value && value !== 0) {
+    return "";
+  }
+
+  if (typeof value === "object") {
+    return normalizeSizeValue(
+      pickFirstMeaningfulText(
+        value.recommended_size,
+        value.recommendedSize,
+        value.size,
+        value.label,
+        value.value
+      )
+    );
+  }
+
+  return normalizeSizeValue(value);
+};
+
+const normalizeColorValue = (value) => {
+  if (!value && value !== 0) {
+    return "";
+  }
+
+  return value.toString().trim();
+};
+
+const normalizeOutfitColorLabel = (value) => {
+  if (!value && value !== 0) {
+    return "";
+  }
+
+  if (typeof value === "object") {
+    return normalizeColorValue(
+      pickFirstMeaningfulText(
+        value.color,
+        value.recommended_color,
+        value.recommendedColor,
+        value.name,
+        value.label,
+        value.value
+      )
+    );
+  }
+
+  return normalizeColorValue(value);
+};
+
+const buildOutfitRecommendationMap = (raw) => {
+  if (!raw) {
+    return {};
+  }
+
+  if (Array.isArray(raw)) {
+    return raw.reduce((acc, entry) => {
+      if (!entry) {
+        return acc;
+      }
+
+      const key = pickFirstMeaningfulText(
+        entry.id,
+        entry.item_id,
+        entry.itemId,
+        entry.store_id,
+        entry.storeId,
+        entry.name
+      );
+
+      if (!key) {
+        return acc;
+      }
+
+      acc[key] = entry;
+      return acc;
+    }, {});
+  }
+
+  if (typeof raw === "object") {
+    return raw;
+  }
+
+  return {};
+};
+
 const parseSizingPayload = (raw) => {
   if (!raw) {
     return null;
@@ -521,7 +606,20 @@ export default function ProductDetailPage() {
     const data = outfitSuggestion.data || outfitSuggestion;
     const outfit = data.outfit || data;
 
-    return outfit.size_recommendations || outfit.sizeRecommendations || {};
+    return buildOutfitRecommendationMap(
+      outfit.size_recommendations || outfit.sizeRecommendations || {}
+    );
+  }, [outfitSuggestion]);
+
+  const outfitColorMap = useMemo(() => {
+    if (!outfitSuggestion) return {};
+
+    const data = outfitSuggestion.data || outfitSuggestion;
+    const outfit = data.outfit || data;
+
+    return buildOutfitRecommendationMap(
+      outfit.color_recommendations || outfit.colorRecommendations || {}
+    );
   }, [outfitSuggestion]);
 
   const outfitSourceInfo = useMemo(() => {
@@ -542,6 +640,100 @@ export default function ProductDetailPage() {
   }, [outfitItems, outfitSuggestion]);
 
   const sizeGuide = useMemo(() => buildSizeGuide(product), [product]);
+
+  const getAvailableSizeForItem = (item, preferredSize) => {
+    const sizes = getSizes(item, []);
+    if (!sizes.length) {
+      return normalizeSizeValue(preferredSize);
+    }
+
+    const sizeStock = normalizeSizeStock(item);
+    const hasSizeStock = Object.keys(sizeStock).length > 0;
+    const normalizedPreferred = normalizeSizeValue(preferredSize);
+    const preferredMatch = normalizedPreferred
+      ? sizes.find(
+          (size) =>
+            normalizeSizeValue(size).toLowerCase() ===
+            normalizedPreferred.toLowerCase()
+        )
+      : "";
+
+    if (preferredMatch) {
+      if (!hasSizeStock || (sizeStock[preferredMatch] || 0) > 0) {
+        return preferredMatch;
+      }
+    }
+
+    if (hasSizeStock) {
+      const inStockSize = sizes.find((size) => (sizeStock[size] || 0) > 0);
+      if (inStockSize) return inStockSize;
+    }
+
+    return sizes[0];
+  };
+
+  const getAvailableColorForItem = (item, preferredColor) => {
+    const colors = getColors(item, []);
+    if (!colors.length) {
+      return normalizeColorValue(preferredColor);
+    }
+
+    const normalizedPreferred = normalizeColorValue(preferredColor).toLowerCase();
+    const preferredMatch = normalizedPreferred
+      ? colors.find(
+          (color) =>
+            normalizeColorValue(color).toLowerCase() === normalizedPreferred
+        )
+      : "";
+
+    return preferredMatch || colors[0];
+  };
+
+  const getOutfitMapValue = (map, item, itemId) => {
+    const keys = [
+      itemId,
+      item?.id,
+      item?.item_id,
+      item?.itemId,
+      item?.store_id,
+      item?.storeId,
+      item?.name,
+    ].filter((key) => key !== null && key !== undefined && key !== "");
+
+    for (const key of keys) {
+      if (map && Object.prototype.hasOwnProperty.call(map, key)) {
+        return map[key];
+      }
+    }
+
+    return null;
+  };
+
+  const getOutfitItemSelection = (item, itemId) => {
+    const rawSize = getOutfitMapValue(outfitSizeMap, item, itemId);
+    const rawColor = getOutfitMapValue(outfitColorMap, item, itemId);
+    const preferredSize = normalizeOutfitSizeLabel(rawSize);
+    const preferredColor = normalizeOutfitColorLabel(
+      pickFirstMeaningfulText(
+        rawColor,
+        item?.color,
+        item?.color_name,
+        item?.colorName,
+        item?.colorway
+      )
+    );
+    const resolvedSize =
+      getAvailableSizeForItem(item, preferredSize) || preferredSize;
+    const resolvedColor =
+      getAvailableColorForItem(item, preferredColor) || preferredColor;
+
+    return {
+      preferredSize,
+      preferredColor,
+      resolvedSize,
+      resolvedColor,
+    };
+  };
 
   const normalizeOptions = (value, fallback = []) => {
     if (Array.isArray(value)) return value.filter(Boolean);
@@ -577,7 +769,7 @@ export default function ProductDetailPage() {
 
   const getSizeStock = (item, size) => normalizeSizeStock(item)[size] || 0;
 
-  const getSizes = (item) => {
+  const getSizes = (item, fallback = ["XS", "S", "M", "L", "XL"]) => {
     const sizeStock = normalizeSizeStock(item);
     const stockSizes = Object.keys(sizeStock);
 
@@ -585,11 +777,11 @@ export default function ProductDetailPage() {
 
     return normalizeOptions(
       item?.sizes || item?.available_sizes || item?.size_options,
-      ["XS", "S", "M", "L", "XL"]
+      fallback
     );
   };
 
-  const getColors = (item) => {
+  const getColors = (item, fallback = ["Charcoal", "Sand", "Rose"]) => {
     const variants =
       item?.color_variants || item?.available_colors || item?.color_options || [];
 
@@ -605,7 +797,7 @@ export default function ProductDetailPage() {
         .filter(Boolean);
     }
 
-    return ["Charcoal", "Sand", "Rose"];
+    return fallback;
   };
 
   const getAvailableQuantity = () => {
@@ -1334,7 +1526,14 @@ export default function ProductDetailPage() {
               <div className="ai-outfit-grid">
                 {outfitItems.map((item, index) => {
                   const itemId = item.id || item.item_id || index;
-                  const recommendedSize = outfitSizeMap[item.id] || outfitSizeMap[itemId] || 'Standard';
+                  const {
+                    preferredSize,
+                    preferredColor,
+                    resolvedSize,
+                    resolvedColor,
+                  } = getOutfitItemSelection(item, itemId);
+                  const displaySize = preferredSize;
+                  const displayColor = preferredColor;
                   const isRealItem = item.name && !item.name.startsWith('Item ');
 
                   return (
@@ -1404,6 +1603,20 @@ export default function ProductDetailPage() {
                         <p className="ai-outfit-meta">
                           {item.garment_type || item.garment_category || ''}
                         </p>
+                        {(displaySize || displayColor) && (
+                          <div className="ai-outfit-prefs">
+                            {displaySize && (
+                              <span className="outfit-pref">
+                                Recommended size: {displaySize}
+                              </span>
+                            )}
+                            {displayColor && (
+                              <span className="outfit-pref">
+                                Color: {displayColor}
+                              </span>
+                            )}
+                          </div>
+                        )}
                         {isRealItem && (
                           <button
                             className="outfit-item-add-btn"
@@ -1414,7 +1627,8 @@ export default function ProductDetailPage() {
                                 name: item.name || item.item_name,
                                 price: item.price,
                                 image: item.image_url || item.image,
-                                size: outfitSizeMap[item.id] || 'Standard',
+                                size: resolvedSize,
+                                color: resolvedColor || null,
                                 storeId: item.store_id || item.storeId || storeId,
                                 quantity: 1
                               });
@@ -1439,12 +1653,17 @@ export default function ProductDetailPage() {
                     const savings = totalOriginalPrice * 0.20;
                     
                     validItems.forEach(item => {
+                      const { resolvedSize, resolvedColor } = getOutfitItemSelection(
+                        item,
+                        item.id || item.item_id
+                      );
                       addToCart({
                         id: item.id,
                         name: item.name || item.item_name,
                         price: item.price,
                         image: item.image_url || item.image,
-                        size: outfitSizeMap[item.id] || 'Standard',
+                        size: resolvedSize,
+                        color: resolvedColor || null,
                         storeId: storeId,
                         quantity: 1,
                         bundleDiscount: 20

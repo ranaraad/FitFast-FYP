@@ -3762,6 +3762,19 @@ a:hover {
   font-weight: 500;
 }
 
+.ai-outfit-prefs {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  margin-top: 0.35rem;
+}
+
+.outfit-pref {
+  font-size: 0.78rem;
+  color: #4b5563;
+  font-weight: 600;
+}
+
 .outfit-size-info {
   display: flex;
   align-items: center;

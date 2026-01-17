@@ -1495,7 +1495,7 @@ export default function ProductDetailPage() {
                   <h3>Complete Outfit Suggestion</h3>
                   <div className="outfit-source-indicator">
                     <span className={`ai-source-badge ${outfitSourceInfo.isRealAI ? 'ai-badge' : 'fallback-badge'}`}>
-                      {outfitSourceInfo.isRealAI ? '🤖 AI Generated' : '📊 Basic Match'}
+                      {outfitSourceInfo.isRealAI ? 'AI Generated' : 'Basic Match'}
                     </span>
                     {outfitSuggestion.data?.outfit?.compatibility_score !== undefined && (
                       <span className="ai-chip">
@@ -1871,7 +1871,7 @@ export default function ProductDetailPage() {
                     </p>
                     <div className="ai-source-indicator">
                       <span className={`ai-source-badge ${sizeSummary.isFallback ? 'fallback-badge' : 'ai-badge'}`}>
-                        {sizeSummary.isFallback ? '📊 Fallback' : '🤖 AI'}
+                        {sizeSummary.isFallback ? 'Fallback' : 'AI'}
                       </span>
                     </div>
                   </div>
@@ -1976,7 +1976,7 @@ export default function ProductDetailPage() {
                         <span>{size}</span>
                         {sizeGuide.measurements.map((measurementKey) => (
                           <span key={measurementKey}>
-                            {sizeGuide.values[size]?.[measurementKey] || "—"}
+                            {sizeGuide.values[size]?.[measurementKey] || "N/A"}
                           </span>
                         ))}
                       </div>
@@ -2011,6 +2011,50 @@ export default function ProductDetailPage() {
 
       {/* CSS Styles (Add to your CSS file) */}
       <style jsx>{`
+        .ai-assist {
+          margin-top: 20px;
+        }
+
+        .ai-result {
+          background: linear-gradient(180deg, #ffffff 0%, #fbfbfc 100%);
+          border: 1px solid #e6e6ea;
+          border-left: 4px solid #d1d1d6;
+          border-radius: 18px;
+          padding: 18px 20px;
+          box-shadow: 0 12px 24px rgba(15, 23, 42, 0.06);
+        }
+
+        .ai-result-header {
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+          gap: 12px;
+          margin-bottom: 14px;
+        }
+
+        .ai-result-title {
+          font-size: 0.95rem;
+          font-weight: 700;
+          letter-spacing: 0.08em;
+          text-transform: uppercase;
+          color: #7a3b2e;
+          margin: 0;
+        }
+
+        .ai-message {
+          margin: 0 0 12px;
+          font-size: 0.95rem;
+          color: #4b5563;
+        }
+
+        .ai-message.error {
+          color: #b42318;
+          background: #fef3f2;
+          border: 1px solid #fecdca;
+          padding: 10px 12px;
+          border-radius: 10px;
+        }
+
         .ai-source-indicator {
           display: flex;
           align-items: center;
@@ -2019,25 +2063,27 @@ export default function ProductDetailPage() {
         }
 
         .ai-source-badge {
-          padding: 4px 8px;
-          border-radius: 12px;
-          font-size: 0.8em;
-          font-weight: 600;
+          padding: 6px 12px;
+          border-radius: 999px;
+          font-size: 0.75rem;
+          font-weight: 700;
+          letter-spacing: 0.06em;
+          text-transform: uppercase;
           display: inline-flex;
           align-items: center;
-          gap: 4px;
+          gap: 6px;
         }
 
         .ai-badge {
-          background: #e3f2fd;
-          color: #1976d2;
-          border: 1px solid #90caf9;
+          background: #f0f7ff;
+          color: #1d4ed8;
+          border: 1px solid #bfdbfe;
         }
 
         .fallback-badge {
-          background: #fff3cd;
-          color: #856404;
-          border: 1px solid #ffeaa7;
+          background: #fff6e0;
+          color: #92400e;
+          border: 1px solid #fed7aa;
         }
 
         .ai-model-info {
@@ -2048,19 +2094,28 @@ export default function ProductDetailPage() {
           border-radius: 4px;
         }
 
-        .ai-result-header {
-          display: flex;
-          justify-content: space-between;
-          align-items: flex-start;
-          margin-bottom: 12px;
-        }
-
         .confidence-fill.ai-fill {
-          background: linear-gradient(90deg, #4CAF50, #8BC34A);
+          background: linear-gradient(90deg, #641b2e, #be5b50);
         }
 
         .confidence-fill.fallback-fill {
           background: linear-gradient(90deg, #FF9800, #FFC107);
+        }
+
+        .ai-confidence {
+          margin: 10px 0 6px;
+        }
+
+        .confidence-meter {
+          height: 10px;
+          background: #eceef2;
+          border-radius: 999px;
+          overflow: hidden;
+        }
+
+        .confidence-fill {
+          height: 100%;
+          border-radius: 999px;
         }
 
         .confidence-info {
@@ -2068,50 +2123,62 @@ export default function ProductDetailPage() {
           justify-content: space-between;
           align-items: center;
           margin-top: 8px;
+          font-size: 0.9rem;
+          color: #1f2937;
         }
 
         .ai-recommendations {
           margin-top: 16px;
           padding-top: 16px;
-          border-top: 1px solid #eee;
+          border-top: 1px solid #edf0f2;
+        }
+
+        .recommendations-label {
+          font-weight: 600;
+          color: #475467;
+          margin: 0 0 8px;
         }
 
         .recommendations-list {
           display: flex;
           flex-direction: column;
-          gap: 8px;
+          gap: 10px;
           margin-top: 8px;
         }
 
         .recommendation-item {
-          display: flex;
-          justify-content: space-between;
+          display: grid;
+          grid-template-columns: minmax(0, 2fr) auto auto;
           align-items: center;
-          padding: 8px;
-          background: #f9f9f9;
-          border-radius: 4px;
-          font-size: 0.9em;
+          gap: 12px;
+          padding: 10px 12px;
+          background: #f8fafc;
+          border: 1px solid #eef1f4;
+          border-radius: 12px;
+          font-size: 0.9rem;
         }
 
         .rec-name {
-          flex: 2;
           overflow: hidden;
           text-overflow: ellipsis;
           white-space: nowrap;
+          color: #111827;
+          font-weight: 500;
         }
 
         .rec-size {
-          flex: 1;
           text-align: center;
-          font-weight: 600;
-          color: #1976d2;
+          font-weight: 700;
+          color: #7a3b2e;
+          background: #fbeaea;
+          padding: 4px 10px;
+          border-radius: 999px;
         }
 
         .rec-score {
-          flex: 1;
           text-align: right;
-          font-weight: 600;
-          color: #4CAF50;
+          font-weight: 700;
+          color: #641b2e;
         }
 
         .ai-button.loading {
@@ -2195,7 +2262,7 @@ export default function ProductDetailPage() {
         }
 
         .ai-result.real-ai {
-          border-left-color: #4CAF50;
+          border-left-color: #641b2e;
         }
 
         .real-ai-outfit {

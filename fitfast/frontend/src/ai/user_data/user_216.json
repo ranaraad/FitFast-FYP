@@ -1,0 +1,49 @@
+{
+    "user_id": "216",
+    "name": "aliii",
+    "email": "alimurad@gmail.com",
+    "measurements": {
+        "height_cm": "184",
+        "weight_kg": "100",
+        "bust_cm": "150",
+        "waist_cm": "100",
+        "hips_cm": "120",
+        "shoulder_width_cm": "68",
+        "arm_length_cm": "73",
+        "inseam_cm": "96",
+        "body_shape": "rectangle",
+        "fit_preference": "regular"
+    },
+    "preferences": {
+        "preferred_styles": [
+            "casual_everyday",
+            "smart_casual"
+        ],
+        "size_preferences": [
+            "S",
+            "M",
+            "L"
+        ],
+        "color_preferences": [
+            "Black",
+            "White",
+            "Blue",
+            "Gray"
+        ],
+        "price_range": {
+            "min": 0,
+            "max": 200
+        },
+        "preferred_categories": [
+            "T-Shirts",
+            "Jeans",
+            "Sneakers"
+        ],
+        "fit_preference": "regular"
+    },
+    "purchase_history": [],
+    "created_at": "2026-01-16T23:53:54.000000Z",
+    "last_sync": "2026-01-16T23:57:08.360886Z",
+    "total_orders": 0,
+    "total_spent": 0
+}

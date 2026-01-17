@@ -345,7 +345,12 @@ export default function StorePage() {
     : `${filteredItems.length} ${filteredItems.length === 1 ? "piece" : "pieces"}`;
 
   if (loading) {
-    return <div className="store-page">Loading store...</div>;
+    return (
+      <div className="store-page page-loading">
+        <div className="loading-spinner"></div>
+        <p>Loading store...</p>
+      </div>
+    );
   }
 
   if (error) {

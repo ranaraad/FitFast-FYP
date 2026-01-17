@@ -1387,7 +1387,12 @@ export default function ProductDetailPage() {
   };
 
   if (loading) {
-    return <div className="product-detail-page">Loading product...</div>;
+    return (
+      <div className="product-detail-page page-loading">
+        <div className="loading-spinner"></div>
+        <p>Loading product...</p>
+      </div>
+    );
   }
 
   if (error || !product) {

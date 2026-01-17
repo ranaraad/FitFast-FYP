@@ -209,17 +209,20 @@ class DummyDataSeeder extends Seeder
 
         $this->command->info('Created 105 users');
 
-        // Create 10 test stores
+        // Create 5 test stores
         $stores = [];
         $storeAdmins = DB::table('users')->where('role_id', $storeAdminRole->id)->get();
 
-        for ($i = 1; $i <= 10; $i++) {
+        for ($i = 1; $i <= 5; $i++) {
+            $storeName = 'Fashion Store ' . $i;
+            $storeInitial = strtoupper(substr($storeName, 0, 1));
+            $encodedInitial = urlencode($storeInitial);
             $stores[] = [
                 'user_id' => $storeAdmins->random()->id,
-                'name' => 'Fashion Store ' . $i,
+                'name' => $storeName,
                 'description' => 'A great fashion store offering quality clothing and accessories. We provide the latest trends and best quality products.',
-                'logo' => 'stores/logo' . $i . '.jpg',
-                'banner_image' => 'stores/banner' . $i . '.jpg',
+                'logo' => "https://dummyimage.com/300x300/e9ecef/212529&text={$encodedInitial}",
+                'banner_image' => "https://dummyimage.com/1200x400/e9ecef/212529&text={$encodedInitial}",
                 'contact_info' => json_encode([
                     'phone' => '+123456789' . $i,
                     'email' => 'store' . $i . '@example.com',
@@ -234,17 +237,17 @@ class DummyDataSeeder extends Seeder
 
         DB::table('stores')->insert($stores);
 
-        $this->command->info('Created 10 stores');
+        $this->command->info('Created 5 stores');
 
         // Get existing categories
         $categories = DB::table('categories')->get();
         $this->command->info('Using existing categories: ' . $categories->count() . ' categories found');
 
-        // Create 250 test items
+        // Create 400 test items
         $items = [];
         $stores = DB::table('stores')->get();
         
-        // Expanded category items for 250 items total
+        // Expanded category items for 400 items total
         $categoryItems = [
             't-shirts' => [
                 ['name' => 'Classic Crew Tee', 'garment_type' => 't_shirt', 'price' => 19.99, 'colors' => ['Black', 'White']],
@@ -379,8 +382,8 @@ class DummyDataSeeder extends Seeder
 
         $categoriesBySlug = $categories->keyBy('slug');
 
-        // Counter to ensure we create exactly 250 items
-        $targetItemCount = 250;
+        // Counter to ensure we create exactly 400 items
+        $targetItemCount = 400;
         $createdItems = 0;
         $allItems = [];
 

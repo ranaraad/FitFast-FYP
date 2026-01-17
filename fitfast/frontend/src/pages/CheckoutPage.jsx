@@ -772,8 +772,8 @@ export default function CheckoutPage() {
 									  <h2>Contact details</h2>
 									  <p className="muted small">We will use this information for confirmations and delivery updates.</p>
 								</div>
-								<button type="button" className="link-btn" onClick={handleNavigateBackToCart}>
-									← Back to cart
+								<button type="button" className="link-btn checkout-back-link" onClick={handleNavigateBackToCart}>
+									{"<- Back to cart"}
 								</button>
 							</div>
 
@@ -1016,6 +1016,14 @@ export default function CheckoutPage() {
 											value={cardDetails.cvc}
 											onChange={handleCardInputChange}
 											placeholder="123"
+											maxLength={4}
+											pattern="\\d{3,4}"
+											required={paymentMethod === "card"}
+											aria-invalid={
+												paymentMethod === "card" &&
+												cardDetails.cvc.length > 0 &&
+												!/^\d{3,4}$/.test(cardDetails.cvc)
+											}
 										/>
 									</label>
 								</div>
@@ -1027,7 +1035,7 @@ export default function CheckoutPage() {
 								{isSubmitting ? "Placing order..." : "Place order"}
 							</button>
 							<button type="button" className="secondary-btn" onClick={handleBrowseStores}>
-								Keep browsing
+								Back to stores
 							</button>
 						</div>
 					</form>
@@ -1063,7 +1071,7 @@ export default function CheckoutPage() {
 								<li className="empty-summary">
 									<p>Your bag is empty.</p>
 									<button type="button" className="link-btn" onClick={handleBrowseStores}>
-										Explore stores
+										Back to stores
 									</button>
 								</li>
 							)}

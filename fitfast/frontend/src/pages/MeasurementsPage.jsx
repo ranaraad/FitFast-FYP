@@ -1,5 +1,9 @@
 import { useEffect, useState } from "react";
 import api from "../api";
+import {
+  hydrateMeasurementAliases,
+  mirrorMeasurementValue,
+} from "../utils/measurementAliases";
 
 /* ================= DEFAULT MEASUREMENTS ================= */
 const DEFAULT_MEASUREMENTS = {
@@ -58,10 +62,12 @@ export default function MeasurementsPage() {
       try {
         const res = await api.get("/user");
 
-        setMeasurements({
+      setMeasurements(
+        hydrateMeasurementAliases({
           ...DEFAULT_MEASUREMENTS,
           ...(res.data?.measurements || {}),
-        });
+        })
+      );
       } catch (err) {
         console.error("Failed to load measurements", err);
       }
@@ -77,7 +83,7 @@ export default function MeasurementsPage() {
       ? sanitizeNumericInput(value)
       : value;
 
-    setMeasurements((prev) => ({ ...prev, [name]: nextValue }));
+    setMeasurements((prev) => mirrorMeasurementValue(prev, name, nextValue));
   };
 
   const handleSubmit = async (e) => {

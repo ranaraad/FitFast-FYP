@@ -260,6 +260,33 @@ function estimateDeliveryHours(optionId) {
 	}
 }
 
+function normalizeNumericInput(value = "") {
+	if (typeof value !== "string") return "";
+
+	const digits = [];
+	for (const char of value) {
+		if (!char.trim()) continue;
+		if (char >= "0" && char <= "9") {
+			digits.push(char);
+			continue;
+		}
+
+		const code = char.charCodeAt(0);
+
+		if (code >= 0x0660 && code <= 0x0669) {
+			digits.push(String(code - 0x0660));
+			continue;
+		}
+
+		if (code >= 0x06F0 && code <= 0x06F9) {
+			digits.push(String(code - 0x06F0));
+			continue;
+		}
+	}
+
+	return digits.join("");
+}
+
 export default function CheckoutPage() {
 	const navigate = useNavigate();
 	const [cartItems, setCartItems] = useState(() => getCart());
@@ -479,7 +506,7 @@ export default function CheckoutPage() {
 
 		if (selectedSavedCardId !== "new") {
 			if (name === "cvc") {
-				const digits = value.replace(/\D/g, "").slice(0, 4);
+				const digits = normalizeNumericInput(value).slice(0, 4);
 				setCardDetails((prev) => ({ ...prev, cvc: digits }));
 			} else if (name === "nameOnCard") {
 				setCardDetails((prev) => ({ ...prev, nameOnCard: value }));
@@ -487,15 +514,15 @@ export default function CheckoutPage() {
 			return;
 		}
 
-		if (name === "number") {
-			const digits = value.replace(/\D/g, "").slice(0, 16);
-			const grouped = digits.replace(/(\d{4})(?=\d)/g, "$1 ").trim();
-			setCardDetails((prev) => ({ ...prev, number: grouped }));
-			return;
-		}
+	if (name === "number") {
+		const digits = normalizeNumericInput(value).slice(0, 16);
+		const grouped = digits.replace(/(\d{4})(?=\d)/g, "$1 ").trim();
+		setCardDetails((prev) => ({ ...prev, number: grouped }));
+		return;
+	}
 
-		if (name === "expiry") {
-			const digits = value.replace(/\D/g, "").slice(0, 4);
+	if (name === "expiry") {
+		const digits = normalizeNumericInput(value).slice(0, 4);
 			let formatted = digits;
 			if (digits.length >= 3) {
 				formatted = `${digits.slice(0, 2)}/${digits.slice(2)}`;
@@ -505,7 +532,7 @@ export default function CheckoutPage() {
 		}
 
 		if (name === "cvc") {
-			const digits = value.replace(/\D/g, "").slice(0, 4);
+			const digits = normalizeNumericInput(value).slice(0, 4);
 			setCardDetails((prev) => ({ ...prev, cvc: digits }));
 			return;
 		}
@@ -872,7 +899,7 @@ export default function CheckoutPage() {
 								</label>
 								<label className="form-field">
 									<span>Country</span>
-									<input type="text" value="United States" disabled />
+									<input type="text" value="Lebanon" disabled />
 								</label>
 							</div>
 						</div>
@@ -1017,7 +1044,7 @@ export default function CheckoutPage() {
 											onChange={handleCardInputChange}
 											placeholder="123"
 											maxLength={4}
-											pattern="\\d{3,4}"
+											pattern="[0-9٠-٩۰-۹]{3,4}"
 											required={paymentMethod === "card"}
 											aria-invalid={
 												paymentMethod === "card" &&

@@ -5,6 +5,10 @@ import {
   getWishlist,
   toggleWishlistEntry,
 } from "../wishlistStorage";
+import {
+  hydrateMeasurementAliases,
+  mirrorMeasurementValue,
+} from "../utils/measurementAliases";
 
 const DEFAULT_MEASUREMENTS = {
   // Original basic measurements
@@ -548,10 +552,12 @@ export default function ProfilePage() {
         const res = await api.get("/user");
         const fetchedUser = res.data;
         setUser(fetchedUser);
-        setMeasurements({
-          ...DEFAULT_MEASUREMENTS,
-          ...(fetchedUser?.measurements || {}),
-        });
+        setMeasurements(
+          hydrateMeasurementAliases({
+            ...DEFAULT_MEASUREMENTS,
+            ...(fetchedUser?.measurements || {}),
+          })
+        );
         setMeasurementAudience(
           deriveMeasurementAudience(fetchedUser?.measurements)
         );
@@ -703,7 +709,7 @@ export default function ProfilePage() {
     const nextValue = NUMERIC_MEASUREMENT_KEYS.has(name)
       ? sanitizeNumericInput(value)
       : value;
-    setMeasurements((prev) => ({ ...prev, [name]: nextValue }));
+    setMeasurements((prev) => mirrorMeasurementValue(prev, name, nextValue));
   };
 
   const triggerPhotoPicker = () => {
@@ -818,10 +824,12 @@ export default function ProfilePage() {
   };
 
   const handleCancel = () => {
-    setMeasurements({
-      ...DEFAULT_MEASUREMENTS,
-      ...(user?.measurements || {}),
-    });
+    setMeasurements(
+      hydrateMeasurementAliases({
+        ...DEFAULT_MEASUREMENTS,
+        ...(user?.measurements || {}),
+      })
+    );
     setMeasurementAudience(deriveMeasurementAudience(user?.measurements));
     setEditing(false);
   };

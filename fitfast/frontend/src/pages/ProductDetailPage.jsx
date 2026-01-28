@@ -1917,15 +1917,6 @@ export default function ProductDetailPage() {
                     </div>
                   )}
 
-                  {/* Debug info (visible in development) */}
-                  {process.env.NODE_ENV === 'development' && (
-                    <div className="debug-info">
-                      <small>
-                        Source: {sizeSummary.sourceInfo.source} |
-                        Fallback: {sizeSummary.isFallback ? 'Yes' : 'No'}
-                      </small>
-                    </div>
-                  )}
                 </div>
               )}
             </div>
@@ -2457,15 +2448,6 @@ export default function ProductDetailPage() {
         .outfit-discounted-price {
           color: #641b2e;
           font-size: 1.05rem;
-        }
-
-        .debug-info {
-          margin-top: 8px;
-          padding: 8px;
-          background: #f5f5f5;
-          border-radius: 4px;
-          font-size: 0.8em;
-          color: #666;
         }
 
         .ai-result.fallback {

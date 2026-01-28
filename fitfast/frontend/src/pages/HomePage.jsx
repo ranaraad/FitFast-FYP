@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import api from "../api";
-import heroBannerImage from "../imgs/ChatGPT Image Jan 19, 2026, 06_12_10 PM.png";
+import heroBannerImage from "../imgs/courier-delivery-man-holding-parcel-box-with-mobile-phone-fast-online-delivery-service-online-ordering-internet-e-commerce-ideas-for-websites-or-banners-3d-perspecti.webp";
 
 export default function HomePage() {
   const navigate = useNavigate();
@@ -92,7 +92,11 @@ export default function HomePage() {
           </div>
         </div>
         <div className="hero-right">
-      
+          <img
+            src={heroBannerImage}
+            alt="Courier delivering a package"
+            className="hero-banner-image"
+          />
         </div>
       </div>
 

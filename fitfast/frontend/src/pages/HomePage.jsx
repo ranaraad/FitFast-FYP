@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import api from "../api";
+import heroBannerImage from "../imgs/ChatGPT Image Jan 19, 2026, 06_12_10 PM.png";
 
 export default function HomePage() {
   const navigate = useNavigate();
@@ -69,24 +70,58 @@ export default function HomePage() {
             <br />
             <span>Faster Delivery</span>
           </h1>
-          <button onClick={() => navigate("/browse")}>Browse Now</button>
+
+          <div className="hero-actions">
+            <button
+              className="shop-btn hero-primary-btn"
+              onClick={() => navigate("/browse")}
+            >
+              View Curated Stores
+            </button>
+
+          </div>
+          <div className="hero-stats">
+            <div>
+              <strong>150+</strong>
+              <span>independent boutiques</span>
+            </div>
+            <div>
+              <strong>8K+</strong>
+              <span>orders fulfilled</span>
+            </div>
+          </div>
+        </div>
+        <div className="hero-right">
+      
         </div>
       </div>
 
-      {/* Search bar restored */}
-      <div className="home-search-row" style={{ margin: "32px 0 0 0" }}>
-        <input
-          type="text"
-          value={search}
-          onChange={handleSearch}
-          placeholder="Search for a store, style, or brand..."
-          className="home-search-input"
-        />
+      {/* Redesigned search experience */}
+      <div className="home-search-row">
+        <div className="home-search-card">
+          <div className="home-search-heading">
+            <p>Discover the perfect store for your next look</p>
+          </div>
+          <div className="home-search-input-wrapper">
+            <span className="search-icon" role="img" aria-label="Search icon">
+              🔍
+            </span>
+            <input
+              type="text"
+              value={search}
+              onChange={handleSearch}
+              placeholder="Search for a store..."
+              className="home-search-input"
+            />
+
+          </div>
+
+        </div>
       </div>
 
       <section className="home-stores-section">
         <div className="home-stores-header">
-          <h2>Your Next Favorite Pieces!</h2>
+          <h2>Your Next Favorite Piece Is One Click Away!</h2>
           <button
             className="shop-btn browse-all-btn"
             onClick={() => navigate("/browse")}

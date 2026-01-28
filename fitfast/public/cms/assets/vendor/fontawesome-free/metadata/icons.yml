@@ -7667,7 +7667,7 @@ flag-checkered:
 flag-usa:
   changes:
     - 5.5.0
-  label: United States of America Flag
+  label: Lebanon
   search:
     terms:
       - betsy ross

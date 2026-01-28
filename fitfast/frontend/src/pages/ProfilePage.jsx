@@ -1,10 +1,15 @@
 import { useState, useEffect, useMemo, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import api from "../api";
+import { addToCart } from "../cartStorage";
 import {
   getWishlist,
   toggleWishlistEntry,
 } from "../wishlistStorage";
+import {
+  hydrateMeasurementAliases,
+  mirrorMeasurementValue,
+} from "../utils/measurementAliases";
 
 const DEFAULT_MEASUREMENTS = {
   // Original basic measurements
@@ -290,6 +295,73 @@ const computeTrackable = (status, explicit) => {
   return !terminal.some((term) => normalized.includes(term));
 };
 
+const extractStatusValue = (value) => {
+  if (value === undefined || value === null) return null;
+  if (typeof value === "object") {
+    if (typeof value.label === "string" && value.label.trim()) {
+      return value.label.trim();
+    }
+    if (typeof value.status === "string" && value.status.trim()) {
+      return value.status.trim();
+    }
+    if (typeof value.code === "string" && value.code.trim()) {
+      return value.code.trim();
+    }
+    return null;
+  }
+  return String(value).trim();
+};
+
+const formatStatusLabel = (value) => {
+  if (!value) return "Processing";
+  const normalized = value
+    .replace(/[_-]+/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+  if (!normalized) return "Processing";
+  return normalized
+    .split(" ")
+    .filter(Boolean)
+    .map((segment) => segment.charAt(0).toUpperCase() + segment.slice(1).toLowerCase())
+    .join(" ");
+};
+
+const formatStatusKey = (value) => {
+  if (!value) return "processing";
+  const normalized = value
+    .replace(/[_\s]+/g, "-")
+    .replace(/[^a-zA-Z0-9-]/g, "-")
+    .replace(/-+/g, "-")
+    .replace(/^-+|-+$/g, "")
+    .toLowerCase();
+
+  return normalized || "processing";
+};
+
+const resolveOrderStatusInfo = (order) => {
+  if (!order || typeof order !== "object") {
+    return { raw: "processing", label: "Processing", key: "processing" };
+  }
+
+  const candidates = [
+    order.delivery?.status,
+    order.cmsStatus,
+    order.status?.label,
+    order.status,
+  ];
+
+  const validValue = candidates
+    .map(extractStatusValue)
+    .find((entry) => entry && entry.toUpperCase() !== "N/A");
+
+  const raw = validValue || "processing";
+  return {
+    raw,
+    label: formatStatusLabel(raw),
+    key: formatStatusKey(raw),
+  };
+};
+
 const getOrderHistoryKey = (user) => {
   if (!user) return null;
   if (user.id) return `${ORDER_HISTORY_STORAGE}_${user.id}`;
@@ -301,8 +373,7 @@ const mapApiOrder = (order) => {
   if (!order || typeof order !== "object") return null;
 
   const orderCode = order.code || order.reference || `ORDER-${order.id}`;
-  const statusLabel = (order.status?.label || order.status || "Processing").toString();
-
+  const statusInfo = resolveOrderStatusInfo(order);
   const items = Array.isArray(order.items)
     ? order.items.map((item) => ({
         id: item.id || item.code || `${orderCode}-item`,
@@ -341,7 +412,8 @@ const mapApiOrder = (order) => {
       order.estimated_delivery ||
       order.estimatedArrival ||
       new Date(Date.now() + 72 * 60 * 60 * 1000).toISOString(),
-    status: statusLabel,
+    status: statusInfo.label,
+    statusKey: statusInfo.key,
     total: Number(totals.total || 0),
     items,
     delivery: order.delivery || {
@@ -358,7 +430,7 @@ const mapApiOrder = (order) => {
       },
     contact,
     totals,
-    trackable: computeTrackable(statusLabel, order.trackable),
+    trackable: computeTrackable(statusInfo.raw, order.trackable),
     userId: order.user_id ?? order.userId ?? null,
     userEmail: normalizedEmail,
   };
@@ -368,7 +440,7 @@ const mapRecentOrder = (order) => {
   if (!order || typeof order !== "object") return null;
 
   const orderCode = order.code || order.id || order.reference || `ORDER-${Date.now()}`;
-  const statusLabel = (order.status || "Processing").toString();
+  const statusInfo = resolveOrderStatusInfo(order);
   const contact = order.contact || {
     fullName: order.fullName || "",
     email: order.email || "",
@@ -406,7 +478,8 @@ const mapRecentOrder = (order) => {
       order.estimatedArrival ||
       order.estimated_delivery ||
       new Date(Date.now() + 72 * 60 * 60 * 1000).toISOString(),
-    status: statusLabel,
+    status: statusInfo.label,
+    statusKey: statusInfo.key,
     cmsStatus: order.cmsStatus || null,
     total: Number(totals.total || 0),
     items,
@@ -425,7 +498,7 @@ const mapRecentOrder = (order) => {
       },
     contact,
     totals,
-    trackable: computeTrackable(statusLabel, order.trackable),
+    trackable: computeTrackable(statusInfo.raw, order.trackable),
     userId: order.userId ?? order.user_id ?? null,
     userEmail: normalizeEmail(order.userEmail || order.user_email || contact.email),
     lastBackendSync: order.lastBackendSync || null,
@@ -458,7 +531,7 @@ const mergeOrders = (...sources) => {
 
     const currentPlacedAt = Date.parse(existing.placedAt || 0);
     const incomingPlacedAt = Date.parse(normalized.placedAt || 0);
-    const latest = incomingPlacedAt > currentPlacedAt ? normalized : existing;
+    const latest = incomingPlacedAt >= currentPlacedAt ? normalized : existing;
     const mergedOrder = { ...existing, ...normalized, ...latest };
     mergedOrder.trackable = computeTrackable(mergedOrder.status, mergedOrder.trackable);
     merged.set(normalized.id, mergedOrder);
@@ -477,6 +550,115 @@ const orderBelongsToUser = (order, user) => {
   return Boolean(orderEmail && userEmail && orderEmail === userEmail);
 };
 
+const WISHLIST_SIZE_FALLBACK = ["XS", "S", "M", "L", "XL"];
+const WISHLIST_COLOR_FALLBACK = ["Charcoal", "Sand", "Rose"];
+
+const normalizeOptions = (value, fallback = []) => {
+  if (Array.isArray(value)) return value.filter(Boolean);
+  if (typeof value === "string") {
+    return value
+      .split(/[,|]/)
+      .map((entry) => entry.trim())
+      .filter(Boolean);
+  }
+  return fallback;
+};
+
+const normalizeSizeStock = (item) => {
+  const rawStock =
+    item?.size_stock ||
+    item?.sizeStock ||
+    item?.size_stock_quantity ||
+    item?.size_stock_levels ||
+    {};
+
+  if (Array.isArray(rawStock)) return {};
+
+  return Object.entries(rawStock).reduce((acc, [size, quantity]) => {
+    acc[size] = Number(quantity) || 0;
+    return acc;
+  }, {});
+};
+
+const getSizes = (item, fallback = WISHLIST_SIZE_FALLBACK) => {
+  const stockSizes = Object.keys(normalizeSizeStock(item));
+  if (stockSizes.length) return stockSizes;
+
+  return normalizeOptions(
+    item?.sizes ||
+      item?.available_sizes ||
+      item?.size_options ||
+      item?.sizeRange ||
+      item?.size_range,
+    fallback
+  );
+};
+
+const getColors = (item, fallback = WISHLIST_COLOR_FALLBACK) => {
+  const variants =
+    item?.color_variants ||
+    item?.available_colors ||
+    item?.color_options ||
+    item?.colors ||
+    item?.color_range ||
+    [];
+
+  if (Array.isArray(variants)) {
+    const mapped = variants
+      .map((variant) => variant?.name || variant?.color || variant)
+      .filter(Boolean);
+    if (mapped.length) return mapped;
+  }
+
+  if (typeof variants === "object" && variants !== null) {
+    const mapped = Object.values(variants)
+      .map((variant) => variant?.name || variant)
+      .filter(Boolean);
+    if (mapped.length) return mapped;
+  }
+
+  return normalizeOptions(
+    item?.color ||
+      item?.color_name ||
+      item?.colorName ||
+      item?.colorway ||
+      item?.shade,
+    fallback
+  );
+};
+
+const findProductInStore = (storeData, targetId) => {
+  if (!storeData || !targetId) return null;
+  const normalizedTarget = targetId?.toString();
+  if (!normalizedTarget) return null;
+
+  const matchesProduct = (entry) => {
+    if (!entry) return false;
+    const candidate =
+      entry.id ||
+      entry.productId ||
+      entry.product_id ||
+      entry.slug ||
+      entry.code ||
+      entry.name;
+    return candidate?.toString() === normalizedTarget;
+  };
+
+  const categories = Array.isArray(storeData.categories) ? storeData.categories : [];
+  const categoryMatch = categories
+    .flatMap((category) => category.items || [])
+    .find(matchesProduct);
+
+  if (categoryMatch) return categoryMatch;
+
+  const fallbackItems = [
+    ...(Array.isArray(storeData.items) ? storeData.items : []),
+    ...(Array.isArray(storeData.products) ? storeData.products : []),
+  ];
+
+  return fallbackItems.find(matchesProduct) || null;
+};
+
 export default function ProfilePage() {
   const navigate = useNavigate();
   const [user, setUser] = useState(null);
@@ -489,6 +671,7 @@ export default function ProfilePage() {
   const [messageType, setMessageType] = useState("success"); // "success" | "error"
   const [loading, setLoading] = useState(true);
   const [wishlistItems, setWishlistItems] = useState([]);
+  const [wishlistQuickAdd, setWishlistQuickAdd] = useState(null);
   const [orders, setOrders] = useState([]);
   const [orderStorageKey, setOrderStorageKey] = useState(null);
   const [paymentMethods, setPaymentMethods] = useState([]);
@@ -548,10 +731,12 @@ export default function ProfilePage() {
         const res = await api.get("/user");
         const fetchedUser = res.data;
         setUser(fetchedUser);
-        setMeasurements({
-          ...DEFAULT_MEASUREMENTS,
-          ...(fetchedUser?.measurements || {}),
-        });
+        setMeasurements(
+          hydrateMeasurementAliases({
+            ...DEFAULT_MEASUREMENTS,
+            ...(fetchedUser?.measurements || {}),
+          })
+        );
         setMeasurementAudience(
           deriveMeasurementAudience(fetchedUser?.measurements)
         );
@@ -639,6 +824,10 @@ export default function ProfilePage() {
   }, []);
 
   useEffect(() => {
+    setWishlistQuickAdd(null);
+  }, [wishlistItems]);
+
+  useEffect(() => {
     if (!orderStorageKey) return;
     writeStoredJson(orderStorageKey, orders);
   }, [orderStorageKey, orders]);
@@ -703,7 +892,7 @@ export default function ProfilePage() {
     const nextValue = NUMERIC_MEASUREMENT_KEYS.has(name)
       ? sanitizeNumericInput(value)
       : value;
-    setMeasurements((prev) => ({ ...prev, [name]: nextValue }));
+    setMeasurements((prev) => mirrorMeasurementValue(prev, name, nextValue));
   };
 
   const triggerPhotoPicker = () => {
@@ -818,10 +1007,12 @@ export default function ProfilePage() {
   };
 
   const handleCancel = () => {
-    setMeasurements({
-      ...DEFAULT_MEASUREMENTS,
-      ...(user?.measurements || {}),
-    });
+    setMeasurements(
+      hydrateMeasurementAliases({
+        ...DEFAULT_MEASUREMENTS,
+        ...(user?.measurements || {}),
+      })
+    );
     setMeasurementAudience(deriveMeasurementAudience(user?.measurements));
     setEditing(false);
   };
@@ -832,9 +1023,6 @@ export default function ProfilePage() {
     if (Number.isNaN(value)) return price;
     return `$${value.toFixed(2)}`;
   };
-
-  const statusClassName = (status = "") =>
-    `status-badge status-${status.toLowerCase().replace(/[^a-z]+/g, "-")}`;
 
   const resolvedOrders = useMemo(
     () => (Array.isArray(orders) ? orders.filter((entry) => entry && entry.id) : []),
@@ -1287,6 +1475,113 @@ export default function ProfilePage() {
   const hasProfilePhoto = Boolean(user?.profile_photo_url);
   const shouldShowOptionalField = (key) =>
     measurementAudience === "women" || !FEMALE_ONLY_MEASUREMENT_KEYS.has(key);
+
+  const buildWishlistItemKey = (item) =>
+    `${item?.storeId ?? "store"}-${item?.id ?? "item"}`;
+
+  const handleWishlistAddClick = async (item) => {
+    if (!item) return;
+    const key = buildWishlistItemKey(item);
+
+    if (wishlistQuickAdd?.key === key) {
+      setWishlistQuickAdd(null);
+      return;
+    }
+
+    setWishlistQuickAdd({
+      key,
+      item,
+      loading: true,
+      product: null,
+      sizes: [],
+      colors: [],
+      sizeStock: {},
+      selectedSize: "",
+      selectedColor: "",
+      error: "",
+    });
+
+    if (!item.storeId) {
+      setWishlistQuickAdd((prev) => ({
+        ...prev,
+        loading: false,
+        error: "Store information unavailable.",
+      }));
+      return;
+    }
+
+    try {
+      const response = await api.get(`/stores/${item.storeId}`);
+      const storeData = response.data?.data || response.data;
+      const product = findProductInStore(storeData, item.id);
+
+      if (!product) {
+        throw new Error("Item not available in this store.");
+      }
+
+      const sizes = getSizes(product);
+      const colors = getColors(product);
+      const sizeStock = normalizeSizeStock(product);
+
+      setWishlistQuickAdd((prev) => ({
+        ...prev,
+        loading: false,
+        product,
+        sizes,
+        colors,
+        sizeStock,
+        selectedSize:
+          sizes.find((size) => (sizeStock[size] || 0) > 0) || sizes[0] || "",
+        selectedColor: colors[0] || "",
+      }));
+    } catch (error) {
+      console.error("Wishlist quick add failed", error);
+      setWishlistQuickAdd((prev) => ({
+        ...prev,
+        loading: false,
+        error: "Unable to load item details right now.",
+      }));
+    }
+  };
+
+  const handleWishlistQuickSelectSize = (size) => {
+    if (!wishlistQuickAdd) return;
+    setWishlistQuickAdd((prev) => (prev ? { ...prev, selectedSize: size } : prev));
+  };
+
+  const handleWishlistQuickSelectColor = (color) => {
+    if (!wishlistQuickAdd) return;
+    setWishlistQuickAdd((prev) => (prev ? { ...prev, selectedColor: color } : prev));
+  };
+
+  const handleWishlistQuickAddConfirm = () => {
+    if (!wishlistQuickAdd || wishlistQuickAdd.loading) return;
+    const { item, selectedSize, selectedColor } = wishlistQuickAdd;
+    if (!item || !selectedSize || !selectedColor) {
+      setWishlistQuickAdd((prev) =>
+        prev ? { ...prev, error: "Pick a size and color first." } : prev
+      );
+      return;
+    }
+
+    addToCart({
+      id: item.id,
+      storeId: item.storeId,
+      name: item.name,
+      price: item.price,
+      image: item.image,
+      storeName: item.storeName,
+      size: selectedSize,
+      color: selectedColor,
+      quantity: 1,
+    });
+
+    setMessage(
+      `${item.name || "Item"} added to cart (${selectedColor} / ${selectedSize})`
+    );
+    setMessageType("success");
+    setWishlistQuickAdd(null);
+  };
 
   const handleToggleWishlist = (item) => {
     const { items } = toggleWishlistEntry({
@@ -1745,7 +2040,6 @@ export default function ProfilePage() {
                         <p className="order-details">{formatOrderSummary(order)}</p>
                       </div>
                       <div className="order-status-stack">
-                        <span className={statusClassName(order.status)}>{order.status}</span>
                         <span className="order-total">{formatPrice(order.total)}</span>
                       </div>
                     </div>
@@ -1862,46 +2156,128 @@ export default function ProfilePage() {
                 {wishlistItems.map((item) => {
                   const key = `${item.storeId}-${item.id}`;
                   const displayPrice = formatPrice(item.price);
+                  const quickAddActive = wishlistQuickAdd?.key === key;
 
                   return (
                     <div className="wishlist-card" key={key}>
-                      <div
-                        className="wishlist-clickable"
-                        onClick={() => navigate(`/stores/${item.storeId}/product/${item.id}`)}
-                        style={{ cursor: "pointer" }}
-                      >
-                        <div className="wishlist-media">
-                          {item.image ? (
-                            <img src={item.image} alt={item.name || "Wishlist item"} />
+                      <div className="wishlist-card-main">
+                        <div
+                          className="wishlist-clickable"
+                          onClick={() => navigate(`/stores/${item.storeId}/product/${item.id}`)}
+                          style={{ cursor: "pointer" }}
+                        >
+                          <div className="wishlist-media">
+                            {item.image ? (
+                              <img src={item.image} alt={item.name || "Wishlist item"} />
+                            ) : (
+                              <div className="image-placeholder">{item.name?.[0] || ""}</div>
+                            )}
+                          </div>
+                          <div className="wishlist-info">
+                            <p className="wishlist-name">{item.name || "Saved item"}</p>
+                            <p className="wishlist-meta">
+                              {item.storeName ? `${item.storeName} ` : ""}
+                              {displayPrice || "Price pending"}
+                            </p>
+                          </div>
+                        </div>
+                          <button
+                            type="button"
+                            className="wishlist-heart-btn filled"
+                            aria-label="Remove from wishlist"
+                            title="Remove from wishlist"
+                            onClick={() => handleToggleWishlist(item)}
+                          >
+                            <svg
+                              width="20"
+                              height="20"
+                              viewBox="0 0 24 24"
+                              fill="currentColor"
+                              xmlns="http://www.w3.org/2000/svg"
+                            >
+                              <path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z" />
+                            </svg>
+                          </button>
+                        </div>
+                        <button
+                          type="button"
+                          className={`wishlist-add-btn${quickAddActive ? " active" : ""}`}
+                          onClick={() => handleWishlistAddClick(item)}
+                        >
+                          {quickAddActive ? "Close" : "Add to cart"}
+                        </button>
+                      {quickAddActive && (
+                        <div className="wishlist-quick-add">
+                          {wishlistQuickAdd?.loading ? (
+                            <p className="wishlist-quick-add-loading">
+                              Loading item details...
+                            </p>
+                          ) : wishlistQuickAdd?.error ? (
+                            <p className="wishlist-quick-add-error">{wishlistQuickAdd.error}</p>
                           ) : (
-                            <div className="image-placeholder">{item.name?.[0] || ""}</div>
+                            <>
+                              <div className="wishlist-quick-add-row">
+                                <p className="quick-add-label">Size</p>
+                                <div className="wishlist-quick-add-chips">
+                                  {(wishlistQuickAdd?.sizes.length
+                                    ? wishlistQuickAdd.sizes
+                                    : WISHLIST_SIZE_FALLBACK
+                                  ).map((size) => {
+                                    const isUnavailable =
+                                      (wishlistQuickAdd?.sizeStock?.[size] ?? 0) <= 0;
+                                    return (
+                                      <button
+                                        key={size}
+                                        type="button"
+                                        className={`wishlist-quick-add-chip${
+                                          wishlistQuickAdd?.selectedSize === size ? " active" : ""
+                                        }`}
+                                        onClick={() => handleWishlistQuickSelectSize(size)}
+                                        disabled={isUnavailable}
+                                      >
+                                        {size}
+                                      </button>
+                                    );
+                                  })}
+                                </div>
+                              </div>
+                              <div className="wishlist-quick-add-row">
+                                <p className="quick-add-label">Color</p>
+                                <div className="wishlist-quick-add-chips">
+                                  {(wishlistQuickAdd?.colors.length
+                                    ? wishlistQuickAdd.colors
+                                    : WISHLIST_COLOR_FALLBACK
+                                  ).map((color) => (
+                                    <button
+                                      key={color}
+                                      type="button"
+                                      className={`wishlist-quick-add-chip${
+                                        wishlistQuickAdd?.selectedColor === color ? " active" : ""
+                                      }`}
+                                      onClick={() => handleWishlistQuickSelectColor(color)}
+                                    >
+                                      {color}
+                                    </button>
+                                  ))}
+                                </div>
+                              </div>
+                              <div className="wishlist-quick-add-actions">
+                                <button
+                                  type="button"
+                                  className="wishlist-quick-add-confirm"
+                                  onClick={handleWishlistQuickAddConfirm}
+                                  disabled={
+                                    !wishlistQuickAdd?.selectedSize ||
+                                    !wishlistQuickAdd?.selectedColor
+                                  }
+                                >
+                                  Add to cart
+                                </button>
+                              </div>
+                            </>
                           )}
                         </div>
-                        <div className="wishlist-info">
-                          <p className="wishlist-name">{item.name || "Saved item"}</p>
-                          <p className="wishlist-meta">
-                            {item.storeName ? `${item.storeName} • ` : ""}
-                            {displayPrice || "Price pending"}
-                          </p>
-                        </div>
-                      </div>
-                      <button
-                        type="button"
-                        className="wishlist-heart-btn filled"
-                        aria-label="Remove from wishlist"
-                        title="Remove from wishlist"
-                        onClick={() => handleToggleWishlist(item)}
-                      >
-                        <svg
-                          width="20"
-                          height="20"
-                          viewBox="0 0 24 24"
-                          fill="currentColor"
-                          xmlns="http://www.w3.org/2000/svg"
-                        >
-                          <path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z" />
-                        </svg>
-                      </button>
+                      )}
                     </div>
                   );
                 })}
@@ -2284,7 +2660,6 @@ export default function ProfilePage() {
             </div>
             <div className="modal-body order-modal">
               <div className="order-meta-block">
-                <span className={statusClassName(activeOrder.status)}>{activeOrder.status}</span>
                 <p className="order-meta-line">{formatOrderSummary(activeOrder)}</p>
                 <p className="order-meta-line">Total {formatPrice(activeOrder.total)}</p>
                 {activeOrder.delivery?.label && (
@@ -3103,13 +3478,18 @@ export default function ProfilePage() {
           display: flex;
           flex-direction: column;
           gap: 1rem;
+          align-items: flex-start;
+          text-align: left;
+          width: 100%;
+          align-self: stretch;
         }
 
         .order-row {
           display: flex;
-          justify-content: space-between;
+          flex-direction: column;
           align-items: flex-start;
-          gap: 1rem;
+          gap: 0.65rem;
+          width: 100%;
         }
 
         .order-id {
@@ -3127,38 +3507,8 @@ export default function ProfilePage() {
 
         .order-status-stack {
           display: flex;
-          flex-direction: column;
-          align-items: flex-end;
-          gap: 0.45rem;
-        }
-
-        .status-badge {
-          padding: 0.35rem 0.8rem;
-          border-radius: 999px;
-          font-weight: 600;
-          font-size: 0.78rem;
-          text-transform: uppercase;
-          letter-spacing: 0.05em;
-        }
-
-        .status-processing {
-          background: rgba(255, 189, 67, 0.2);
-          color: #8c540a;
-        }
-
-        .status-shipped {
-          background: rgba(89, 126, 247, 0.18);
-          color: #2941a8;
-        }
-
-        .status-delivered {
-          background: rgba(190, 91, 80, 0.16);
-          color: #641b2e;
-        }
-
-        .status-cancelled {
-          background: rgba(229, 57, 53, 0.18);
-          color: #c62828;
+          align-items: center;
+          gap: 0.35rem;
         }
 
         .order-total {
@@ -3314,45 +3664,173 @@ export default function ProfilePage() {
           margin-top: 0.5rem;
         }
 
-        /* Wishlist styling - compact mini cards similar to cart items */
+        /* Wishlist cards: clean, airy, aligned controls */
         .wishlist-grid {
           display: grid;
-          grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
-          gap: 1rem;
+          grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+          gap: 1.25rem;
         }
 
         .wishlist-card {
           display: flex;
-          align-items: center;
-          gap: 0.75rem;
-          padding: 0.9rem 1rem;
-          background: white;
-          border: 1px solid rgba(100, 27, 46, 0.12);
-          border-radius: 14px;
-          box-shadow: 0 6px 14px rgba(0, 0, 0, 0.05);
-          transition: transform 0.2s ease, box-shadow 0.2s ease;
+          flex-direction: column;
+          gap: 0.85rem;
+          padding: 1.25rem;
+          background: #ffffff;
+          border: 1px solid rgba(5, 5, 5, 0.05);
+          border-radius: 18px;
+          box-shadow: 0 18px 35px rgba(15, 11, 9, 0.08);
+          transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
         }
 
         .wishlist-card:hover {
-          transform: translateY(-2px);
-          box-shadow: 0 10px 20px rgba(0, 0, 0, 0.08);
+          transform: translateY(-4px);
+          box-shadow: 0 24px 45px rgba(15, 11, 9, 0.12);
           border-color: rgba(100, 27, 46, 0.18);
+        }
+
+        .wishlist-card-main {
+          display: flex;
+          align-items: flex-start;
+          justify-content: space-between;
+          gap: 1rem;
         }
 
         .wishlist-clickable {
           display: flex;
-          align-items: center;
-          gap: 0.75rem;
+          align-items: flex-start;
+          gap: 1rem;
           flex: 1;
           min-width: 0;
         }
 
+        .wishlist-add-btn {
+          border: none;
+          background: linear-gradient(135deg, #8a1a38, #641b2e);
+          color: #fff;
+          border-radius: 999px;
+          padding: 0.55rem 1.35rem;
+          font-size: 0.9rem;
+          font-weight: 600;
+          cursor: pointer;
+          box-shadow: 0 10px 28px rgba(138, 26, 56, 0.25);
+          transition: transform 0.2s ease, box-shadow 0.2s ease, opacity 0.2s ease;
+          align-self: flex-start;
+          margin: 0;
+          display: inline-flex;
+          justify-content: center;
+        }
+
+        .wishlist-add-btn:hover {
+          transform: translateY(-1px);
+          box-shadow: 0 14px 32px rgba(138, 26, 56, 0.3);
+        }
+
+        .wishlist-add-btn.active {
+          opacity: 0.95;
+        }
+
+        .wishlist-add-btn:focus-visible {
+          outline: 2px solid #fff;
+          outline-offset: 4px;
+          box-shadow: 0 0 0 4px rgba(138, 26, 56, 0.3);
+        }
+
+        .wishlist-quick-add {
+          padding: 0.9rem 1.1rem 1rem;
+          border-top: 1px solid rgba(10, 10, 10, 0.08);
+          background: linear-gradient(180deg, rgba(250, 247, 248, 0.95), rgba(255, 255, 255, 0.95));
+          border-radius: 0 0 18px 18px;
+          display: flex;
+          flex-direction: column;
+          gap: 0.55rem;
+        }
+
+        .wishlist-quick-add-row {
+          display: flex;
+          flex-direction: column;
+          gap: 0.35rem;
+        }
+
+        .quick-add-label {
+          margin: 0;
+          font-size: 0.75rem;
+          font-weight: 600;
+          color: #6b3b3f;
+          text-transform: uppercase;
+          letter-spacing: 0.15em;
+        }
+
+        .wishlist-quick-add-chips {
+          display: flex;
+          flex-wrap: wrap;
+          gap: 0.35rem;
+        }
+
+        .wishlist-quick-add-chip {
+          border: 1px solid rgba(10, 10, 10, 0.1);
+          border-radius: 999px;
+          padding: 0.35rem 0.85rem;
+          background: #fff;
+          font-size: 0.82rem;
+          font-weight: 600;
+          color: #4d424a;
+          cursor: pointer;
+          transition: all 0.2s ease;
+        }
+
+        .wishlist-quick-add-chip.active {
+          background: #641b2e;
+          border-color: #641b2e;
+          color: #fff;
+          box-shadow: 0 6px 16px rgba(100, 27, 46, 0.25);
+        }
+
+        .wishlist-quick-add-chip:disabled {
+          opacity: 0.3;
+          cursor: not-allowed;
+        }
+
+        .wishlist-quick-add-actions {
+          display: flex;
+          justify-content: flex-end;
+        }
+
+        .wishlist-quick-add-confirm {
+          border: none;
+          background: linear-gradient(135deg, #8a1a38, #641b2e);
+          color: #fff;
+          border-radius: 999px;
+          padding: 0.55rem 1.3rem;
+          font-weight: 700;
+          cursor: pointer;
+          box-shadow: 0 8px 20px rgba(138, 26, 56, 0.25);
+          transition: opacity 0.2s ease, transform 0.2s ease;
+        }
+
+        .wishlist-quick-add-confirm:hover:not(:disabled) {
+          transform: translateY(-1px);
+        }
+
+        .wishlist-quick-add-confirm:disabled {
+          opacity: 0.5;
+          cursor: not-allowed;
+          box-shadow: none;
+        }
+
+        .wishlist-quick-add-loading,
+        .wishlist-quick-add-error {
+          margin: 0;
+          font-size: 0.85rem;
+          color: #641b2e;
+        }
+
         .wishlist-media {
-          width: 72px;
-          height: 72px;
-          border-radius: 12px;
+          width: 76px;
+          height: 76px;
+          border-radius: 14px;
           overflow: hidden;
-          background: linear-gradient(135deg, #f8e8e5, #f1d9d5);
+          background: linear-gradient(135deg, #f7eaeb, #f1dede);
           flex-shrink: 0;
           display: grid;
           place-items: center;
@@ -3369,13 +3847,13 @@ export default function ProfilePage() {
           min-width: 0;
           display: flex;
           flex-direction: column;
-          gap: 0.2rem;
+          gap: 0.25rem;
         }
 
         .wishlist-name {
           font-weight: 700;
-          font-size: 0.95rem;
-          color: #1a1a1a;
+          font-size: 0.98rem;
+          color: #1c1c1c;
           margin: 0;
           line-height: 1.3;
           overflow: hidden;
@@ -3384,8 +3862,8 @@ export default function ProfilePage() {
         }
 
         .wishlist-meta {
-          font-size: 0.85rem;
-          color: #777;
+          font-size: 0.83rem;
+          color: #6f6a6a;
           margin: 0;
         }
 
@@ -3412,8 +3890,10 @@ export default function ProfilePage() {
         }
 
         .wishlist-heart-btn svg {
+          width: 20px;
+          height: 20px;
           display: block;
-          filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.1));
+          filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.15));
         }
 
         .wishlist-heart-btn svg path {

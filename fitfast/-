@@ -1,0 +1,301 @@
+      return;
+    }
+
+    const nextValue = type === "checkbox" ? checked : value;
+    setBillingForm((prev) => ({ ...prev, [name]: nextValue }));
+  };
+
+  const handleAddPaymentMethod = (event) => {
+    event.preventDefault();
+    setBillingError("");
+
+    const sanitizedNumber = billingForm.number.replace(/\D/g, "");
+    if (sanitizedNumber.length < 12) {
+      setBillingError("Enter a valid card number (minimum 12 digits).");
+      return;
+    }
+
+    if (!/^(0[1-9]|1[0-2])$/.test(billingForm.expMonth)) {
+      setBillingError("Provide expiry month as MM.");
+      return;
+    }
+
+    if (!/^\d{2}$/.test(billingForm.expYear)) {
+      setBillingError("Provide expiry year as YY.");
+      return;
+    }
+    if (!/^\d{3,4}$/.test(billingForm.cvc)) {
+      setBillingError("Provide a 3 or 4 digit CVC.");
+      return;
+    }
+    if (!/^\d{4}$/.test(billingForm.pin)) {
+      setBillingError("Create a 4-digit PIN to protect this card.");
+      return;
+    }
+
+    const last4 = sanitizedNumber.slice(-4);
+    const newMethod = {
+      id: `pm-${Date.now()}`,
+      brand: billingForm.brand,
+      nickname: billingForm.nickname || `${billingForm.brand} ending ${last4}`,
+      last4,
+      expMonth: billingForm.expMonth,
+      expYear: billingForm.expYear,
+      cvc: billingForm.cvc,
+      pin: billingForm.pin,
+      fullNumber: sanitizedNumber,
+      isDefault: Boolean(billingForm.setDefault),
+    };
+
+    setPaymentMethods((prev) => {
+      const normalized = Array.isArray(prev)
+        ? prev.map((method) => ({ ...method }))
+        : [];
+      const next = billingForm.setDefault
+        ? normalized.map((method) => ({ ...method, isDefault: false }))
+        : normalized;
+      next.push(newMethod);
+      return ensureDefaultPayment(next);
+    });
+
+    setBillingForm({
+      nickname: "",
+      brand: "Visa",
+      number: "",
+      expMonth: "",
+      expYear: "",
+      cvc: "",
+      pin: "",
+      setDefault: false,
+    });
+    setShowBillingModal(false);
+  };
+
+  const handleSetDefaultPayment = (id) => {
+    setPaymentMethods((prev) => prev.map((method) => ({ ...method, isDefault: method.id === id })));
+  };
+
+  const handleRemovePaymentMethod = (id) => {
+    setPaymentMethods((prev) => {
+      const remaining = prev.filter((method) => method.id !== id);
+      if (!remaining.length) {
+        return [];
+      }
+      return ensureDefaultPayment(remaining);
+    });
+  };
+
+  const handleRequestCardInfo = (method) => {
+    if (!method?.pin) {
+      setPinError("This card does not have a PIN set. Remove and re-add it to protect details.");
+      setPinInput("");
+      setPinPrompt({ open: true, card: method, action: "view" });
+      return;
+    }
+    setPinError("");
+    setPinInput("");
+    setPinPrompt({ open: true, card: method, action: "view" });
+  };
+
+  const handleRequestRemoveCard = (method) => {
+    if (!method?.pin) {
+      setPinError("This card does not have a PIN set. Remove and re-add it to protect details.");
+      setPinInput("");
+      setPinPrompt({ open: true, card: method, action: "remove" });
+      return;
+    }
+    setPinError("");
+    setPinInput("");
+    setPinPrompt({ open: true, card: method, action: "remove" });
+  };
+
+  const handleClosePinPrompt = () => {
+    setPinPrompt({ open: false, card: null, action: null });
+    setPinInput("");
+    setPinError("");
+  };
+
+  const handlePinSubmit = (event) => {
+    event.preventDefault();
+    const targetCard = pinPrompt.card;
+    if (!targetCard) return;
+    if (!/^\d{4}$/.test(pinInput)) {
+      setPinError("Enter a valid 4-digit PIN.");
+      return;
+    }
+    const normalizedPin =
+      targetCard.pin === null || targetCard.pin === undefined
+        ? ""
+        : String(targetCard.pin).padStart(4, "0");
+    if (normalizedPin !== pinInput) {
+      setPinError("Incorrect PIN. Try again.");
+      return;
+    }
+    if (pinPrompt.action === "remove") {
+      handleRemovePaymentMethod(targetCard.id);
+      handleClosePinPrompt();
+      return;
+    }
+    setCardInfoModal({ open: true, card: targetCard });
+    handleClosePinPrompt();
+  };
+
+  const handleCloseCardInfo = () => {
+    setCardInfoModal({ open: false, card: null });
+  };
+
+  const handleLogout = async () => {
+    try {
+      await api.post("/logout");
+    } catch (error) {
+      console.error("Logout failed", error);
+    } finally {
+      if (isBrowser) {
+        window.localStorage.removeItem("auth_token");
+        window.localStorage.removeItem("auth_user");
+      }
+      setOrders([]);
+      setOrderStorageKey(null);
+      setPaymentMethods([]);
+      setPaymentStorageKey(null);
+      navigate("/login");
+    }
+  };
+
+  const handleTrackOrder = (order) => {
+    if (!order) return;
+    if (!isBrowser) {
+      navigate("/order-status");
+      return;
+    }
+
+    const payload = {
+      code: order.id,
+      placedAt: order.placedAt,
+      eta: order.eta,
+      status: order.status,
+      delivery: order.delivery,
+      payment: order.payment,
+      contact: {
+        fullName: user?.name || order.contact?.fullName || "",
+        email: user?.email || order.contact?.email || "",
+        phone: order.contact?.phone || (user?.phone ?? ""),
+      },
+      shippingAddress: order.shippingAddress || { ...DEFAULT_ADDRESS },
+      items: order.items || [],
+      totals: order.totals || {
+        subtotal: order.total || 0,
+        shipping: 0,
+        tax: 0,
+        discount: 0,
+        total: order.total || 0,
+      },
+      trackable: order.trackable,
+      userId: user?.id ?? order.userId ?? null,
+      userEmail: normalizeEmail(user?.email || order.contact?.email || order.userEmail || ""),
+    };
+
+    // Persist a snapshot so the order status page has context even without a fresh API call.
+    try {
+      window.localStorage.setItem(ORDER_STATUS_STORAGE, JSON.stringify(payload));
+      window.dispatchEvent(new Event("fitfast-order-updated"));
+    } catch (err) {
+      console.error("Failed to persist order snapshot", err);
+    }
+
+    navigate("/order-status");
+  };
+
+  const handleViewOrderDetails = (order) => {
+    setActiveOrder(order);
+    setShowOrderModal(true);
+  };
+
+  const handleOrderSupport = (order) => {
+    const template = `Order ${order.id} (${order.status}) — I need assistance with this order.`;
+    if (isBrowser) {
+      sessionStorage.setItem(
+        "fitfast_support_prefill",
+        JSON.stringify({ message: template, type: "question" })
+      );
+    }
+    navigate("/support", { state: { prefillMessage: template, topic: "question" } });
+  };
+
+  const handleCloseOrderModal = () => {
+    setActiveOrder(null);
+    setShowOrderModal(false);
+  };
+
+  const openDeleteModal = () => {
+    setDeleteError("");
+    setDeleteLoading(false);
+    setShowDeleteModal(true);
+  };
+
+  const cancelDeleteAccount = () => {
+    setShowDeleteModal(false);
+    setDeleteLoading(false);
+    setDeleteError("");
+  };
+
+  const handleDeleteAccount = async () => {
+    setDeleteLoading(true);
+    setDeleteError("");
+    try {
+      await api.delete("/user");
+      if (isBrowser) {
+        window.localStorage.removeItem("auth_token");
+        window.localStorage.removeItem("auth_user");
+      }
+      setShowDeleteModal(false);
+      setDeleteLoading(false);
+      navigate("/register");
+    } catch (error) {
+      console.error(error);
+      const fallback = error.response?.data?.message || "Unable to delete account. Please try again.";
+      setDeleteError(fallback);
+      setDeleteLoading(false);
+    }
+  };
+
+  const initials = user?.name
+    ? user.name
+        .split(" ")
+        .filter(Boolean)
+        .slice(0, 2)
+        .map((p) => p[0].toUpperCase())
+        .join("")
+    : "U";
+
+  const registrationDisplayItems = useMemo(() => {
+    return REGISTRATION_DISPLAY_FIELDS.map((field) => {
+      const rawValue = measurements[field.key];
+      if (rawValue === null || rawValue === undefined || rawValue === "") {
+        return null;
+      }
+
+      if (field.options) {
+        const optionLabel = field.options.find((option) => option.value === rawValue)?.label;
+        const resolvedValue = optionLabel ? stripOptionIcon(optionLabel) : formatLabel(String(rawValue));
+        return { key: field.key, label: field.label, value: resolvedValue };
+      }
+
+      const numericValue = typeof rawValue === "number" ? rawValue : Number.parseFloat(rawValue);
+      const hasNumeric = Number.isFinite(numericValue);
+      const resolvedValue = field.unit
+        ? `${hasNumeric ? numericValue : rawValue} ${field.unit}`.trim()
+        : rawValue;
+      return { key: field.key, label: field.label, value: resolvedValue };
+    }).filter(Boolean);
+  }, [measurements]);
+
+  const hasRegistrationMeasurements = registrationDisplayItems.length > 0;
+  const hasWishlist = wishlistItems.length > 0;
+  const hasProfilePhoto = Boolean(user?.profile_photo_url);
+  const shouldShowOptionalField = (key) =>
+    measurementAudience === "women" || !FEMALE_ONLY_MEASUREMENT_KEYS.has(key);
+
+  const handleToggleWishlist = (item) => {
+    const { items } = toggleWishlistEntry({
+      id: item.id,

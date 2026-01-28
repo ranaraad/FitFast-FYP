@@ -8,6 +8,8 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
 
 class AIRecommendationController extends Controller
@@ -235,17 +237,38 @@ class AIRecommendationController extends Controller
 
                     if ($itemId && $storeId) {
                         // If store_id is provided, use it for a precise lookup
-                        $dbItem = \App\Models\Item::where('id', $itemId)
-                                                  ->where('store_id', $storeId)
-                                                  ->first();
+                        $dbItem = Item::with('images')
+                            ->where('id', $itemId)
+                            ->where('store_id', $storeId)
+                            ->first();
                     } elseif ($itemId) {
                         // Fallback for older AI models: find item by ID and log a warning
                         Log::warning('AI outfit item is missing store_id. Falling back to find()', [
                             'item_id' => $itemId,
                             'outfit_data' => $item,
                         ]);
-                        $dbItem = \App\Models\Item::find($itemId);
+                        $dbItem = Item::with('images')->find($itemId);
                     }
+
+                    $primaryImagePath = $dbItem?->primary_image?->image_path ?? null;
+                    $apiImageCandidate = null;
+                    foreach ([
+                        $item['image_url'] ?? null,
+                        $item['image'] ?? null,
+                        $item['primary_image_url'] ?? null,
+                        $item['primary_image_path'] ?? null,
+                    ] as $imageCandidate) {
+                        if ($imageCandidate) {
+                            $apiImageCandidate = $imageCandidate;
+                            break;
+                        }
+                    }
+
+                    $resolvedDbImage = $this->resolveMediaUrl($primaryImagePath);
+                    $resolvedApiImage = $apiImageCandidate
+                        ? ($this->resolveMediaUrl($apiImageCandidate) ?? $apiImageCandidate)
+                        : null;
+                    $imageUrl = $resolvedDbImage ?? $resolvedApiImage;
 
                     $enhancedItems[] = [
                         'id' => $itemId,
@@ -255,7 +278,7 @@ class AIRecommendationController extends Controller
                         'garment_category' => $item['garment_category'] ?? ($dbItem ? $dbItem->category : null),
                         'store_id' => $dbItem ? $dbItem->store_id : $storeId, // Prioritize DB, fallback to AI data
                         'storeId' => $dbItem ? $dbItem->store_id : $storeId,  // For frontend consistency
-                        'image_url' => $dbItem ? $dbItem->image_url : null,
+                        'image_url' => $imageUrl,
                     ];
                 }
 
@@ -797,13 +820,16 @@ PYTHON;
             ->where('id', '!=', $itemId)
             ->inRandomOrder()
             ->limit($limit)
+            ->with('images')
             ->get()
             ->map(function ($similarItem) use ($item) {
+                $imageUrl = $this->resolveMediaUrl($similarItem->primary_image?->image_path ?? null);
+
                 return [
                     'id' => $similarItem->id,
                     'name' => $similarItem->name,
                     'price' => $similarItem->price,
-                    'image_url' => $similarItem->image_url,
+                    'image_url' => $imageUrl,
                     'garment_type' => $similarItem->garment_type,
                     'similarity_reason' => 'Same garment type: ' . $item->garment_type,
                     'similarity_score' => 0.7 + (rand(0, 30) / 100), // Mock similarity
@@ -831,13 +857,16 @@ PYTHON;
 
         return $query->inRandomOrder()
             ->limit($limit)
+            ->with('images')
             ->get()
             ->map(function ($item) {
+                $imageUrl = $this->resolveMediaUrl($item->primary_image?->image_path ?? null);
+
                 return [
                     'id' => $item->id,
                     'name' => $item->name,
                     'price' => $item->price,
-                    'image_url' => $item->image_url,
+                    'image_url' => $imageUrl,
                     'garment_type' => $item->garment_type,
                     'reason' => 'Personalized recommendation based on your style',
                     'confidence_score' => 0.6 + (rand(0, 40) / 100),
@@ -967,13 +996,16 @@ PYTHON;
 
     private function getFallbackOutfit(int $startingItemId): array
     {
-        $item = Item::find($startingItemId);
+        $item = Item::with('images')->find($startingItemId);
 
         $fallbackItems = Item::where('garment_type', '!=', $item->garment_type ?? '')
             ->inRandomOrder()
             ->limit(2)
+            ->with('images')
             ->get()
             ->map(function ($fallbackItem) {
+                $imageUrl = $this->resolveMediaUrl($fallbackItem->primary_image?->image_path ?? null);
+
                 return [
                     'id' => $fallbackItem->id,
                     'name' => $fallbackItem->name,
@@ -981,7 +1013,7 @@ PYTHON;
                     'garment_type' => $fallbackItem->garment_type,
                     'store_id' => $fallbackItem->store_id,
                     'storeId' => $fallbackItem->store_id,
-                    'image_url' => $fallbackItem->image_url,
+                    'image_url' => $imageUrl,
                 ];
             })
             ->toArray();
@@ -994,7 +1026,7 @@ PYTHON;
                 'price' => $item->price,
                 'store_id' => $item->store_id,
                 'storeId' => $item->store_id,
-                'image_url' => $item->image_url,
+                'image_url' => $this->resolveMediaUrl($item->primary_image?->image_path ?? null),
             ] : null,
             'outfit_items' => $fallbackItems,
             'total_price' => $item->price + array_sum(array_column($fallbackItems, 'price')),
@@ -1005,17 +1037,39 @@ PYTHON;
         ];
     }
 
+    private function resolveMediaUrl(?string $path): ?string
+    {
+        if (!$path) {
+            return null;
+        }
+
+        if (Str::startsWith($path, ['http://', 'https://'])) {
+            return $path;
+        }
+
+        $cleanPath = ltrim($path, '/');
+
+        if (Storage::disk('public')->exists($cleanPath)) {
+            return asset('storage/' . $cleanPath);
+        }
+
+        return null;
+    }
+
     private function getFallbackRecommendations(int $limit): array
     {
         return Item::inRandomOrder()
             ->limit($limit)
+            ->with('images')
             ->get()
             ->map(function ($item) {
+                $imageUrl = $this->resolveMediaUrl($item->primary_image?->image_path ?? null);
+
                 return [
                     'id' => $item->id,
                     'name' => $item->name,
                     'price' => $item->price,
-                    'image_url' => $item->image_url,
+                    'image_url' => $imageUrl,
                     'garment_type' => $item->garment_type,
                     'is_fallback' => true,
                     'reason' => 'Popular item',

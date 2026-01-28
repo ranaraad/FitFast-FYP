@@ -1644,6 +1644,8 @@ body {
   display: flex;
   flex-direction: column;
   gap: 0.8rem;
+  align-items: flex-start;
+  flex: 1;
 }
 
 .store-info h3 {
@@ -1658,6 +1660,7 @@ body {
   line-height: 1.5;
   min-height: 48px;
   margin: 0;
+  text-align: left;
 }
 
 /* META TAGS */
@@ -1697,6 +1700,11 @@ body {
 
 .category-chip.more {
   background: #ececec;
+}
+
+.store-info .shop-btn {
+  margin-top: auto;
+  align-self: flex-start;
 }
 
 /* CTA BUTTON */
@@ -4975,6 +4983,7 @@ a:hover {
   -webkit-box-orient: vertical;
   overflow: hidden;
   line-clamp: 2;
+  text-align: left;
 }
 
 .browse-shop-btn {
@@ -5079,6 +5088,7 @@ a:hover {
   -webkit-box-orient: vertical;
   overflow: hidden;
   line-clamp: 3;
+  text-align: left;
 }
 
 /* Page Loading */

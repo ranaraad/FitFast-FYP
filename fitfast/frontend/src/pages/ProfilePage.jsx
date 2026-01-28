@@ -294,6 +294,73 @@ const computeTrackable = (status, explicit) => {
   return !terminal.some((term) => normalized.includes(term));
 };
 
+const extractStatusValue = (value) => {
+  if (value === undefined || value === null) return null;
+  if (typeof value === "object") {
+    if (typeof value.label === "string" && value.label.trim()) {
+      return value.label.trim();
+    }
+    if (typeof value.status === "string" && value.status.trim()) {
+      return value.status.trim();
+    }
+    if (typeof value.code === "string" && value.code.trim()) {
+      return value.code.trim();
+    }
+    return null;
+  }
+  return String(value).trim();
+};
+
+const formatStatusLabel = (value) => {
+  if (!value) return "Processing";
+  const normalized = value
+    .replace(/[_-]+/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+  if (!normalized) return "Processing";
+  return normalized
+    .split(" ")
+    .filter(Boolean)
+    .map((segment) => segment.charAt(0).toUpperCase() + segment.slice(1).toLowerCase())
+    .join(" ");
+};
+
+const formatStatusKey = (value) => {
+  if (!value) return "processing";
+  const normalized = value
+    .replace(/[_\s]+/g, "-")
+    .replace(/[^a-zA-Z0-9-]/g, "-")
+    .replace(/-+/g, "-")
+    .replace(/^-+|-+$/g, "")
+    .toLowerCase();
+
+  return normalized || "processing";
+};
+
+const resolveOrderStatusInfo = (order) => {
+  if (!order || typeof order !== "object") {
+    return { raw: "processing", label: "Processing", key: "processing" };
+  }
+
+  const candidates = [
+    order.delivery?.status,
+    order.cmsStatus,
+    order.status?.label,
+    order.status,
+  ];
+
+  const validValue = candidates
+    .map(extractStatusValue)
+    .find((entry) => entry && entry.toUpperCase() !== "N/A");
+
+  const raw = validValue || "processing";
+  return {
+    raw,
+    label: formatStatusLabel(raw),
+    key: formatStatusKey(raw),
+  };
+};
+
 const getOrderHistoryKey = (user) => {
   if (!user) return null;
   if (user.id) return `${ORDER_HISTORY_STORAGE}_${user.id}`;
@@ -305,8 +372,7 @@ const mapApiOrder = (order) => {
   if (!order || typeof order !== "object") return null;
 
   const orderCode = order.code || order.reference || `ORDER-${order.id}`;
-  const statusLabel = (order.status?.label || order.status || "Processing").toString();
-
+  const statusInfo = resolveOrderStatusInfo(order);
   const items = Array.isArray(order.items)
     ? order.items.map((item) => ({
         id: item.id || item.code || `${orderCode}-item`,
@@ -345,7 +411,8 @@ const mapApiOrder = (order) => {
       order.estimated_delivery ||
       order.estimatedArrival ||
       new Date(Date.now() + 72 * 60 * 60 * 1000).toISOString(),
-    status: statusLabel,
+    status: statusInfo.label,
+    statusKey: statusInfo.key,
     total: Number(totals.total || 0),
     items,
     delivery: order.delivery || {
@@ -362,7 +429,7 @@ const mapApiOrder = (order) => {
       },
     contact,
     totals,
-    trackable: computeTrackable(statusLabel, order.trackable),
+    trackable: computeTrackable(statusInfo.raw, order.trackable),
     userId: order.user_id ?? order.userId ?? null,
     userEmail: normalizedEmail,
   };
@@ -372,7 +439,7 @@ const mapRecentOrder = (order) => {
   if (!order || typeof order !== "object") return null;
 
   const orderCode = order.code || order.id || order.reference || `ORDER-${Date.now()}`;
-  const statusLabel = (order.status || "Processing").toString();
+  const statusInfo = resolveOrderStatusInfo(order);
   const contact = order.contact || {
     fullName: order.fullName || "",
     email: order.email || "",
@@ -410,7 +477,8 @@ const mapRecentOrder = (order) => {
       order.estimatedArrival ||
       order.estimated_delivery ||
       new Date(Date.now() + 72 * 60 * 60 * 1000).toISOString(),
-    status: statusLabel,
+    status: statusInfo.label,
+    statusKey: statusInfo.key,
     cmsStatus: order.cmsStatus || null,
     total: Number(totals.total || 0),
     items,
@@ -429,7 +497,7 @@ const mapRecentOrder = (order) => {
       },
     contact,
     totals,
-    trackable: computeTrackable(statusLabel, order.trackable),
+    trackable: computeTrackable(statusInfo.raw, order.trackable),
     userId: order.userId ?? order.user_id ?? null,
     userEmail: normalizeEmail(order.userEmail || order.user_email || contact.email),
     lastBackendSync: order.lastBackendSync || null,
@@ -462,7 +530,7 @@ const mergeOrders = (...sources) => {
 
     const currentPlacedAt = Date.parse(existing.placedAt || 0);
     const incomingPlacedAt = Date.parse(normalized.placedAt || 0);
-    const latest = incomingPlacedAt > currentPlacedAt ? normalized : existing;
+    const latest = incomingPlacedAt >= currentPlacedAt ? normalized : existing;
     const mergedOrder = { ...existing, ...normalized, ...latest };
     mergedOrder.trackable = computeTrackable(mergedOrder.status, mergedOrder.trackable);
     merged.set(normalized.id, mergedOrder);
@@ -841,8 +909,20 @@ export default function ProfilePage() {
     return `$${value.toFixed(2)}`;
   };
 
-  const statusClassName = (status = "") =>
-    `status-badge status-${status.toLowerCase().replace(/[^a-z]+/g, "-")}`;
+  const statusClassName = (source = "") => {
+    const candidate =
+      typeof source === "string"
+        ? source
+        : source?.statusKey || source?.status || "";
+    const normalized = (candidate || "processing")
+      .toString()
+      .toLowerCase()
+      .replace(/[^a-z]+/g, "-")
+      .replace(/-+/g, "-")
+      .replace(/^-+|-+$/g, "");
+
+    return `status-badge status-${normalized || "processing"}`;
+  };
 
   const resolvedOrders = useMemo(
     () => (Array.isArray(orders) ? orders.filter((entry) => entry && entry.id) : []),
@@ -1753,7 +1833,7 @@ export default function ProfilePage() {
                         <p className="order-details">{formatOrderSummary(order)}</p>
                       </div>
                       <div className="order-status-stack">
-                        <span className={statusClassName(order.status)}>{order.status}</span>
+                        <span className={statusClassName(order)}>{order.status}</span>
                         <span className="order-total">{formatPrice(order.total)}</span>
                       </div>
                     </div>
@@ -2292,7 +2372,7 @@ export default function ProfilePage() {
             </div>
             <div className="modal-body order-modal">
               <div className="order-meta-block">
-                <span className={statusClassName(activeOrder.status)}>{activeOrder.status}</span>
+                <span className={statusClassName(activeOrder)}>{activeOrder.status}</span>
                 <p className="order-meta-line">{formatOrderSummary(activeOrder)}</p>
                 <p className="order-meta-line">Total {formatPrice(activeOrder.total)}</p>
                 {activeOrder.delivery?.label && (

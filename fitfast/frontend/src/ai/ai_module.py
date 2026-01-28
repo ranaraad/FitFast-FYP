@@ -474,7 +474,11 @@ class IntelligentOutfitBuilder:
                 'dress': ['outerwear', 'footwear', 'accessory'],
                 'outerwear': ['top', 'sweater', 'bottom', 'shorts', 'skirt', 'dress'],
                 'sweater': ['bottom', 'shorts', 'skirt'],
-                'footwear': ['bottom', 'shorts', 'skirt', 'dress'],
+                'footwear': ['bottom', 'shorts', 'skirt', 'dress', 'accessory'],
+                'socks': ['footwear', 'bottom'],
+                'swimwear': ['footwear', 'accessory', 'outerwear'],
+                'underwear': ['top', 'outerwear', 'bottom'],
+                'other': ['top', 'bottom', 'outerwear'],
                 'accessory': ['top', 'bottom', 'dress', 'outerwear']
             },
 
@@ -524,6 +528,36 @@ class IntelligentOutfitBuilder:
                 'description': 'Relaxed vacation wear'
             }
         }
+
+    def _prepare_target_categories(self, theme_config, start_category, max_items):
+        """Build ordered list of categories to try (excluding the starting category)"""
+        base_categories = list(theme_config.get('categories', []))
+        compatibility = self.compatibility_rules['category_compatibility'].get(start_category, [])
+
+        combined = base_categories + compatibility
+        for category_list in self.compatibility_rules['category_compatibility'].values():
+            combined.extend(category_list)
+
+        unique_categories = []
+        for category in combined:
+            if category not in unique_categories:
+                unique_categories.append(category)
+
+        target_categories = [cat for cat in unique_categories if cat != start_category]
+
+        if not target_categories:
+            fallback = ['top', 'bottom', 'footwear']
+            target_categories = [cat for cat in fallback if cat != start_category]
+
+        needed = max(0, max_items - 1)
+        if len(target_categories) < needed:
+            for category in self.compatibility_rules['category_compatibility'].keys():
+                if category not in target_categories and category != start_category:
+                    target_categories.append(category)
+                if len(target_categories) >= needed:
+                    break
+
+        return target_categories
 
     def find_similar_items(self, item_id, n=5, same_category=True, min_similarity=0.0):
         """Find similar items using embeddings"""
@@ -586,11 +620,17 @@ class IntelligentOutfitBuilder:
             if size_rec:
                 size_recommendations[starting_item_id] = size_rec
 
-        # Find compatible items for other categories
-        target_categories = theme_config['categories'].copy()
-        target_categories.remove(starting_item['garment_category'])  # Remove starting category
+        slots = max(0, max_items - 1)
+        target_categories = self._prepare_target_categories(
+            theme_config,
+            starting_item['garment_category'],
+            max_items
+        )
+        selected_categories = target_categories[:slots]
+        weight_count = len(selected_categories)
+        price_per_category = (max_price / weight_count) if (max_price and weight_count > 0) else None
 
-        for category in target_categories[:max_items-1]:
+        for category in selected_categories:
             if len(outfit_items) >= max_items:
                 break
 
@@ -599,7 +639,7 @@ class IntelligentOutfitBuilder:
                 outfit_items,
                 category,
                 theme_config['formality'],
-                max_price_per_item=max_price/len(target_categories) if max_price else None
+                max_price_per_item=price_per_category
             )
 
             if compatible_items:
